@@ -1,0 +1,48 @@
+storage:
+  db_path: ~/.spark/spark.db
+  artifacts_dir: ~/.spark/artifacts
+llm:
+  provider: openai-compatible
+  model: your-model-id
+  embedder_model: your-embedder-id
+  degraded_mode: auto          # auto | require-key | never-llm
+peers:
+  quantflow:  { enabled: false }
+  alpha_engine:
+    enabled: false
+    transport: stdio
+    command: /path/to/alpha_engine/.venv/bin/python
+    args: ["-m", "alpha_engine.mcp_server"]
+  documents:  { enabled: false }
+research:
+  novelty_weights: [0.5, 0.3, 0.2]
+  sigma_floor: 0.01
+  s_cap: 5.0
+  scoring_weights: [0.35, 0.20, 0.20, 0.15, 0.10]
+  temperatures: { safe: 0.3, balanced: 0.7, exploratory: 1.2 }
+  mmr_lambda: 0.5
+  top_k: 50
+  rrf_k: 60
+  bandit_prior: [1.0, 1.0]
+  budget: { refine: 0.60, new_cell: 0.25, long_shot: 0.15 }
+  budget_override_band: 0.15
+  budget_window_days: 7
+  analogy_cap: 0.20
+  ucb_c: 1.4
+  tombstone_block: 0.85
+  tombstone_review_low: 0.70
+  belief_auto_promote_threshold: 0.8
+  belief_halflife_days: 180
+  belief_validation_slo_days: 90
+  contradiction_cos: 0.75
+  qd_grid: [8, 6, 4]
+  qd_descriptors: [family, horizon, turnover]
+  dsr_alpha: 0.05
+  kill_rule_failures: 5
+  min_T: 30
+budgets:
+  daily_usd: 25.0
+  per_episode_usd: 5.0
+  per_consolidation_usd: 3.0
+  policy: warn                 # warn | fail_closed
+  rates: {}
