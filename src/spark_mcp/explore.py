@@ -41,7 +41,6 @@ import numpy as np
 
 from . import archive, graph, novelty, retrieval, trajectory
 from .config import Config
-from .errors import ToolError
 from .llm import split_model_id
 from .storage import Database
 from .timeutil import now_iso, validate_iso
@@ -407,7 +406,7 @@ def _family_posteriors(
     out: dict[str, dict[str, float]] = {}
     rows = db.conn.execute(
         "SELECT family, posterior, trials, successes FROM exploration_state"
-        " WHERE updated_at <= ?",
+        " WHERE updated_at <= ? AND family != '__analogy__'",
         (as_of,),
     ).fetchall()
     for r in rows:
@@ -862,22 +861,29 @@ def suggest_next(
     candidate methods (graph technique nodes) + hypotheses (family match,
     PIT-visible). A trajectory event records the call.
 
-    gap_report_id is accepted per §6.1 tool 6 but consumption of a
-    consolidation gap report lands in Phase 7 (consolidate, §18.0 G5) —
-    passing one raises a named ToolError rather than silently ignoring it.
+    gap_report_id consumes a consolidation gap report by id (plan §6.1 tool
+    6, §13/G5): the immutable report artifact is loaded, families named in
+    its open gaps get a multiplicative cfg.research.gap_boost_factor on the
+    Thompson x emptiness utility, and the report id is recorded on the
+    trajectory + result (provenance for "consolidation demonstrably changes
+    behavior"). Without a report the archive-driven path runs unchanged.
     """
-    if gap_report_id is not None:
-        raise ToolError(
-            "gap_report_id consumption lands in Phase 7 (consolidation gap"
-            " reports, plan §6.1 tool 6 / §18.0 G5); pass gap_report_id=None"
-            " for archive-driven underexplored-region suggestions"
-        )
     if n < 1:
         raise ValueError("n must be >= 1")
     as_of = validate_iso(as_of) if as_of else now_iso()
     research = cfg.research
     fams = list(research.qd_family_bins)
     a0, b0 = (list(research.bandit_prior) + [1.0, 1.0])[:2]
+
+    gap_families: set[str] = set()
+    if gap_report_id is not None:
+        from .consolidate import load_report
+
+        report = load_report(cfg, gap_report_id)  # named ToolError when unknown
+        gap_families = {
+            str(g["family"]) for g in report.get("gaps", []) if g.get("family")
+        }
+    gap_boost = float(research.gap_boost_factor) if gap_families else 1.0
 
     qd_archive = archive.Archive(db, cfg)
     stored = archive.family_posteriors(db, as_of)  # PIT: past view -> prior
@@ -891,6 +897,8 @@ def suggest_next(
         e = qd_archive.cell_emptiness(fam, as_of)  # PIT occupancy
         emptiness[fam] = e
         utilities[i] = e * theta
+        if fam in gap_families:
+            utilities[i] *= gap_boost  # §13/G5: open gaps steer exploration
     logits = utilities - utilities.max()
     probs = np.exp(logits)
     probs /= probs.sum()
@@ -954,6 +962,9 @@ def suggest_next(
             "n": n,
             "seed": seed,
             "as_of": as_of,
+            "gap_report_id": gap_report_id,
+            "gap_boosted_families": sorted(gap_families),
+            "gap_boost_factor": gap_boost if gap_families else None,
             "suggestions": [
                 {
                     "cell_key": s["cell_key"],
@@ -969,6 +980,8 @@ def suggest_next(
         "as_of": as_of,
         "n": n,
         "seed": seed,
+        "gap_report_id": gap_report_id,
+        "gap_boosted_families": sorted(gap_families),
         "suggestions": suggestions,
         "family_selection_probabilities": {
             fam: float(p) for fam, p in zip(fams, probs, strict=True)

@@ -463,8 +463,10 @@ def test_suggest_next_prefers_emptiest_cells(db, cfg):
         assert s["cell_trials"] == 0
 
 
-def test_suggest_next_gap_report_id_phase7_placeholder(db, cfg):
-    with pytest.raises(ToolError, match="Phase 7"):
+def test_suggest_next_gap_report_id_unknown_refused(db, cfg):
+    # Phase 7 (§13/G5): gap_report_id is consumed — an unknown report id is
+    # a named ToolError from the artifact loader (placeholder removed).
+    with pytest.raises(ToolError, match="unknown gap_report_id"):
         suggest_next(db, cfg, gap_report_id="rep_gap_123")
 
 
@@ -475,7 +477,7 @@ def test_suggest_next_tool_over_mcp(tmp_path):
             out = json.loads(
                 (await client.call_tool("suggest_next", {"n": 2, "seed": 11})).content[0].text
             )
-            with pytest.raises(ClientToolError, match="Phase 7"):
+            with pytest.raises(ClientToolError, match="unknown gap_report_id"):
                 await client.call_tool("suggest_next", {"gap_report_id": "rep_gap_1"})
             return out
 

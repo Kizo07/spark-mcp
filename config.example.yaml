@@ -45,7 +45,12 @@ research:
   budget: { refine: 0.60, new_cell: 0.25, long_shot: 0.15 }
   budget_override_band: 0.15
   budget_window_days: 7
-  analogy_cap: 0.20
+  analogy_budget_cap: 0.20   # §8.3: analogy searches cap = fraction of family trials
+  analogy_systematicity_threshold: 0.5  # §6.1 tool 4: mappings below are refused
+  gap_boost_factor: 1.5      # §13/G5: utility boost for gap-report families
+  skill_candidate_stale_days: 14  # §13: pending candidates older than this gap
+  predictor_error_outlier: 0.05    # §21: family mean |pred-realized| outlier floor
+  report_html_renderer: deferred  # §18.1 decision: HTML renderer DEFERRED (md-only)
   ucb_c: 1.4
   tombstone_block: 0.85
   tombstone_review_low: 0.70

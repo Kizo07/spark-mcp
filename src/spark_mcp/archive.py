@@ -465,13 +465,15 @@ class Archive:
 def family_posteriors(db: Database, as_of: str | None = None) -> dict[str, dict]:
     """Stored Beta(a,b) per family from exploration_state (§5.1, §8.3),
     PIT at as_of (rows updated after as_of are hidden — a past view shows
-    the prior, not the future)."""
+    the prior, not the future). The `__analogy__` sentinel row (aggregate
+    analogy-trial accounting, analogy.py) is excluded — it is not a research
+    family."""
     sql = (
         "SELECT family, posterior, trials, successes FROM exploration_state"
-        " WHERE updated_at <= ? ORDER BY family"
+        " WHERE updated_at <= ? AND family != '__analogy__' ORDER BY family"
         if as_of is not None
         else "SELECT family, posterior, trials, successes FROM exploration_state"
-        " ORDER BY family"
+        " WHERE family != '__analogy__' ORDER BY family"
     )
     rows = db.conn.execute(sql, (as_of,) if as_of is not None else ()).fetchall()
     out = {}

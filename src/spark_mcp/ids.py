@@ -58,3 +58,15 @@ def new_candidate_id() -> str:
 
 def new_approval_id() -> str:
     return f"appr_{_ulidish()}"
+
+
+def new_consolidation_id() -> str:
+    return f"cons_{_ulidish()}"
+
+
+def new_exercise_id() -> str:
+    return f"exercise_{_ulidish()}"
+
+
+def new_gap_id() -> str:
+    return f"gap_{_ulidish()}"

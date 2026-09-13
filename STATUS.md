@@ -272,3 +272,71 @@ Round 7 (same blind judge/rubric, warm full-field cache, grown corpus):
 leg previously demonstrated (60 outcomes, Beta(10,4) ×5 families);
 §6 reassessment artifact committed. Phase 6 is unblocked; the G4 red
 period and both remediation paths are retained above for the record.
+
+## Phase 7 — Analogy, consolidation, curriculum (built 2026-09-13, pre-review)
+
+Scope (plan §18.1): SME-lite analogy + `combine_methods`, `consolidate`
+runtime + gap reports, belief decay application, minimal curriculum, and the
+`report_write` HTML renderer DECISION (TRIZ/assumption-violation stay
+deferred per §20).
+
+**Decision record — `report_write` HTML renderer (plan §6.3 tool 21 N5,
+§18.1): DEFERRED.** The renderer is pinned in config as
+`research.report_html_renderer: str = "deferred"`; `report_write` rejects
+`format != 'md'` with a message citing this record. Rationale: Spark's only
+report consumer today is the operator (markdown dump, M13); an HTML renderer
+adds a template dependency and rendering surface with no plan-named consumer
+before Phase 8+, and §20 scopes renderer-building out of this phase. Building
+one later = flip the flag + land the renderer behind the same config knob.
+
+Other implementation decisions (for the milestone reviewer):
+- **Analogy mapping decomposition** (`spark_mcp/analogy.py` docstring):
+  snake_case mech compounds decompose to a binary relation (first atom =
+  subject, last atom = object); bare tags are unary predicates.
+  Systematicity `score = |M| / (|M| + |I| + 0.5·|A|)` with M = shared
+  compounds, A = shared bare tags + shared atoms locked inside non-shared
+  compounds, I = unshared compounds whose subject collides with a compound
+  subject on the other side (symmetric by construction).
+- **Analogy budget accounting**: `exploration_state.analogy_trials` is
+  aggregated on a dedicated sentinel row (`__analogy__`,
+  `analogy.ANALOGY_TRIALS_FAMILY`), incremented per call inside the same
+  transaction as the spend row; family-posterior reads
+  (`archive.family_posteriors`, `explore._family_posteriors`) exclude it —
+  accounting, not a research family. Cap = `analogy_budget_cap` × total
+  family trials; with zero family trials the cap cannot bind.
+- **Composition grammar** (`combine_methods`): pipeline = ordered pair
+  bridged by shared mech-compound atoms; ensemble = first repeated family in
+  input order; residualizer = visible DIAGNOSES/FAILS_WHEN edge between the
+  methods. Unsupported kinds are omitted (never forced); ≥2 ids with no
+  shared structure at all is a named refusal.
+- **Consolidation gap reports are immutable JSON artifacts**
+  (`{artifacts_dir}/consolidation/{report_id}.json`) + a `consolidation_runs`
+  audit row (`report_uri = spark://consolidation/{report_id}`) — consumed by
+  `suggest_next` (`gap_boost_factor` × Thompson×emptiness utility, recorded
+  on trajectory + result) and `generate_exercise`. Immutability makes report
+  consumption trivially PIT-correct.
+- **Decay** (§12.3): `decay = exp(−(as_of − last_validated)/halflife) ×
+  regime_factor` with `regime_factor = 1.0` pinned in
+  `consolidate.REGIME_FACTOR_V1`; written to `beliefs.decay` (raw confidence
+  untouched); beliefs with NULL `last_validated` are skipped and counted.
+  Pinned test value: 180 days at halflife 180 → exactly `e⁻¹`.
+- **Per-consolidation budget**: LLM gap annotations cost
+  `budgets.llm_call_estimate_usd` per `complete` call (providers report no
+  usage on this seam); the annotation pass stops mid-pass at the cap —
+  `warn` returns a partial report (`budget_exhausted=True`), `fail_closed`
+  raises before ANY write (mirroring the daily/episode pattern). Spend lands
+  in `spend_ledger` with `source='consolidate'`, `run_id=report_id`.
+- **`--since` is incremental consolidation**: rows whose activity marker
+  predates `since` are skipped (cron re-checks only what moved); the
+  tradeoff (a belief going stale without new activity is caught by full
+  runs, not incremental ones) is documented in `consolidate.py`.
+- **Curriculum v1**: exercise source = the highest-severity family-carrying
+  gap (stable (family, gap_id) sort, seeded draw inside the tier); fixture
+  mapped from the gap family via `seeds/replay_fixtures.yaml`; the champion
+  is scored with `evolve.gepa.fixture_score` — the exact deterministic
+  scorer `skills.run_replay` calls with no LLM (reused, not forked). The
+  champion is THE current champion (newest version), not family-matched;
+  role/family matching is the recorded upgrade path.
+
+G5 scenario: tests/test_g5_scenario.py (evidence printed from the test).
+Test counts: 391 total at the pre-review build; ruff clean.
