@@ -4,68 +4,62 @@ Per-phase verdicts from independent milestone reviews (muse-spark-1.3-contributo
 max reasoning effort, read-only). A phase is done only on PASS or
 PASS-WITH-NITS without blockers (AGENTS.md rule 5).
 
-| Phase | Commit | Review file | Verdict | Open items |
+## Phase verdicts
+
+| Phase | Commit | Review file | Verdict | Notes |
 |---|---|---|---|---|
-| 0 — Skeleton | `559910f` → fixes in `03f6b19` | reviews/2026-09-12_phase-0.md (FAIL, superseded) + reviews/2026-09-13_phase-0-rereview.md (**PASS-WITH-NITS**) | **PASS-WITH-NITS** | nits below |
-| 1 — Ledger & Memory | `bc511a3` | reviews/2026-09-12_phase-1.md | **PASS-WITH-NITS** | nits carried below |
-| 2 — Method Graph & Novelty | `1344d89` | reviews/2026-09-12_phase-2.md | pending | G1 judge half pending |
+| 0 — Skeleton | `559910f` → fixes `03f6b19` | reviews/2026-09-12_phase-0.md (FAIL) + 2026-09-13_phase-0-rereview.md | **PASS-WITH-NITS** | 3 blockers fixed (gate scan path, `__main__`, embedder determinism); adversarially re-verified |
+| 1 — Ledger & Memory | `bc511a3` | reviews/2026-09-12_phase-1.md | **PASS-WITH-NITS** | PIT-before-ranking, exact-once trials, reconciliation independently reproduced |
+| 2 — Method Graph & Novelty | `1344d89` | reviews/2026-09-13_phase-2.md | **PASS-WITH-NITS** | 153-node corpus, RRF retrieval, bounded N/S bit-identical cross-process; post-review scorer change at `1473f38` (see G1) |
+| 3 — Gates & Backtest Seam | `a85c21a` | reviews/2026-09-13_phase-3.md | **PASS-WITH-NITS** | Golden pins re-derived by third machinery (~1e-12); G2 reproduced 0.44s; judge: GO for goal completion |
 
-## Phase 0 review blockers → fixes (commit `review-fixes`)
-
-1. Independence-gate AST scan was vacuous (`parents[1]` → nonexistent path;
-   rglob silently scanned 0 files). Fixed: `parents[2]` + assertion that
-   scanned-file count > 0. tests/independence/test_independence_gate.py
-2. `python -m spark_mcp` broken (no `__main__.py`) though it is the plan's
-   canonical entrypoint (§3.1, §15.1). Fixed: src/spark_mcp/__main__.py;
-   verified MCP initialize handshake over stdio.
-3. FakeEmbedder seeded from per-process-salted builtin hash() — broke its
-   determinism contract. Fixed earlier in Phase 2 work (sha256-based).
-
-## Phase 0 review nits addressed
-
-- `FastMCP("spark", version=__version__)` (stdio serverInfo now reports spark's
-  version, not FastMCP's).
-- `ResearchConfig.informed_prior_after_episodes` (=20) added (plan §16).
-- Degraded-mode tests now force `monkeypatch.delenv(OPENAI_API_KEY)` —
-  assertions no longer depend on ambient env (test_server.py, gate).
-- sqlite-vec probe fixed (enable_load_extension) during Phase 2; doctor now
-  reports `sqlite_vec: True`.
-- Contradiction threshold moved from module constant to
-  `ResearchConfig.contradiction_overlap` (=0.6) (AGENTS.md config rule).
-- `episodes.reward REAL NOT NULL DEFAULT 0.0` (was nullable; §6.3 non-null).
-- protocol_hash canonical bytes now stored under
-  `<artifacts>/protocols/<hash>.json` (§5.0/N8 audit requirement).
-- Duplicate trajectory write on hypothesis_propose removed (ledger records it).
-
-## Environment deviations (disclosed, not papered over)
-
-- **pyribs absent from this machine's package index** (only a 0.0.2 stub is
-  published; verified against the index's own JSON API). pyribs moved from
-  core deps to optional `[qd]` extra. Phase 5 (outside this goal) must ship a
-  native numpy MAP-Elites fallback. README + pyproject note it; the
-  independence gate forbids core from importing pyribs.
-- venv pinned to Python 3.12 (3.13 works for core, but pyribs metadata caps
-  <3.13 — moot while pyribs is an extra; 3.12 chosen for headroom).
-
-## Phase 1 carried nits (accepted or scheduled)
-
-- `storage.Database.execute()` commits via nested `with conn:` — weakens
-  atomicity of outer transactions; fix before money-path concurrency
-  (Phase 3 hardening).
-- Concurrent same-client_id `memory_promote` / failure-tombstone paths can
-  double-insert rows (M stays correct); formal dedup hardening = Phase 3.
-- Rate-card cost estimation (§14) not yet implemented — costs default to
-  zeros with `estimated: true`; Phase 3 with budgets.
-- Contradiction handling does not yet record the pointer on the target
-  belief's contradicting_runs / set valid_to — deferred to Phase 7
-  LLM adjudication per §12.3 (documented in code).
-
-## Program gates
+## Program gates — final
 
 | Gate | Status | Evidence |
 |---|---|---|
-| G1 (end Phase 2) | half met | repeat-query overlap mean 0.18 < 0.30 measured over 5 repeats (deterministic path); judge half (≥2 suggestions/problem ≥3/5 by a quant judge) pending muse-judge run |
-| G2 (end Phase 3) | pending | — |
+| **G1** (end Phase 2) | **RED** | overlap half: **GREEN** — reviewer-reproduced mean ≈0.14 over 5 problems × 5 repeats (<0.30; test now seeded, deterministic). judge half: **RED** — blind quant-judge round 1 (2026-09-13_g1-judge-round1.md): per-problem avg [2.8, 1.4, 1.8, 2.2, 1.6], count≥3 [4,1,1,1,0]. After one genuine improvement cycle (family-aware deterministic relevance + obvious-champion exclusion, `1473f38`), blind round 2 (2026-09-13_g1-judge-round2.md): avg [2.6, 1.8, 1.4, 1.0, 2.2], count≥3 [4,1,0,0,2], count≥4 [0,0,0,0,1]. Criterion ≥2/problem ≥3/5 unmet on 4/5 problems; high draw variance (ULID tie-breaking) noted. |
+| **G2** (end Phase 3) | **GREEN (standalone)** | loop 0.44s vs 900s SLO; (counted+reconciled)/attested = 17/17 = 1.0 exactly incl. 3 retries + 2 out-of-band; 100% counted; C6 enforced at entry and gate; SR always paired with DSR. Live-peer half: peer exists (`../alpha_engine`) but its tools do not speak plan §15.2 contract (no `run_backtest`/`causal_test`/`risk_decompose`); RecordedProvider cassettes cover the seam per plan §17.4. **Post-goal follow-up: live integration once the peer exposes §15.2 tools.** |
 
-*Updated after each milestone review. Next update: Phase 0 re-review verdict,
-Phase 2 review verdict, G1 judge evidence.*
+## Why G1 was not forced (stop rule invoked)
+
+One improvement cycle was attempted and honestly measured — the deterministic
+lexical relevance path has a real ceiling, and the plan's intended remedy
+(LLM-scored relevance, §8.1/M4) requires an OpenAI-compatible endpoint that
+does not exist in this environment (muse is a CLI, not an HTTP endpoint).
+Further cycles would tune against a high-variance blind draw — the
+overfitting pattern this project exists to prevent. Per the goal's stop rule,
+the goal stops and reports with G1 red rather than forcing a pass.
+
+## Carried nits / follow-ups (for the next goal or Phase 4-7 work)
+
+- **Live alpha_engine integration**: needs peer-side §15.2 tools (out of this
+  goal's scope: no alpha_engine changes permitted).
+- **LLM-scored relevance path**: implemented and unit-reachable; only the
+  deterministic path is exercised live (no endpoint). Wire + re-run G1 when a
+  key exists; G4 go/no-go (≥50 logged outcomes) already gates Phase 6.
+- Phase 3 review nits N5 (committed test for failed-retry), N6 (kill-rule ticks
+  on provider exceptions vs gate failures only; posterior penalty deferred
+  with `killed` flag), N7 (exploration_state.trials is an event count),
+  N8 (per-episode/per-consolidation budget caps unenforced), N10 (review-band
+  verdict exact-match: `"ALLOW" in verdict.upper()` matches "DISALLOW").
+- Phase 2 review nits: structural-overlap term degenerate in tool paths (needs
+  free-text→graph grounding design before Phase 5); graph-node archive not
+  family-scoped (recorded decision: method graph is shared vocabulary);
+  226/524 seed concept refs unresolved (concept layer growth); pool-size
+  constant `min(n, max(2k, k+5))` should move to config.
+- `idea` text now persisted in the propose trajectory payload.
+- G1 scorer design flag for review in the next goal: the top-1-scored
+  candidate is categorically excluded from suggestions (champion = the
+  obvious move). Assess whether this product behavior is right when the LLM
+  scorer arrives.
+
+## Environment record
+
+- pyribs absent from this machine's package index → `[qd]` extra; Phase 5 must
+  ship a native MAP-Elites fallback.
+- venv: Python 3.12 (see README).
+- Test counts: 15 → 44 → 82 → 160 → 166. All green at HEAD; ruff clean.
+
+*Goal 1 ends here per its stop rule: Phases 0–3 complete and independently
+reviewed; G2 green; G1 red on the judge half after one measured improvement
+cycle. Final commit records this file and all review artifacts.*
