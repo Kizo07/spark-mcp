@@ -157,10 +157,15 @@ def _challenger_for(
     rows = db.conn.execute(
         "SELECT * FROM skills WHERE name = ? ORDER BY version DESC", (skill_name,)
     ).fetchall()
-    for row in rows:
-        if _lineage(row).get("parent_version") == parent_version:
-            return row
-    return None
+    matches = [r for r in rows if _lineage(r).get("parent_version") == parent_version]
+    if len(matches) > 1:
+        # Legacy rows (pre-v10) with no challenger_skill_id can fork: refuse
+        # rather than guess (re-review nit — ambiguity must not pick one).
+        raise ToolError(
+            f"ambiguous lineage for {skill_name!r} parent {parent_version}:"
+            f" {len(matches)} candidate rows; resolve via a v10+ candidate id"
+        )
+    return matches[0] if matches else None
 
 
 def _record_effect(db: Database, tool: str, client_id: str, subject_id: str, result: dict) -> None:
@@ -909,19 +914,11 @@ def decide_promotion(
     version = int(challenger["version"])
 
     # M1: full-suite coverage — every fixture (held-in and held-out) must be
-    # scored; filtered run_replay(task_ids=...) subsets cannot satisfy the gate.
+    # scored; filtered run_replay(task_ids=...) subsets cannot satisfy the
+    # gate. Enforced only when the decision is 'promoted' (re-review nit:
+    # rejecting a candidate does not need full evidence) and resolved AFTER
+    # the 'auto' criterion so auto-rejections skip the check.
     eval_scores = json.loads(candidate["eval_scores"])
-    fixtures = load_fixtures()
-    in_ids = [f["task_id"] for f in fixtures if f.get("held_in", True)]
-    out_ids = [f["task_id"] for f in fixtures if not f.get("held_in", True)]
-    have_in = set((eval_scores.get("held_in") or {}).keys())
-    have_out = set((eval_scores.get("held_out") or {}).keys())
-    missing = (set(in_ids) - have_in) | (set(out_ids) - have_out)
-    if missing:
-        raise ToolError(
-            "promotion requires FULL replay-suite evidence; missing fixtures: "
-            + ", ".join(sorted(missing))
-        )
 
     source_episode_ids = json.loads(candidate["source_episode_ids"] or "[]")
     old_champion = db.conn.execute(
@@ -954,6 +951,19 @@ def decide_promotion(
         else:
             floor = float(getattr(cfg.research, "replay_promotion_floor", 0.5))
             decision = "promoted" if ch_mean >= floor else "rejected"
+
+    if decision == "promoted":
+        fixtures = load_fixtures()
+        in_ids = {f["task_id"] for f in fixtures if f.get("held_in", True)}
+        out_ids = {f["task_id"] for f in fixtures if not f.get("held_in", True)}
+        have_in = set((eval_scores.get("held_in") or {}).keys())
+        have_out = set((eval_scores.get("held_out") or {}).keys())
+        missing = (in_ids - have_in) | (out_ids - have_out)
+        if missing:
+            raise ToolError(
+                "promotion requires FULL replay-suite evidence; missing fixtures: "
+                + ", ".join(sorted(missing))
+            )
 
     with db.transaction():
         db.execute(

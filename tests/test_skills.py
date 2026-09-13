@@ -1070,3 +1070,87 @@ def test_decide_and_retire_tools_over_mcp(tmp_path):
             assert json.loads(retired.content[0].text)["status"] == "retired"
 
     asyncio.run(run())
+
+
+def _cand_with_scores(db, cfg, name, parent_version, held_in, held_out, gap):
+    """Insert a pending candidate + its challenger row with hand-set replay
+    evidence (auto-criterion unit pinning)."""
+    skills._distill_check_episodes(db, []) if False else None  # no-op guard
+    sid = skills.new_skill_id()
+    cid = skills.new_candidate_id()
+    db.execute(
+        "INSERT INTO skills (skill_id, name, version, role, body_uri, lineage,"
+        " status, credit, benchmark_history, promotion_status, created_at)"
+        " VALUES (?, ?, ?, NULL, ?, ?, 'challenger', '{}', '[]', 'auto', ?)",
+        (sid, name, _next_free(db, name), f"spark://skills/{name}/x",
+         json.dumps({"parent_version": parent_version}), skills.now_iso()),
+    )
+    db.execute(
+        "INSERT INTO skill_candidates (candidate_id, skill_name, parent_version,"
+        " source_episode_ids, mutation_op, eval_scores, heldout_gap, verdict,"
+        " challenger_skill_id) VALUES (?, ?, ?, '[]', 'split', ?, ?, 'pending', ?)",
+        (cid, name, parent_version,
+         json.dumps({"held_in": held_in, "held_out": held_out}), gap, sid),
+    )
+    return cid
+
+
+def _next_free(db, name):
+    row = db.conn.execute(
+        "SELECT COALESCE(MAX(version),0) AS v FROM skills WHERE name = ?", (name,)
+    ).fetchone()
+    return int(row["v"]) + 1
+
+
+def test_auto_gate_all_four_branches(db, cfg):
+    """Pin every auto-criterion branch (re-review nit): first-promotion
+    floor pass AND fail; incumbent beat AND regress; heldout_gap alarm."""
+    floor = cfg.research.replay_promotion_floor
+    alarm = cfg.research.replay_heldout_gap_alarm
+    fixtures = skills.load_fixtures()
+    in_ids = [f["task_id"] for f in fixtures if f.get("held_in", True)]
+    out_ids = [f["task_id"] for f in fixtures if not f.get("held_in", True)]
+    assert len(in_ids) >= 4 and len(out_ids) >= 2  # full-suite shape
+
+    def mk_in(val):
+        return {t: val for t in in_ids}
+
+    def mk_out(val):
+        return {t: val for t in out_ids}
+
+    # branch 1a/1b: first promotion, mean vs floor
+    for label, hin, expect in (
+        ("above floor", mk_in(max(floor, 0.9)), "promoted"),
+        ("below floor", mk_in(0.0), "rejected"),
+    ):
+        name = f"auto-{label.replace(' ', '-')}"
+        cid = _cand_with_scores(db, cfg, name, 1, hin, mk_out(0.5), 0.0)
+        out = skills.decide_promotion(db, cfg, name, cid, "auto", label, "gate")
+        assert out["decision"] == expect, (label, out)
+
+    # branch 2: incumbent beat vs regress (incumbent held_in mean = 0.6)
+    incumbent_name = "auto-incumbent"
+    inc_sid = skills.new_skill_id()
+    db.execute(
+        "INSERT INTO skills (skill_id, name, version, role, body_uri, lineage,"
+        " status, credit, benchmark_history, promotion_status, created_at)"
+        " VALUES (?, ?, 1, NULL, 'spark://skills/auto-incumbent/1', '{}',"
+        " 'champion', '{}', ?, 'auto', ?)",
+        (inc_sid, incumbent_name,
+         json.dumps([{"eval_scores": {"held_in": {"t1": 0.6, "t2": 0.6}}}]),
+         skills.now_iso()),
+    )
+    for label, hin, expect in (
+        ("beat", mk_in(0.7), "promoted"),
+        ("regress", mk_in(0.5), "rejected"),
+    ):
+        cid = _cand_with_scores(db, cfg, incumbent_name, 1, hin, mk_out(0.5), 0.0)
+        out = skills.decide_promotion(db, cfg, incumbent_name, cid, "auto", label, "gate")
+        assert out["decision"] == expect, (label, out)
+
+    # branch 3: heldout_gap over the alarm rejects even with strong held-in
+    name3 = "auto-gap-alarm"
+    cid3 = _cand_with_scores(db, cfg, name3, 1, mk_in(0.9),
+                             mk_out(0.0), alarm + 0.05)
+    out3 = skills.decide_promotion(db, cfg, name3, cid3, "auto", "gap", "gate")
+    assert out3["decision"] == "rejected"
