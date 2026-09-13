@@ -38,3 +38,11 @@ def new_belief_id() -> str:
 
 def new_tombstone_id() -> str:
     return f"tomb_{_ulidish()}"
+
+
+def new_node_id() -> str:
+    return f"node_{_ulidish()}"
+
+
+def new_edge_id() -> str:
+    return f"edge_{_ulidish()}"

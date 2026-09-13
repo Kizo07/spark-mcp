@@ -1,5 +1,5 @@
-"""Operator CLI: init-db, doctor, serve (plan §13/M10 — CLI and MCP tools call
-the same service functions; no logic fork)."""
+"""Operator CLI: init-db, doctor, serve, seed import (plan §13/M10 — CLI and
+MCP tools call the same service functions; no logic fork)."""
 
 from __future__ import annotations
 
@@ -9,10 +9,14 @@ import typer
 from rich import print
 
 from .config import Config
+from .graph import import_seeds
+from .llm import build_embedder
 from .server import create_server
 from .storage import open_db
 
 app = typer.Typer(help="Spark — creativity & institutional-learning MCP")
+seed_app = typer.Typer(help="Seed corpus management (plan §16.1)")
+app.add_typer(seed_app, name="seed")
 
 
 def _load(config: str | None) -> Config:
@@ -50,6 +54,21 @@ def doctor(config: str | None = typer.Option(None, "--config", "-c")) -> None:
 def serve(config: str | None = typer.Option(None, "--config", "-c")) -> None:
     """Run the MCP server over stdio."""
     create_server(_load(config)).run()
+
+
+@seed_app.command("import")
+def seed_import(
+    config: str | None = typer.Option(None, "--config", "-c"),
+    seeds_dir: str | None = typer.Option(None, "--seeds-dir"),
+) -> None:
+    """Import the seed corpus (technique cards + concept layer) into the graph."""
+    cfg = _load(config)
+    db = open_db(cfg.db_path())
+    stats = import_seeds(
+        db, build_embedder(cfg), seeds_dir=seeds_dir, as_of=None
+    )
+    db.close()
+    print(stats)
 
 
 if __name__ == "__main__":

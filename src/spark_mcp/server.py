@@ -1,9 +1,11 @@
-"""MCP server: Phase-0 health tools + Phase-1 ledger & memory tools.
+"""MCP server: Phase-0 health tools, Phase-1 ledger & memory tools, Phase-2
+method graph & novelty tools.
 
-`create_server(config)` builds a `Services` (config + database handle) that the
-tool functions close over — no module-level mutable state, so tests can inject
-a temp-db Config. When no Config is passed, `SPARK_CONFIG` (env) is used if
-set, else defaults (db_path ~/.spark/spark.db, plan §16).
+`create_server(config)` builds a `Services` (config + database handle +
+embedder/llm clients) that the tool functions close over — no module-level
+mutable state, so tests can inject a temp-db Config and fake clients. When
+no Config is passed, `SPARK_CONFIG` (env) is used if set, else defaults
+(db_path ~/.spark/spark.db, plan §16).
 """
 
 from __future__ import annotations
@@ -15,18 +17,22 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
-from . import __version__, ledger, memory, trajectory
+from . import __version__, explore, graph, ledger, memory, novelty, trajectory
 from .config import Config
+from .llm import build_embedder, build_llm
 from .storage import Database, open_db
 from .timeutil import now_iso, validate_iso
 
 
 @dataclass
 class Services:
-    """One config + one database handle, shared by every tool handler."""
+    """One config + one database handle + model clients, shared by every tool
+    handler. `embedder`/`llm` are None in degraded mode (§4.3)."""
 
     cfg: Config
     db: Database
+    embedder: object | None = None
+    llm: object | None = None
 
 
 def _resolve_config(config: Config | None) -> Config:
@@ -40,11 +46,24 @@ def _as_of_or_now(as_of: str | None) -> str:
     return validate_iso(as_of) if as_of else now_iso()
 
 
-def create_server(config: Config | None = None) -> FastMCP:
+def create_server(
+    config: Config | None = None,
+    *,
+    embedder: object | None = None,
+    llm: object | None = None,
+    seeds: bool = True,
+) -> FastMCP:
     cfg = _resolve_config(config)
     db_path = cfg.db_path()
-    services = Services(cfg=cfg, db=open_db(db_path))
+    services = Services(
+        cfg=cfg,
+        db=open_db(db_path),
+        embedder=build_embedder(cfg) if embedder is None else embedder,
+        llm=build_llm(cfg) if llm is None else llm,
+    )
     cfg.artifacts_dir().mkdir(parents=True, exist_ok=True)
+    if seeds:
+        graph.import_seeds(services.db, services.embedder)
 
     mcp = FastMCP("spark")
 
@@ -105,7 +124,9 @@ def create_server(config: Config | None = None) -> FastMCP:
         """Propose a hypothesis. C6 refusal rule: mechanism, expected_direction,
         horizon, falsifier, scope, predicted_ic, predicted_sigma required for
         ALL types; dag + adjustment_set required iff hypothesis_type='causal'.
-        Returns {hypothesis_id, N, S} (N/S scored in Phase 2). Idempotent on client_id.
+        Returns {hypothesis_id, N, S, novelty{...}} — N bounded per §7 (lexical
+        proxy in degraded mode), S null until a realized_ic exists. Idempotent
+        on client_id.
         """
         as_of = _as_of_or_now(as_of)
         result = ledger.propose_hypothesis(
@@ -121,11 +142,13 @@ def create_server(config: Config | None = None) -> FastMCP:
             predicted_ic=predicted_ic,
             predicted_sigma=predicted_sigma,
             universe=universe,
+            idea=idea,
             dag=dag,
             adjustment_set=adjustment_set,
             parent_hypothesis_ids=parent_hypothesis_ids,
             as_of=as_of,
             client_id=client_id,
+            embedder=services.embedder,
         )
         trajectory.record(
             services.db,
@@ -204,6 +227,59 @@ def create_server(config: Config | None = None) -> FastMCP:
         return ({"beliefs": memory.recall(services.db, query, as_of, k), "as_of": as_of})
 
     @mcp.tool()
+    def check_novelty(
+        idea_or_code: str,
+        family: str | None = None,
+        realized_ic: float | None = None,
+        predicted_ic: float | None = None,
+        predicted_sigma: float | None = None,
+        as_of: str | None = None,
+    ) -> dict:
+        """Bounded novelty/surprise per §7: N = w·(1−max_cos, 1−structural_overlap,
+        cell_emptiness) vs the PIT archive (graph nodes + prior hypotheses in
+        family); S needs a realized_ic, else null. Degraded mode uses a
+        deterministic lexical max_cos proxy (reported as max_cos_basis).
+        """
+        as_of = _as_of_or_now(as_of)
+        return novelty.check_novelty(
+            services.db,
+            cfg,
+            idea_or_code,
+            family=family,
+            as_of=as_of,
+            embedder=services.embedder,
+            realized_ic=realized_ic,
+            predicted_ic=predicted_ic,
+            predicted_sigma=predicted_sigma,
+        )
+
+    @mcp.tool()
+    def explore_methods(
+        problem: str,
+        k: int = 5,
+        mode: str = "balanced",
+        as_of: str | None = None,
+        seed: int | None = None,
+    ) -> dict:
+        """Score, sample and diversify method candidates (§6.1 tool 2, §8.1/§8.2).
+        Every suggestion carries its score decomposition, family,
+        selection_probability and prior_trials; `scoring_mode` is
+        'deterministic' without an LLM key. Pass `seed` for a reproducible draw.
+        """
+        as_of = _as_of_or_now(as_of)
+        return explore.explore_methods(
+            services.db,
+            cfg,
+            problem,
+            k=k,
+            mode=mode,
+            as_of=as_of,
+            embedder=services.embedder,
+            llm=services.llm,
+            seed=seed,
+        )
+
+    @mcp.tool()
     def memory_promote(
         episode_ids: list[str],
         claim: str,
@@ -230,6 +306,7 @@ def create_server(config: Config | None = None) -> FastMCP:
                 confidence,
                 as_of=as_of,
                 client_id=client_id,
+                embedder=services.embedder,
             )
         )
 

@@ -14,7 +14,7 @@ import json
 import sqlite3
 from typing import Any
 
-from . import __version__, memory, trajectory
+from . import __version__, graph, memory, novelty, trajectory
 from .config import Config
 from .ids import new_episode_id, new_hypothesis_id, new_trial_id
 from .storage import Database
@@ -122,23 +122,29 @@ def propose_hypothesis(
     predicted_ic: float,
     predicted_sigma: float,
     universe: str,
+    idea: str = "",
     dag: dict | None = None,
     adjustment_set: list[str] | None = None,
     parent_hypothesis_ids: list[str] | None = None,
     as_of: str | None = None,
     client_id: str | None = None,
+    embedder: Any | None = None,
 ) -> dict:
     """Insert a hypotheses row (status 'proposed'). Enforces the C6 refusal rule.
 
-    Returns {hypothesis_id, N, S} — novelty/surprise scoring lands in Phase 2.
-    Idempotent on client_id: reuse returns the original envelope, no side effects.
+    Returns {hypothesis_id, N, S} — N scored against the Phase 2 archive
+    (§7; lexical proxy in degraded mode), S always None at propose time (no
+    realized_ic exists yet). Idempotent on client_id: reuse replays the
+    original recorded result envelope, no side effects.
     """
-    del cfg  # config enters here in later phases (scoring weights); kept for signature stability
     if client_id:
         row = db.conn.execute(
             "SELECT hypothesis_id FROM hypotheses WHERE client_id = ?", (client_id,)
         ).fetchone()
         if row:
+            recorded = _replay_effect(db, "hypothesis_propose", client_id)
+            if recorded is not None:
+                return recorded
             return {"hypothesis_id": row["hypothesis_id"], "N": None, "S": None}
 
     as_of = validate_iso(as_of) if as_of else now_iso()
@@ -212,6 +218,9 @@ def propose_hypothesis(
         ).fetchone()
         if winner is None:
             raise
+        recorded = _replay_effect(db, "hypothesis_propose", client_id)
+        if recorded is not None:
+            return recorded
         return {"hypothesis_id": winner["hypothesis_id"], "N": None, "S": None}
     trajectory.record(
         db,
@@ -220,7 +229,32 @@ def propose_hypothesis(
         "tool_call",
         {"tool": "hypothesis_propose", "client_id": client_id, "as_of": as_of},
     )
-    return {"hypothesis_id": hypothesis_id, "N": None, "S": None}
+    # Phase 2 (§6.1 tool 1, §7): embed-on-write, then bounded novelty vs the
+    # archive (excluding the idea itself). S stays None until realized_ic.
+    idea_text = " ".join(p for p in (idea, mechanism) if p)
+    graph.embed_text(db, embedder, "hypothesis", hypothesis_id, idea_text)
+    scored = novelty.check_novelty(
+        db,
+        cfg,
+        idea_text,
+        family=research_family,
+        as_of=as_of,
+        embedder=embedder,
+        exclude_subject_ids={hypothesis_id},
+    )
+    result = {
+        "hypothesis_id": hypothesis_id,
+        "N": scored["N"],
+        "S": None,
+        "novelty": {
+            "max_cos": scored["max_cos"],
+            "structural_overlap": scored["structural_overlap"],
+            "cell_emptiness": scored["cell_emptiness"],
+        },
+    }
+    if client_id:
+        _record_effect(db, "hypothesis_propose", client_id, hypothesis_id, result)
+    return result
 
 
 def register_hypothesis(

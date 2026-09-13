@@ -6,7 +6,7 @@ from spark_mcp.storage import open_db
 def test_migrate_creates_meta_and_version(tmp_path):
     db = open_db(tmp_path / "spark.db")
     version = db.conn.execute("PRAGMA user_version").fetchone()[0]
-    assert version == 2
+    assert version == 3
     name = db.conn.execute(
         "SELECT value FROM spark_meta WHERE key='schema_name'"
     ).fetchone()[0]
@@ -19,7 +19,7 @@ def test_migrations_are_idempotent(tmp_path):
     db = open_db(path)
     db.close()
     db2 = open_db(path)  # second open: no pending migrations, no error
-    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == 2
+    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == 3
     db2.close()
 
 
@@ -43,8 +43,27 @@ def test_phase1_tables_exist(tmp_path):
         "tool_effects",
         "beliefs_fts",
         "tombstones_fts",
+        "graph_nodes",
+        "graph_edges",
+        "graph_nodes_fts",
+        "score_cache",
     ):
         assert t in tables, f"missing table {t}"
+    db.close()
+
+
+def test_vec_embeddings_table_created_on_first_embed(tmp_path):
+    db = open_db(tmp_path / "spark.db")
+    assert db.vec_available is True  # sqlite-vec present in the dev venv
+    row = db.conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE name = 'vec_embeddings'"
+    ).fetchone()
+    assert row is None  # lazy: created on first embed write
+    db.ensure_vec_embeddings(64)
+    row = db.conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE name = 'vec_embeddings'"
+    ).fetchone()
+    assert row is not None
     db.close()
 
 

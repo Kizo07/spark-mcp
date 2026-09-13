@@ -1,0 +1,316 @@
+# Spark seed corpus — Concept layer v0 (plan §16.1, Phase 2: ~40
+# mechanism-concept nodes). These are the shared vocabulary that technique
+# cards reference via `assumptions` / `failure_modes` (edges ASSUMES /
+# FAILS_WHEN) and that structural-overlap novelty (§7) uses for grounding.
+
+- name: Stationarity
+  mechanism_tags: [time_series, distributional_stability]
+  summary: Statistical properties of a process are invariant to time shifts; the working assumption behind most inference and most mean-variance machinery.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Ergodicity
+  mechanism_tags: [time_series, ensemble_vs_path]
+  summary: Time averages converge to ensemble averages; a single long history is representative of the process.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Mean reversion
+  mechanism_tags: [reversion, equilibrium]
+  summary: Prices or spreads pull back toward a long-run level; the engine of contrarian and relative-value strategies.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Trend persistence
+  mechanism_tags: [momentum, continuation]
+  summary: Past returns positively predict future returns over some horizon due to slow-moving capital and anchoring.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Gradual information diffusion
+  mechanism_tags: [information, underreaction]
+  summary: News is incorporated into prices incompletely and over time, creating predictable drift after events.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Limited arbitrage
+  mechanism_tags: [arbitrage_constraints, behavioral]
+  summary: Risk, capital and shorting constraints prevent mispricings from being fully corrected.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Liquidity
+  mechanism_tags: [trading, market_microstructure]
+  summary: Ease of trading without moving the price; a priced risk, a cost, and a capacity limit all at once.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Market impact
+  mechanism_tags: [microstructure, price_impact]
+  summary: Trades move prices against the trader; the binding constraint at size and the destroyer of paper alpha.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Capacity constraint
+  mechanism_tags: [scalability, crowding]
+  summary: A strategy's edge decays as assets under management grow past what market impact allows.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Crowding
+  mechanism_tags: [herding, correlated_positions]
+  summary: Many funds holding the same positions makes exits correlated and crashes sharper.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Regime shift
+  mechanism_tags: [nonstationarity, structural_change]
+  summary: The data-generating process itself changes (vol, correlation, sign of premia); backtests break here.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Structural break
+  mechanism_tags: [nonstationarity, change_point]
+  summary: A discrete change in model parameters at an unknown time; ruins stationarity-based inference.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Volatility clustering
+  mechanism_tags: [heteroskedasticity, garch]
+  summary: Large moves beget large moves; volatility is autocorrelated even when returns are not.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Heavy tails
+  mechanism_tags: [tail_risk, kurtosis]
+  summary: Return distributions have fatter tails than Gaussian; rare events dominate long-run outcomes.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Skewness
+  mechanism_tags: [asymmetry, lottery]
+  summary: Asymmetric return distributions; investors overpay for positive skew, creating a premium for bearing negative skew.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Autocorrelation
+  mechanism_tags: [dependence, serial_correlation]
+  summary: Observations correlated with their own past; breaks naive standard errors and naive novelty math.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Heteroskedasticity
+  mechanism_tags: [variance_nonconst, inference]
+  summary: Error variance is not constant; OLS point estimates survive, inference does not.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Cross-sectional independence
+  mechanism_tags: [panel, inference]
+  summary: Units observed at a point in time do not influence each other; the assumption behind cross-sectional standard errors.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Normality
+  mechanism_tags: [gaussian, inference]
+  summary: Errors or returns follow a Gaussian law; the first assumption to check and the first to fail.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Sparsity
+  mechanism_tags: [variable_selection, regularization]
+  summary: Only a few of many candidate variables truly matter; enables L1-style selection and shrinkage.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Shrinkage
+  mechanism_tags: [regularization, estimation]
+  summary: Deliberately biasing estimates toward a target to reduce variance; the core of modern covariance and coefficient estimation.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Overfitting
+  mechanism_tags: [generalization, multiple_testing]
+  summary: Fitting noise instead of signal; grows with every degree of freedom and every trial rerun.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Multiple testing bias
+  mechanism_tags: [inference, data_snooping]
+  summary: Trying many variants inflates the best observed result; DSR/BH-style corrections exist for this.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Data snooping
+  mechanism_tags: [selection_bias, backtest]
+  summary: Any contact between the researcher and the data before the test set leaks information into "in-sample" results.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Look-ahead bias
+  mechanism_tags: [leakage, backtest]
+  summary: Using information not yet available at decision time; the classic silent killer of backtest Sharpe ratios.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Survivorship bias
+  mechanism_tags: [selection_bias, sample]
+  summary: Dead members of the universe are missing from the data; inflates every historical premium estimate.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Omitted variable bias
+  mechanism_tags: [endogeneity, confounding]
+  summary: Leaving out a cause of both regressor and outcome biases the coefficient; backdoor adjustment targets this.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Confounding
+  mechanism_tags: [causal, bias]
+  summary: A common cause of treatment and outcome masquerading as a relationship between them.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Endogeneity
+  mechanism_tags: [causal, simultaneity]
+  summary: Regressors correlate with the error term (reverse causality, omitted causes, measurement error).
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Exogeneity
+  mechanism_tags: [causal, identification]
+  summary: Regressors are uncorrelated with the error term; the identifying assumption of classical regression.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Identification
+  mechanism_tags: [causal, estimability]
+  summary: Whether a causal quantity can in principle be recovered from the observed distribution and design.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Cointegration
+  mechanism_tags: [time_series, long_run]
+  summary: Individually non-stationary series sharing a stationary long-run combination; the license for pairs trading.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Signal-to-noise ratio
+  mechanism_tags: [information, estimation]
+  summary: How much true structure exists per unit of observed variance; the binding scarcity of financial data.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Nonstationarity
+  mechanism_tags: [time_series, drift]
+  summary: Distributional properties evolve over time; breaks windowed estimation and most asymptotic promises.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Measurement error
+  mechanism_tags: [data_quality, attenuation]
+  summary: Mismeasured variables attenuate or distort estimates; worsens with proxies and vendor data.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Selection bias
+  mechanism_tags: [sample, causal]
+  summary: The sample is not representative because inclusion depends on outcomes or choices.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Collider bias
+  mechanism_tags: [causal, graphical_models]
+  summary: Conditioning on a common effect induces spurious association between its causes.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Exchangeability
+  mechanism_tags: [causal, potential_outcomes]
+  summary: Treated and control units would have identical outcome distributions under either treatment; the basis of causal inference.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Latent factor structure
+  mechanism_tags: [factor_models, dimensionality]
+  summary: Many observed series driven by few unobserved forces; the premise of factor models, PCA and ICA.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Markov property
+  mechanism_tags: [stochastic_processes, memorylessness]
+  summary: The future depends on the past only through the present state; the license for HMMs and regime models.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Transaction costs
+  mechanism_tags: [frictions, implementation]
+  summary: Commissions, spreads and market impact paid per trade; the tax that turns most paper anomalies into losses at size.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Estimation error
+  mechanism_tags: [finite_sample, uncertainty]
+  summary: Sample estimates deviate from population values; the source of mean-variance portfolio blowups and shrinkage methods.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Whipsaw
+  mechanism_tags: [false_signal, timing]
+  summary: Rapid reversal after a trigger fires, inflicting serial small losses on trend-following and filter rules.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Linearity
+  mechanism_tags: [functional_form, additivity]
+  summary: Response proportional to input; the default regression assumption and the first one nonlinear markets violate.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Rational pricing
+  mechanism_tags: [efficiency, no_arbitrage]
+  summary: Prices reflect all available information up to frictions; the benchmark every anomaly is measured against.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Leverage constraints
+  mechanism_tags: [funding, margin]
+  summary: Investors cannot borrow freely to scale low-risk positions, leaving beta anomalies alive.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Shorting frictions
+  mechanism_tags: [borrow, asymmetric_trading]
+  summary: Borrow costs, recalls and regulatory limits make overpricing harder to correct than underpricing.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Finite sample bias
+  mechanism_tags: [small_sample, inference]
+  summary: Asymptotically harmless estimators misbehave on the short histories finance actually has.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Nonlinearity
+  mechanism_tags: [functional_form, interaction]
+  summary: Effects that change with regime, level or interactions; missed by linear models exactly when it matters.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Network connectedness
+  mechanism_tags: [graph_structure, dependence]
+  summary: How tightly nodes in a network are linked; drives contagion, centrality value and community stability.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Lottery demand
+  mechanism_tags: [preference, skewness]
+  summary: Investor preference for positively skewed payoffs lets overpriced lottery-like assets persist.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Tail risk
+  mechanism_tags: [extreme_events, downside]
+  summary: Exposure to rare large losses that volatility measures miss; the bill for most carry and short-vol premia.
+  source: spark-curated
+  license: CC0-1.0

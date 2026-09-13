@@ -18,6 +18,8 @@ research:
   novelty_weights: [0.5, 0.3, 0.2]
   sigma_floor: 0.01
   s_cap: 5.0
+  family_count_norm: 20        # cell_emptiness v1 normalizer (QD grid: Phase 5)
+  exploration_bonus_uniform: 0.5  # bandit posteriors replace this in Phase 5
   scoring_weights: [0.35, 0.20, 0.20, 0.15, 0.10]
   temperatures: { safe: 0.3, balanced: 0.7, exploratory: 1.2 }
   mmr_lambda: 0.5

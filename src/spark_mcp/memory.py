@@ -12,7 +12,7 @@ import re
 import sqlite3
 from typing import Any
 
-from . import trajectory
+from . import graph, trajectory
 from .config import Config
 from .ids import new_belief_id, new_tombstone_id
 from .storage import Database
@@ -188,6 +188,7 @@ def promote_belief(
     confidence: float,
     as_of: str | None = None,
     client_id: str | None = None,
+    embedder: Any | None = None,
 ) -> dict:
     """Promote a belief: contradiction check first (§12.3). Contradictions
     found -> evidence attaches to contradicting_runs and status is
@@ -249,6 +250,8 @@ def promote_belief(
                 "client_id": client_id,
             },
         )
+        # Phase 2 embed-on-write (§4.3): beliefs enter the embedding archive.
+        graph.embed_text(db, embedder, "belief", belief_id, claim)
 
     result = {
         "belief_id": belief_id,

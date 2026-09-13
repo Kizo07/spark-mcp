@@ -49,6 +49,11 @@ class ResearchConfig(BaseModel):
     novelty_weights: list[float] = Field(default=[0.5, 0.3, 0.2])
     sigma_floor: float = 0.01
     s_cap: float = 5.0
+    # cell_emptiness v1 normalizer: QD grid lands in Phase 5, so emptiness is
+    # approximated as 1 − distinct_families_tried / family_count_norm (§7 note).
+    family_count_norm: int = 20
+    # Phase 2 uniform exploration bonus; bandit posteriors replace it in Phase 5.
+    exploration_bonus_uniform: float = 0.5
     scoring_weights: list[float] = Field(default=[0.35, 0.20, 0.20, 0.15, 0.10])
     temperatures: dict[str, float] = Field(
         default={"safe": 0.3, "balanced": 0.7, "exploratory": 1.2}

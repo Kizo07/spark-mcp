@@ -8,6 +8,7 @@ a model change can never silently re-scale novelty or cached scores.
 
 from __future__ import annotations
 
+import hashlib
 from typing import Protocol, runtime_checkable
 
 import numpy as np
@@ -57,7 +58,10 @@ class FakeEmbedder:
     def embed(self, texts: list[str]) -> np.ndarray:
         out = np.empty((len(texts), self._dim), dtype=np.float64)
         for i, text in enumerate(texts):
-            seed = abs(hash((text, self._model))) % (2**32)
+            # sha256, never builtin hash(): embeddings are persisted, and
+            # hash() is salted per process (would break cross-restart N).
+            digest = hashlib.sha256(f"{text}\x00{self._model}".encode()).digest()
+            seed = int.from_bytes(digest[:8], "little")
             rng = np.random.default_rng(seed)
             v = rng.normal(size=self._dim)
             out[i] = v / np.linalg.norm(v)
@@ -68,3 +72,45 @@ class FakeEmbedder:
 
     def model_id(self) -> str:
         return self._model
+
+
+def split_model_id(model_id: str) -> tuple[str, str]:
+    """Canonical (model, model_version) split. Accepts 'provider/model@snap'
+    and 'name/version' (version = last path segment when no '@')."""
+    if "@" in model_id:
+        model, _, version = model_id.partition("@")
+        return model, version
+    if "/" in model_id:
+        model, _, version = model_id.rpartition("/")
+        return model, version or model_id
+    return model_id, ""
+
+
+def build_embedder(cfg) -> Embedder | None:
+    """Embedder for the given config; None when degraded (plan §4.3/M4).
+
+    The OpenAI-compatible implementation wires up with the Phase 5 model
+    plumbing; until then a configured-but-unimplemented endpoint degrades to
+    None (FTS5-only retrieval, lexical novelty) rather than raising.
+    """
+    from .config import Config
+
+    assert isinstance(cfg, Config)
+    if cfg.llm.degraded_mode == "never-llm":
+        return None
+    if not cfg.llm_api_key():
+        return None
+    return None  # OpenAICompatibleEmbedder lands with Phase 5 wiring (M4)
+
+
+def build_llm(cfg) -> LLMClient | None:
+    """LLM client for the given config; None when degraded (deterministic
+    scoring path, §8.1). Same wiring schedule as build_embedder."""
+    from .config import Config
+
+    assert isinstance(cfg, Config)
+    if cfg.llm.degraded_mode == "never-llm":
+        return None
+    if not cfg.llm_api_key():
+        return None
+    return None  # OpenAICompatibleLLM lands with Phase 5 wiring (M4)

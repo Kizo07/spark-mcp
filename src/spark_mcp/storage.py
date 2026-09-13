@@ -10,7 +10,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 # Versioned migrations. Key = user_version the schema moves TO.
 MIGRATIONS: dict[int, str] = {
@@ -196,6 +196,70 @@ MIGRATIONS: dict[int, str] = {
         INSERT INTO tombstones_fts(rowid, summary) VALUES (new.rowid, new.summary);
     END;
     """,
+    3: """
+    -- Phase 2: method graph & novelty (plan §5.1). Predicates restricted to the
+    -- 6 active at launch (§2.7); enforced in code (graph.PREDICATES).
+    --
+    -- graph_nodes carries `as_of` in addition to the plan DDL so nodes obey the
+    -- same PIT visibility rule as hypotheses/episodes (§5.0 matrix): a row is
+    -- visible at T iff as_of <= T. `family` is additive to the plan DDL — the
+    -- §7 novelty term needs family-scoped archive lookups.
+    CREATE TABLE IF NOT EXISTS graph_nodes (
+        node_id TEXT PRIMARY KEY,
+        type TEXT NOT NULL,              -- technique|concept|domain|...
+        label TEXT NOT NULL,
+        family TEXT,                     -- additive to plan DDL (§7 family scoping)
+        mech_tags TEXT NOT NULL DEFAULT '[]',  -- JSON array
+        summary TEXT,
+        as_of TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_graph_nodes_type ON graph_nodes(type);
+    CREATE INDEX IF NOT EXISTS idx_graph_nodes_family ON graph_nodes(family);
+
+    CREATE TABLE IF NOT EXISTS graph_edges (
+        edge_id TEXT PRIMARY KEY,
+        src TEXT NOT NULL REFERENCES graph_nodes(node_id),
+        dst TEXT NOT NULL REFERENCES graph_nodes(node_id),
+        predicate TEXT NOT NULL,         -- SOLVES|FAILS_WHEN|COMPOSES_WITH|
+                                         -- DIAGNOSES|ASSUMES|DERIVED_FROM
+        weight REAL,
+        evidence_episode_ids TEXT NOT NULL DEFAULT '[]',  -- JSON (N6)
+        valid_from TEXT NOT NULL,
+        valid_to TEXT,                   -- invalidation, not deletion
+        as_of TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_graph_edges_src ON graph_edges(src);
+    CREATE INDEX IF NOT EXISTS idx_graph_edges_dst ON graph_edges(dst);
+    CREATE INDEX IF NOT EXISTS idx_graph_edges_predicate ON graph_edges(predicate);
+
+    -- FTS5 on graph_nodes (§5.0/N11 names label; mech_tags + summary are
+    -- indexed too so degraded-mode recall is not blind to mechanism
+    -- vocabulary — labels alone never carry it); insert trigger keeps sync.
+    CREATE VIRTUAL TABLE IF NOT EXISTS graph_nodes_fts
+        USING fts5(label, mech_tags, summary,
+                   content='graph_nodes', content_rowid='rowid');
+    CREATE TRIGGER IF NOT EXISTS graph_nodes_ai AFTER INSERT ON graph_nodes BEGIN
+        INSERT INTO graph_nodes_fts(rowid, label, mech_tags, summary)
+        VALUES (new.rowid, new.label, new.mech_tags, new.summary);
+    END;
+
+    -- LLM score cache (§8.1): cached per (method, problem_class, model_id) —
+    -- model version enters the key so a model change re-scores, never re-scales.
+    CREATE TABLE IF NOT EXISTS score_cache (
+        cache_key TEXT PRIMARY KEY,      -- sha1(method_id|problem_class|model_id)
+        method_id TEXT NOT NULL,
+        problem_class TEXT NOT NULL,
+        model_id TEXT NOT NULL,
+        relevance REAL NOT NULL,
+        structural_fit REAL NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    -- vec_embeddings is created dynamically by Database.ensure_vec_embeddings:
+    -- a sqlite-vec vec0 virtual table when the extension loads, else a plain
+    -- BLOB table with identical columns (degraded storage, numpy similarity).
+    """,
 }
 
 
@@ -204,6 +268,8 @@ class Database:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._conn: sqlite3.Connection | None = None
+        self._vec_available = False
+        self._vec_table_ready = False
 
     @property
     def conn(self) -> sqlite3.Connection:
@@ -216,7 +282,68 @@ class Database:
             self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.execute("PRAGMA busy_timeout=5000")
             self._conn.execute("PRAGMA foreign_keys=ON")
+            self._load_sqlite_vec()
         return self._conn
+
+    def _load_sqlite_vec(self) -> None:
+        """Load the sqlite-vec extension once per connection; guard failures
+        (N14: the package must run where the extension is missing)."""
+        self._vec_available = False
+        try:
+            import sqlite_vec
+
+            self._conn.enable_load_extension(True)  # load() is gated by default
+            sqlite_vec.load(self._conn)
+            self._conn.enable_load_extension(False)
+            self._conn.execute("SELECT vec_version()").fetchone()
+            self._vec_available = True
+        except Exception:
+            self._vec_available = False
+
+    @property
+    def vec_available(self) -> bool:
+        """sqlite-vec usable on this connection (False → BLOB fallback table)."""
+        _ = self.conn  # ensure the connection (and probe) has run
+        return self._vec_available
+
+    def vec_table_exists(self) -> bool:
+        """vec_embeddings is created lazily on the first embed write."""
+        row = self.conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE name = 'vec_embeddings'"
+        ).fetchone()
+        return row is not None
+
+    def ensure_vec_embeddings(self, dim: int) -> None:
+        """Create vec_embeddings if absent. sqlite-vec present → vec0 virtual
+        table (plan §5.1, N3: no BLOB columns on base tables); absent → plain
+        BLOB table with identical columns so embed-on-write never loses data.
+        Similarity search runs in numpy either way (archive scale is small),
+        which keeps this dimension-agnostic across embedders."""
+        if self._vec_table_ready:
+            return
+        row = self.conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE name = 'vec_embeddings'"
+        ).fetchone()
+        if row is None:
+            with self.conn:
+                if self._vec_available:
+                    self.conn.execute(
+                        "CREATE VIRTUAL TABLE vec_embeddings USING vec0("
+                        " subject_type TEXT, subject_id TEXT, model TEXT,"
+                        f" model_version TEXT, embedding FLOAT[{dim}])"
+                    )
+                else:
+                    self.conn.execute(
+                        "CREATE TABLE vec_embeddings ("
+                        " subject_type TEXT NOT NULL, subject_id TEXT NOT NULL,"
+                        " model TEXT NOT NULL, model_version TEXT NOT NULL,"
+                        " embedding BLOB NOT NULL)"
+                    )
+                    self.conn.execute(
+                        "CREATE INDEX IF NOT EXISTS idx_vec_embeddings_subject"
+                        " ON vec_embeddings(subject_type, subject_id)"
+                    )
+        self._vec_table_ready = True
 
     def close(self) -> None:
         if self._conn is not None:
@@ -250,14 +377,7 @@ class Database:
             return False
 
     def sqlite_vec_available(self) -> bool:
-        try:
-            import sqlite_vec
-
-            sqlite_vec.load(self.conn)
-            self.conn.execute("SELECT vec_version()").fetchone()
-            return True
-        except Exception:
-            return False
+        return self.vec_available
 
 
 def open_db(path: str | Path) -> Database:

@@ -44,7 +44,10 @@ def _propose(db, cfg, **overrides):
 def test_propose_register_log_round_trip(db, cfg):
     hyp = _propose(db, cfg)
     assert hyp["hypothesis_id"].startswith("hyp_")
-    assert hyp["N"] is None and hyp["S"] is None  # novelty scored in Phase 2
+    # Phase 2: empty archive ⇒ maximally novel (N = w·(1,1,1) = 1.0); S stays
+    # None until a realized_ic exists.
+    assert hyp["N"] == pytest.approx(1.0)
+    assert hyp["S"] is None
 
     reg = ledger.register_hypothesis(db, cfg, hyp["hypothesis_id"], {"signal": "mom"}, seed=42)
     assert reg["episode_id"].startswith("ep_")

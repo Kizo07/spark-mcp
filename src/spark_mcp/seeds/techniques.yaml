@@ -1,0 +1,1219 @@
+# Spark seed corpus — technique cards (plan §16.1, Phase 2: 100 cards).
+# Card schema: {name, aliases, family, mechanism_tags, assumptions,
+# failure_modes, composes_with, analog_domains, evidence_pointers, source,
+# license}. `assumptions`/`failure_modes` reference concept nodes in
+# concepts.yaml by name (normalized match); `composes_with` references other
+# cards by name. Provenance is mandatory per card (source, license).
+# Curation: human-reviewed, CC0-1.0.
+
+- name: Cross-sectional momentum
+  aliases: [relative strength momentum]
+  family: quant
+  mechanism_tags: [momentum, cross_section, behavioral_bias, trend]
+  assumptions: [trend_persistence, gradual_information_diffusion, liquidity]
+  failure_modes: [regime_shift, crowding, long_term_reversal]
+  composes_with: [Volatility-managed momentum, Residual momentum, Momentum with crowding adjustment]
+  analog_domains: [population_dynamics, mechanics_inertia]
+  evidence_pointers: ["Jegadeesh & Titman (1993)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Time-series momentum
+  aliases: [trend following, absolute momentum]
+  family: quant
+  mechanism_tags: [momentum, time_series, trend, risk_premium]
+  assumptions: [trend_persistence, ergodicity]
+  failure_modes: [regime_shift, whipsaw, transaction_costs]
+  composes_with: [Moving average trend filter, Donchian channel breakout, Volatility-managed momentum]
+  analog_domains: [mechanics_inertia, control_theory]
+  evidence_pointers: ["Moskowitz, Ooi & Pedersen (2012)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Short-term reversal
+  aliases: [weekly reversal, contrarian short-term]
+  family: quant
+  mechanism_tags: [reversal, microstructure, liquidity_provision, overreaction]
+  assumptions: [liquidity, mean_reversion, market_impact]
+  failure_modes: [transaction_costs, crowding, market_impact]
+  composes_with: [Bollinger band mean reversion, RSI mean reversion, Pairs trading cointegration]
+  analog_domains: [statistical_mechanics_relaxation, market_microstructure]
+  evidence_pointers: ["Jegadeesh & Titman (1995)", "Lehmann (1990)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Long-term reversal
+  aliases: [contrarian long-term, decompression]
+  family: quant
+  mechanism_tags: [reversal, long_horizon, overreaction, sentiment]
+  assumptions: [mean_reversion, gradual_information_diffusion]
+  failure_modes: [nonstationarity, regime_shift]
+  composes_with: [Composite mispricing score, Book-to-market value]
+  analog_domains: [population_cycles, thermodynamics_equilibrium]
+  evidence_pointers: ["De Bondt & Thaler (1985)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Post-earnings-announcement drift
+  aliases: [PEAD, earnings momentum]
+  family: quant
+  mechanism_tags: [event_study, earnings, underreaction, drift]
+  assumptions: [gradual_information_diffusion, limited_arbitrage]
+  failure_modes: [crowding, regime_shift, transaction_costs]
+  composes_with: [Standardized unexpected earnings, Earnings announcement straddle]
+  analog_domains: [information_theory, epidemiology_diffusion]
+  evidence_pointers: ["Bernard & Thomas (1989)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Standardized unexpected earnings
+  aliases: [SUE, earnings surprise]
+  family: quant
+  mechanism_tags: [earnings, surprise, cross_section, drift]
+  assumptions: [gradual_information_diffusion, stationarity]
+  failure_modes: [look_ahead_bias, regime_shift]
+  composes_with: [Post-earnings-announcement drift, Composite mispricing score]
+  analog_domains: [signal_detection, information_theory]
+  evidence_pointers: ["Latane & Jones (1977)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Gross profitability factor
+  aliases: [profitability premium]
+  family: quant
+  mechanism_tags: [quality, profitability, cross_section, fundamentals]
+  assumptions: [stationarity, rational_pricing]
+  failure_modes: [omitted_variable_bias, data_snooping]
+  composes_with: [Quality minus junk, Asset growth anomaly]
+  analog_domains: [industrial_organization, accounting]
+  evidence_pointers: ["Novy-Marx (2013)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Quality minus junk
+  aliases: [QMJ composite]
+  family: quant
+  mechanism_tags: [quality, composite, low_risk, fundamentals]
+  assumptions: [stationarity, sparsity]
+  failure_modes: [overfitting, data_snooping, crowding]
+  composes_with: [Gross profitability factor, Betting against beta, Composite mispricing score]
+  analog_domains: [credit_scoring, industrial_organization]
+  evidence_pointers: ["Asness, Frazzini & Pedersen (2019)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Accruals anomaly
+  aliases: [accrual mispricing]
+  family: quant
+  mechanism_tags: [accounting, cross_section, earnings_quality, contrarian]
+  assumptions: [earnings_persistence, stationarity]
+  failure_modes: [transaction_costs, regime_shift]
+  composes_with: [Quality minus junk, Net share issuance anomaly]
+  analog_domains: [accounting, signal_detection]
+  evidence_pointers: ["Sloan (1996)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Asset growth anomaly
+  aliases: [investment effect, asset expansion]
+  family: quant
+  mechanism_tags: [investment, cross_section, fundamentals, contrarian]
+  assumptions: [rational_pricing, stationarity]
+  failure_modes: [regime_shift, data_snooping]
+  composes_with: [Quality minus junk, Net share issuance anomaly]
+  analog_domains: [industrial_organization, corporate_finance]
+  evidence_pointers: ["Cooper, Gulen & Schill (2008)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Net share issuance anomaly
+  aliases: [share repurchase premium]
+  family: quant
+  mechanism_tags: [issuance, cross_section, corporate_action, contrarian]
+  assumptions: [manager_timing, stationarity]
+  failure_modes: [regime_shift, selection_bias]
+  composes_with: [Asset growth anomaly, Dividend yield premium]
+  analog_domains: [corporate_finance, signaling]
+  evidence_pointers: ["Ikenberry, Lakonishok & Vermaelen (1995)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Dividend yield premium
+  aliases: [dividend premium]
+  family: quant
+  mechanism_tags: [income, value, cross_section, risk_premium]
+  assumptions: [stationarity, rational_pricing]
+  failure_modes: [omitted_variable_bias, regime_shift]
+  composes_with: [Earnings yield value, Quality minus junk]
+  analog_domains: [fixed_income, demography]
+  evidence_pointers: ["Litzenberger & Ramaswamy (1979)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Earnings yield value
+  aliases: [EP value, earnings-to-price]
+  family: quant
+  mechanism_tags: [value, cross_section, fundamentals]
+  assumptions: [mean_reversion, stationarity]
+  failure_modes: [value_traps, regime_shift]
+  composes_with: [Book-to-market value, Composite mispricing score]
+  analog_domains: [accounting, arbitrage]
+  evidence_pointers: ["Basu (1977)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Book-to-market value
+  aliases: [HML, high minus low]
+  family: quant
+  mechanism_tags: [value, cross_section, risk_premium]
+  assumptions: [stationarity, rational_pricing]
+  failure_modes: [regime_shift, value_traps, crowding]
+  composes_with: [Earnings yield value, Composite mispricing score]
+  analog_domains: [accounting, credit_scoring]
+  evidence_pointers: ["Fama & French (1992)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Betting against beta
+  aliases: [BAB, low beta anomaly]
+  family: quant
+  mechanism_tags: [low_risk, leverage_constraint, cross_section]
+  assumptions: [leverage_constraints, stationarity]
+  failure_modes: [regime_shift, crowding, financing_costs]
+  composes_with: [Low volatility anomaly, Quality minus junk, Kelly criterion sizing]
+  analog_domains: [portfolio_theory, insurance]
+  evidence_pointers: ["Frazzini & Pedersen (2014)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Low volatility anomaly
+  aliases: [low vol effect]
+  family: quant
+  mechanism_tags: [low_risk, cross_section, leverage_constraint]
+  assumptions: [leverage_constraints, stationarity]
+  failure_modes: [regime_shift, interest_rate_sensitivity, crowding]
+  composes_with: [Betting against beta, Hierarchical risk parity]
+  analog_domains: [insurance, portfolio_theory]
+  evidence_pointers: ["Baker, Bradley & Wurgler (2011)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Idiosyncratic volatility anomaly
+  aliases: [IVOL effect]
+  family: quant
+  mechanism_tags: [volatility, cross_section, lottery_demand]
+  assumptions: [lottery_demand, shorting_frictions]
+  failure_modes: [data_snooping, regime_shift, transaction_costs]
+  composes_with: [MAX lottery effect, Betting against beta]
+  analog_domains: [lotteries, risk_pricing]
+  evidence_pointers: ["Ang, Hodrick, Xing & Zhang (2006)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: MAX lottery effect
+  aliases: [lottery MAX]
+  family: quant
+  mechanism_tags: [lottery_demand, skewness, cross_section]
+  assumptions: [lottery_demand, skewness_preference]
+  failure_modes: [data_snooping, regime_shift, transaction_costs]
+  composes_with: [Idiosyncratic volatility anomaly, Skewness preference anomaly]
+  analog_domains: [lotteries, prospect_theory]
+  evidence_pointers: ["Bali, Cakici & Whitelaw (2011)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Skewness preference anomaly
+  aliases: [preference for skew]
+  family: quant
+  mechanism_tags: [skewness, cross_section, lottery_demand]
+  assumptions: [skewness_preference, shorting_frictions]
+  failure_modes: [measurement_error, regime_shift]
+  composes_with: [MAX lottery effect, Idiosyncratic volatility anomaly]
+  analog_domains: [prospect_theory, gambling]
+  evidence_pointers: ["Conrad, Dittmar & Ghysels (2013)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Momentum crashes timing
+  aliases: [momentum crash avoidance]
+  family: quant
+  mechanism_tags: [momentum, drawdown_control, regime_aware]
+  assumptions: [volatility_clustering, regime_shift]
+  failure_modes: [overfitting, whipsaw]
+  composes_with: [Cross-sectional momentum, Volatility-managed momentum, Factor timing regime switching]
+  analog_domains: [seismology, control_theory]
+  evidence_pointers: ["Daniel & Moskowitz (2016)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Residual momentum
+  aliases: [idiosyncratic momentum]
+  family: quant
+  mechanism_tags: [momentum, factor_neutral, cross_section]
+  assumptions: [trend_persistence, factor_model_validity]
+  failure_modes: [factor_model_misspecification, crowding]
+  composes_with: [Cross-sectional momentum, Factor model risk decomposition]
+  analog_domains: [signal_extraction, control_theory]
+  evidence_pointers: ["Blitz, Huij & Martens (2011)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Information discreteness momentum
+  aliases: [continuous versus discrete information]
+  family: quant
+  mechanism_tags: [momentum, information_diffusion, cross_section]
+  assumptions: [gradual_information_diffusion, limited_arbitrage]
+  failure_modes: [measurement_error, regime_shift]
+  composes_with: [Cross-sectional momentum, Residual momentum]
+  analog_domains: [information_theory, cognitive_science]
+  evidence_pointers: ["Da, Gurun & Warachka (2014)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: 52-week high momentum
+  aliases: [anchoring momentum, nearness to high]
+  family: quant
+  mechanism_tags: [momentum, anchoring, cross_section]
+  assumptions: [anchoring_bias, trend_persistence]
+  failure_modes: [regime_shift, crowding]
+  composes_with: [Cross-sectional momentum, Time-series momentum]
+  analog_domains: [cognitive_science, prospect_theory]
+  evidence_pointers: ["George & Hwang (2004)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Intraday momentum
+  aliases: [first half-hour return prediction]
+  family: quant
+  mechanism_tags: [intraday, momentum, cross_section, microstructure]
+  assumptions: [liquidity, intraday_patterns, market_impact]
+  failure_modes: [transaction_costs, market_impact, crowding]
+  composes_with: [Overnight returns anomaly, Cross-sectional momentum]
+  analog_domains: [market_microstructure, circadian_biology]
+  evidence_pointers: ["Gao, Han & Li (2018)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Overnight returns anomaly
+  aliases: [overnight return premium]
+  family: quant
+  mechanism_tags: [overnight, cross_section, sentiment, retail_flow]
+  assumptions: [retail_flow, sentiment_driven_demand]
+  failure_modes: [market_impact, shorting_frictions, regime_shift]
+  composes_with: [Intraday momentum, Short-term reversal]
+  analog_domains: [market_microstructure, psychology]
+  evidence_pointers: ["Lou, Polk & Skouras (2019)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Volatility-managed momentum
+  aliases: [volatility scaling momentum]
+  family: quant
+  mechanism_tags: [momentum, volatility_scaling, risk_management]
+  assumptions: [volatility_clustering, mean_reversion, stationarity]
+  failure_modes: [leverage_constraints, regime_shift, estimation_error]
+  composes_with: [Cross-sectional momentum, Time-series momentum, Kelly criterion sizing]
+  analog_domains: [control_theory, insurance]
+  evidence_pointers: ["Moreira & Muir (2017)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Momentum with crowding adjustment
+  aliases: [crowding-aware momentum]
+  family: quant
+  mechanism_tags: [momentum, crowding, regime_aware, risk_management]
+  assumptions: [crowding, capacity_constraint, trend_persistence]
+  failure_modes: [measurement_error, crowding, overfitting]
+  composes_with: [Momentum crashes timing, Cross-sectional momentum]
+  analog_domains: [ecology_competition, traffic_flow]
+  evidence_pointers: ["Lou & Polk (2022)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Liquidity-adjusted momentum
+  aliases: [turnover-scaled momentum]
+  family: quant
+  mechanism_tags: [momentum, liquidity, cross_section]
+  assumptions: [liquidity, gradual_information_diffusion, market_impact]
+  failure_modes: [transaction_costs, market_impact, crowding]
+  composes_with: [Cross-sectional momentum, Amihud illiquidity premium]
+  analog_domains: [market_microstructure, fluid_dynamics]
+  evidence_pointers: ["Lee & Swaminathan (2000)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Amihud illiquidity premium
+  aliases: [Amihud ratio premium]
+  family: quant
+  mechanism_tags: [liquidity, risk_premium, cross_section]
+  assumptions: [liquidity_premium, stationarity]
+  failure_modes: [nonstationarity, transaction_costs, regime_shift]
+  composes_with: [Pastor-Stambaugh liquidity beta, Liquidity-adjusted momentum]
+  analog_domains: [market_microstructure, insurance]
+  evidence_pointers: ["Amihud (2002)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Pastor-Stambaugh liquidity beta
+  aliases: [liquidity beta]
+  family: quant
+  mechanism_tags: [liquidity, systematic_risk, time_series]
+  assumptions: [liquidity_premium, ergodicity]
+  failure_modes: [measurement_error, nonstationarity]
+  composes_with: [Amihud illiquidity premium, Factor model risk decomposition]
+  analog_domains: [systemic_risk, hydrology]
+  evidence_pointers: ["Pastor & Stambaugh (2003)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Moving average trend filter
+  aliases: [MA crossover, time series filter]
+  family: quant
+  mechanism_tags: [trend, technical, regime_filter, timing]
+  assumptions: [trend_persistence, stationarity]
+  failure_modes: [whipsaw, transaction_costs, lag]
+  composes_with: [Time-series momentum, Donchian channel breakout, Hidden Markov model regimes]
+  analog_domains: [control_theory, signal_smoothing]
+  evidence_pointers: ["Brock, Lakonishok & LeBaron (1992)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Donchian channel breakout
+  aliases: [channel breakout, turtle rules]
+  family: quant
+  mechanism_tags: [trend, breakout, technical, volatility_expansion]
+  assumptions: [trend_persistence, volatility_clustering]
+  failure_modes: [whipsaw, false_breakout, transaction_costs]
+  composes_with: [Moving average trend filter, Time-series momentum]
+  analog_domains: [fracture_mechanics, threshold_dynamics]
+  evidence_pointers: ["Kaufman (2013)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Bollinger band mean reversion
+  aliases: [Bollinger reversal]
+  family: quant
+  mechanism_tags: [mean_reversion, technical, volatility_bands]
+  assumptions: [mean_reversion, stationarity, volatility_clustering]
+  failure_modes: [regime_shift, transaction_costs, trending_markets]
+  composes_with: [RSI mean reversion, Short-term reversal, Kalman filter state estimation]
+  analog_domains: [thermodynamics_equilibrium, spring_dynamics]
+  evidence_pointers: ["Bollinger (2001)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: RSI mean reversion
+  aliases: [relative strength index reversal]
+  family: quant
+  mechanism_tags: [mean_reversion, technical, oscillator]
+  assumptions: [mean_reversion, stationarity]
+  failure_modes: [regime_shift, trending_markets, whipsaw]
+  composes_with: [Bollinger band mean reversion, Short-term reversal]
+  analog_domains: [oscillators, spring_dynamics]
+  evidence_pointers: ["Wilder (1978)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Pairs trading cointegration
+  aliases: [cointegration pairs, statistical arbitrage pairs]
+  family: quant
+  mechanism_tags: [statistical_arbitrage, cointegration, mean_reversion, relative_value]
+  assumptions: [cointegration, stationarity_spread, liquidity]
+  failure_modes: [structural_break, transaction_costs, crowding]
+  composes_with: [Cross-sectional z-score stat arb, Engle-Granger cointegration test, Kalman filter state estimation]
+  analog_domains: [arbitrage, tethered_systems]
+  evidence_pointers: ["Gatev, Goetzmann & Rouwenhorst (2006)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Cross-sectional z-score stat arb
+  aliases: [cross-sectional mean reversion, relative value z-score]
+  family: quant
+  mechanism_tags: [statistical_arbitrage, cross_section, mean_reversion]
+  assumptions: [cross_sectional_independence, stationarity]
+  failure_modes: [transaction_costs, crowding, regime_shift]
+  composes_with: [Pairs trading cointegration, Composite mispricing score]
+  analog_domains: [statistical_mechanics_relaxation, arbitrage]
+  evidence_pointers: ["Avellaneda & Lee (2010)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Composite mispricing score
+  aliases: [combined anomaly score]
+  family: quant
+  mechanism_tags: [composite, cross_section, multiple_signals, combination_method]
+  assumptions: [signal_combination, sparsity, stationarity]
+  failure_modes: [overfitting, multiple_testing_bias, data_snooping, crowding]
+  composes_with: [Quality minus junk, Book-to-market value, Cross-sectional z-score stat arb]
+  analog_domains: [ensemble_methods, voting_systems]
+  evidence_pointers: ["Stambaugh, Yu & Yuan (2015)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Factor timing regime switching
+  aliases: [regime conditional factor weights]
+  family: quant
+  mechanism_tags: [factor_timing, regime_aware, macro_conditioning]
+  assumptions: [regime_shift, predictability_of_regimes]
+  failure_modes: [overfitting, estimation_error, whipsaw]
+  composes_with: [Hamilton regime switching model, Hidden Markov model regimes, Momentum crashes timing]
+  analog_domains: [meteorology_regimes, control_theory]
+  evidence_pointers: ["Arnott, Clements, Masturzo & Moore (2019)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Marchenko-Pastur eigenvalue clipping
+  aliases: [MP clipping, random matrix filtering]
+  family: quant
+  mechanism_tags: [random_matrix_theory, covariance_cleaning, denoising]
+  assumptions: [random_matrix_null, stationarity, factor_structure]
+  failure_modes: [estimation_error, nonstationarity]
+  composes_with: [Ledoit-Wolf covariance shrinkage, Factor model risk decomposition]
+  analog_domains: [random_matrix_theory, spectral_physics]
+  evidence_pointers: ["Marchenko & Pastur (1967)", "Laloux et al. (1999)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Ledoit-Wolf covariance shrinkage
+  aliases: [LW shrinkage estimator]
+  family: quant
+  mechanism_tags: [shrinkage, covariance_estimation, regularization]
+  assumptions: [shrinkage_target, stationarity]
+  failure_modes: [nonstationarity, estimation_error, heavy_tails]
+  composes_with: [Marchenko-Pastur eigenvalue clipping, Markowitz mean-variance optimization]
+  analog_domains: [shrinkage_estimation, statistical_learning]
+  evidence_pointers: ["Ledoit & Wolf (2004)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Factor model risk decomposition
+  aliases: [statistical factor model, PCA factors]
+  family: quant
+  mechanism_tags: [factor_model, risk_decomposition, dimensionality_reduction]
+  assumptions: [latent_factor_structure, stationarity]
+  failure_modes: [factor_instability, rotation_invariance, regime_shift]
+  composes_with: [Ledoit-Wolf covariance shrinkage, Residual momentum, Marchenko-Pastur eigenvalue clipping]
+  analog_domains: [blind_source_separation, spectral_analysis]
+  evidence_pointers: ["Fama & French (1993)", "Connor & Korajczyk (1986)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Variational autoencoder alpha
+  aliases: [VAE factor extraction]
+  family: quant
+  mechanism_tags: [deep_generative, latent_factor, nonlinear, representation_learning]
+  assumptions: [latent_factor_structure, sufficient_data, optimization_convergence]
+  failure_modes: [overfitting, nonconvergence, data_snooping, look_ahead_bias]
+  composes_with: [Factor model risk decomposition, Cross-sectional z-score stat arb, LASSO variable selection]
+  analog_domains: [generative_modeling, information_theory]
+  evidence_pointers: ["Kingma & Welling (2013)", "Gu, Kelly & Xiu (2021)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Currency carry
+  aliases: [FX carry, carry trade]
+  family: quant
+  mechanism_tags: [carry, currency, risk_premium, macro]
+  assumptions: [uncovered_interest_parity_failure, regime_shift]
+  failure_modes: [crash_risk, regime_shift, crowding]
+  composes_with: [Commodity roll yield carry, Term structure carry, Volatility-managed momentum]
+  analog_domains: [interest_rate_arbitrage, insurance]
+  evidence_pointers: ["Lustig, Roussanov & Verdelhan (2011)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Commodity roll yield carry
+  aliases: [commodity carry, backwardation harvest]
+  family: quant
+  mechanism_tags: [carry, commodity, term_structure, risk_premium]
+  assumptions: [backwardation, hedging_pressure, regime_shift]
+  failure_modes: [contango_drag, regime_shift, crowding]
+  composes_with: [Currency carry, Term structure carry]
+  analog_domains: [agricultural_cycles, inventory_theory]
+  evidence_pointers: ["Gorton & Rouwenhorst (2006)", "Koijen, Moskowitz, Pedersen & Vrugt (2018)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Term structure carry
+  aliases: [bond carry, yield curve carry]
+  family: quant
+  mechanism_tags: [carry, fixed_income, term_structure, macro]
+  assumptions: [term_premium, stationarity]
+  failure_modes: [regime_shift, rate_shocks, convexity_mispricing]
+  composes_with: [Currency carry, Commodity roll yield carry]
+  analog_domains: [fixed_income, yield_curve_geometry]
+  evidence_pointers: ["Koijen, Moskowitz, Pedersen & Vrugt (2018)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Variance risk premium
+  aliases: [VRP harvesting]
+  family: quant
+  mechanism_tags: [options, volatility, risk_premium, tail]
+  assumptions: [variance_premium, volatility_clustering]
+  failure_modes: [tail_risk, jump_risk, regime_shift]
+  composes_with: [Delta-hedged option returns, Earnings announcement straddle]
+  analog_domains: [insurance, tail_risk]
+  evidence_pointers: ["Carr & Wu (2009)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Delta-hedged option returns
+  aliases: [delta hedged gains]
+  family: quant
+  mechanism_tags: [options, volatility_arbitrage, risk_premium]
+  assumptions: [stochastic_volatility, variance_premium]
+  failure_modes: [hedging_error, jumps, transaction_costs]
+  composes_with: [Variance risk premium, Option-implied skew trading]
+  analog_domains: [options_arbitrage, stochastic_processes]
+  evidence_pointers: ["Bakshi & Kapadia (2003)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Option-implied skew trading
+  aliases: [skew risk premium]
+  family: quant
+  mechanism_tags: [options, skewness, volatility_surface]
+  assumptions: [volatility_surface_dynamics, crash_phobia]
+  failure_modes: [tail_risk, regime_shift, hedging_error]
+  composes_with: [Delta-hedged option returns, Variance risk premium]
+  analog_domains: [tail_risk, sentiment_gauges]
+  evidence_pointers: ["Bali & Hovakimian (2009)", "Conrad, Dittmar & Ghysels (2013)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Earnings announcement straddle
+  aliases: [event volatility long]
+  family: quant
+  mechanism_tags: [options, event_study, volatility, earnings]
+  assumptions: [implied_vol_undervaluation, event_uncertainty]
+  failure_modes: [vol_crush, transaction_costs, timing_risk]
+  composes_with: [Post-earnings-announcement drift, Variance risk premium]
+  analog_domains: [event_driven, insurance]
+  evidence_pointers: ["Strasky (2018)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Merger arbitrage
+  aliases: [risk arbitrage, deal spread capture]
+  family: quant
+  mechanism_tags: [event_driven, merger_spread, arbitrage]
+  assumptions: [deal_completion, limited_competition]
+  failure_modes: [deal_break, regulatory_risk, crowding]
+  composes_with: [Earnings announcement straddle, Low volatility anomaly]
+  analog_domains: [arbitrage, deal_flow]
+  evidence_pointers: ["Mitchell & Pulvino (2001)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Index reconstitution arbitrage
+  aliases: [index addition deletion, forced rebalancing]
+  family: quant
+  mechanism_tags: [event_driven, index_flow, microstructure]
+  assumptions: [passive_flow_predictability, liquidity]
+  failure_modes: [front_running, market_impact, regime_shift]
+  composes_with: [Short-term reversal, Merger arbitrage]
+  analog_domains: [market_microstructure, flow_dynamics]
+  evidence_pointers: ["Harris & Gurel (1986)", "Shleifer (1986)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: OLS with Newey-West HAC standard errors
+  aliases: [Newey-West, HAC regression]
+  family: econometrics
+  mechanism_tags: [regression, inference, autocorrelation, heteroskedasticity]
+  assumptions: [ergodicity, stationarity]
+  failure_modes: [autocorrelation, heteroskedasticity, structural_break]
+  composes_with: [Huber robust regression, Fama-MacBeth cross-sectional regression]
+  analog_domains: [statistics, time_series]
+  evidence_pointers: ["Newey & West (1987)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Generalized method of moments
+  aliases: [GMM]
+  family: econometrics
+  mechanism_tags: [estimation, moment_conditions, instrumental_variables]
+  assumptions: [moment_validity, identification]
+  failure_modes: [weak_identification, finite_sample_bias, misspecification]
+  composes_with: [Two-stage least squares instrumental variables, OLS with Newey-West HAC standard errors]
+  analog_domains: [method_of_moments, structural_estimation]
+  evidence_pointers: ["Hansen (1982)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Fama-MacBeth cross-sectional regression
+  aliases: [Fama-MacBeth procedure]
+  family: econometrics
+  mechanism_tags: [cross_section, regression, factor_risk_premium]
+  assumptions: [cross_sectional_independence, stationarity]
+  failure_modes: [measurement_error, autocorrelation, omitted_variable_bias]
+  composes_with: [Factor model risk decomposition, OLS with Newey-West HAC standard errors]
+  analog_domains: [panel_methods, asset_pricing]
+  evidence_pointers: ["Fama & MacBeth (1973)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Panel fixed effects estimator
+  aliases: [within estimator, entity fixed effects]
+  family: econometrics
+  mechanism_tags: [panel_data, fixed_effects, unobserved_heterogeneity]
+  assumptions: [exogeneity, strict_exogeneity, stationarity]
+  failure_modes: [endogeneity, dynamic_panel_bias, measurement_error]
+  composes_with: [Hausman specification test, Difference-in-differences]
+  analog_domains: [panel_methods, longitudinal_analysis]
+  evidence_pointers: ["Wooldridge (2010)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Hausman specification test
+  aliases: [Hausman test]
+  family: econometrics
+  mechanism_tags: [specification_testing, endogeneity, model_selection]
+  assumptions: [asymptotic_normality, consistent_estimators]
+  failure_modes: [finite_sample_bias, heteroskedasticity]
+  composes_with: [Panel fixed effects estimator, Two-stage least squares instrumental variables]
+  analog_domains: [hypothesis_testing, econometric_theory]
+  evidence_pointers: ["Hausman (1978)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Augmented Dickey-Fuller test
+  aliases: [ADF test, unit root test]
+  family: econometrics
+  mechanism_tags: [unit_root, stationarity_testing, time_series]
+  assumptions: [autocorrelation_structure, linearity]
+  failure_modes: [low_power, structural_break, near_unit_root]
+  composes_with: [Engle-Granger cointegration test, Vector error correction model]
+  analog_domains: [time_series, stochastic_processes]
+  evidence_pointers: ["Dickey & Fuller (1979)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Engle-Granger cointegration test
+  aliases: [EG cointegration, residual cointegration test]
+  family: econometrics
+  mechanism_tags: [cointegration, long_run_relationship, time_series]
+  assumptions: [cointegration_rank_one, stationarity_residuals]
+  failure_modes: [multiple_cointegrating_vectors, small_sample, structural_break]
+  composes_with: [Vector error correction model, Augmented Dickey-Fuller test, Pairs trading cointegration]
+  analog_domains: [error_correction, tethered_systems]
+  evidence_pointers: ["Engle & Granger (1987)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Vector error correction model
+  aliases: [VECM]
+  family: econometrics
+  mechanism_tags: [cointegration, error_correction, multivariate_time_series]
+  assumptions: [cointegration, linearity, stationarity_differences]
+  failure_modes: [structural_break, lag_misspecification, nonlinearity]
+  composes_with: [Engle-Granger cointegration test, Vector autoregression]
+  analog_domains: [control_theory, error_correction]
+  evidence_pointers: ["Johansen (1991)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Vector autoregression
+  aliases: [VAR]
+  family: econometrics
+  mechanism_tags: [multivariate_time_series, impulse_response, forecasting]
+  assumptions: [stationarity, linearity, lag_structure]
+  failure_modes: [parameter_proliferation, regime_shift, overfitting]
+  composes_with: [Granger causality test, Vector error correction model]
+  analog_domains: [dynamical_systems, forecasting]
+  evidence_pointers: ["Sims (1980)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Granger causality test
+  aliases: [Granger causality, predictive causality]
+  family: econometrics
+  mechanism_tags: [causality, predictive_testing, time_series]
+  assumptions: [stationarity, lag_structure, linearity]
+  failure_modes: [nonlinearity, omitted_variable_bias, regime_shift]
+  composes_with: [Vector autoregression, PCMCI time-series causal discovery, Hamilton regime switching model]
+  analog_domains: [predictive_inference, dynamical_systems]
+  evidence_pointers: ["Granger (1969)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: GARCH volatility model
+  aliases: [GARCH(1,1)]
+  family: econometrics
+  mechanism_tags: [volatility, heteroskedasticity, time_series, volatility_clustering]
+  assumptions: [volatility_clustering, stationarity_variance]
+  failure_modes: [structural_break, heavy_tails, parameter_instability]
+  composes_with: [EGARCH asymmetric volatility, GJR-GARCH threshold volatility]
+  analog_domains: [volatility_modeling, turbulence]
+  evidence_pointers: ["Engle (1982)", "Bollerslev (1986)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: EGARCH asymmetric volatility
+  aliases: [exponential GARCH]
+  family: econometrics
+  mechanism_tags: [volatility, asymmetry, leverage_effect, time_series]
+  assumptions: [leverage_effect, volatility_clustering]
+  failure_modes: [structural_break, estimation_error]
+  composes_with: [GARCH volatility model, Option-implied skew trading]
+  analog_domains: [leverage_dynamics, turbulence]
+  evidence_pointers: ["Nelson (1991)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: GJR-GARCH threshold volatility
+  aliases: [GJR, threshold GARCH]
+  family: econometrics
+  mechanism_tags: [volatility, threshold_effect, asymmetry, time_series]
+  assumptions: [leverage_effect, threshold_dynamics, volatility_clustering]
+  failure_modes: [structural_break, estimation_error, threshold_misspecification]
+  composes_with: [GARCH volatility model, EGARCH asymmetric volatility]
+  analog_domains: [threshold_dynamics, turbulence]
+  evidence_pointers: ["Glosten, Jagannathan & Runkle (1993)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Quantile regression
+  aliases: [median regression, Koenker-Bassett]
+  family: econometrics
+  mechanism_tags: [regression, distributional, robust, tails]
+  assumptions: [linearity, monotonicity]
+  failure_modes: [crossing_quantiles, heteroskedasticity, computation_cost]
+  composes_with: [LASSO variable selection, Huber robust regression]
+  analog_domains: [order_statistics, distributional_analysis]
+  evidence_pointers: ["Koenker & Bassett (1978)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Ridge regression
+  aliases: [Tikhonov regularization, L2 shrinkage]
+  family: econometrics
+  mechanism_tags: [regularization, shrinkage, regression, multicollinearity]
+  assumptions: [shrinkage_target, stationarity]
+  failure_modes: [bias_variance_tradeoff, nonstationarity, scale_sensitivity]
+  composes_with: [Elastic net regularization, LASSO variable selection, Ledoit-Wolf covariance shrinkage]
+  analog_domains: [regularization_theory, illposed_problems]
+  evidence_pointers: ["Hoerl & Kennard (1970)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: LASSO variable selection
+  aliases: [L1 regularization, least absolute shrinkage]
+  family: econometrics
+  mechanism_tags: [variable_selection, sparsity, regularization, regression]
+  assumptions: [sparsity, irrepresentability]
+  failure_modes: [biased_coefficients, instability, correlated_predictors]
+  composes_with: [Elastic net regularization, Ridge regression, Composite mispricing score]
+  analog_domains: [compressed_sensing, sparse_recovery]
+  evidence_pointers: ["Tibshirani (1996)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Elastic net regularization
+  aliases: [L1+L2 regularization]
+  family: econometrics
+  mechanism_tags: [regularization, sparsity, grouped_selection, regression]
+  assumptions: [sparsity, grouping_effect]
+  failure_modes: [tuning_instability, nonstationarity]
+  composes_with: [LASSO variable selection, Ridge regression]
+  analog_domains: [regularization_theory, sparse_recovery]
+  evidence_pointers: ["Zou & Hastie (2005)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Huber robust regression
+  aliases: [Huber M-estimator]
+  family: econometrics
+  mechanism_tags: [robust_statistics, regression, outlier_resistance]
+  assumptions: [symmetric_errors, ergodicity]
+  failure_modes: [heavy_tails, leverage_points, tuning_constant]
+  composes_with: [Quantile regression, OLS with Newey-West HAC standard errors]
+  analog_domains: [robust_statistics, m_estimation]
+  evidence_pointers: ["Huber (1967)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Hamilton regime switching model
+  aliases: [Markov switching regression]
+  family: econometrics
+  mechanism_tags: [regime_switching, markov, nonlinearity, time_series]
+  assumptions: [markov_property, regime_persistence]
+  failure_modes: [local_optima, overfitting, regime_classification_error]
+  composes_with: [Hidden Markov model regimes, Factor timing regime switching, GARCH volatility model]
+  analog_domains: [dynamical_systems, phase_transitions]
+  evidence_pointers: ["Hamilton (1989)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Two-stage least squares instrumental variables
+  aliases: [2SLS, IV regression]
+  family: econometrics
+  mechanism_tags: [instrumental_variables, endogeneity, causal_estimation]
+  assumptions: [instrument_relevance, instrument_exogeneity, monotonicity]
+  failure_modes: [weak_instruments, exclusion_violation, finite_sample_bias]
+  composes_with: [Generalized method of moments, Hausman specification test]
+  analog_domains: [causal_inference, structural_estimation]
+  evidence_pointers: ["Angrist & Pischke (2008)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Backdoor adjustment
+  aliases: [Pearl backdoor criterion, confounder adjustment]
+  family: causal
+  mechanism_tags: [causal_inference, confounding, adjustment, identification]
+  assumptions: [confounding, exchangeability, positivity, correct_specification]
+  failure_modes: [omitted_variable_bias, collider_bias, positivity_violation]
+  composes_with: [Doubly robust estimation, Propensity score matching, Difference-in-differences]
+  analog_domains: [graphical_models, epidemiology]
+  evidence_pointers: ["Pearl (2009)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Front-door criterion
+  aliases: [front-door adjustment]
+  family: causal
+  mechanism_tags: [causal_inference, mediation, identification, unobserved_confounding]
+  assumptions: [unobserved_confounding, mediation_validity, identification]
+  failure_modes: [measurement_error, mediation_misspecification, unmeasured_mediator_confounding]
+  composes_with: [Backdoor adjustment, Negative controls and placebo testing]
+  analog_domains: [graphical_models, mediation_analysis]
+  evidence_pointers: ["Pearl (1995)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Regression discontinuity design
+  aliases: [RDD]
+  family: causal
+  mechanism_tags: [causal_inference, quasi_experimental, threshold, local_estimation]
+  assumptions: [threshold_effect, exchangeability, continuity]
+  failure_modes: [manipulation, bandwidth_sensitivity, low_power]
+  composes_with: [Two-stage least squares instrumental variables, Backdoor adjustment]
+  analog_domains: [threshold_dynamics, quasi_experiments]
+  evidence_pointers: ["Thistlethwaite & Campbell (1960)", "Imbens & Lemieux (2008)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Propensity score matching
+  aliases: [PSM]
+  family: causal
+  mechanism_tags: [causal_inference, matching, selection_bias, observational]
+  assumptions: [selection_bias, exchangeability, positivity, no_unmeasured_confounding]
+  failure_modes: [unmeasured_confounding, positivity_violation, matching_bias]
+  composes_with: [Backdoor adjustment, Doubly robust estimation]
+  analog_domains: [matching_markets, observational_studies]
+  evidence_pointers: ["Rosenbaum & Rubin (1983)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Doubly robust estimation
+  aliases: [aumented inverse propensity weighting]
+  family: causal
+  mechanism_tags: [causal_inference, robustness, combination_estimator]
+  assumptions: [no_unmeasured_confounding, correct_specification, positivity]
+  failure_modes: [both_models_misspecified, positivity_violation, overfitting]
+  composes_with: [Propensity score matching, Backdoor adjustment]
+  analog_domains: [ensemble_estimation, semi_parametric_theory]
+  evidence_pointers: ["Robins, Rotnitzky & Zhao (1994)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Difference-in-differences
+  aliases: [DiD, diff-in-diff]
+  family: causal
+  mechanism_tags: [causal_inference, panel_data, parallel_trends, quasi_experimental]
+  assumptions: [parallel_trends, no_anticipation, exchangeability]
+  failure_modes: [anticipation_effects, compositional_changes, heterogeneous_effects]
+  composes_with: [Synthetic control method, Panel fixed effects estimator, Negative controls and placebo testing]
+  analog_domains: [natural_experiments, policy_evaluation]
+  evidence_pointers: ["Card & Krueger (1994)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Synthetic control method
+  aliases: [SCM]
+  family: causal
+  mechanism_tags: [causal_inference, counterfactual, panel_data, donor_pool]
+  assumptions: [donor_pool_quality, no_interference, parallel_trends]
+  failure_modes: [donor_pool_contamination, extrapolation, overfitting]
+  composes_with: [Difference-in-differences, Panel fixed effects estimator]
+  analog_domains: [counterfactual_reconstruction, control_systems]
+  evidence_pointers: ["Abadie, Diamond & Hainmueller (2010)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: PC algorithm causal discovery
+  aliases: [PC, constraint-based causal discovery]
+  family: causal
+  mechanism_tags: [causal_discovery, graphical_models, conditional_independence]
+  assumptions: [faithfulness, causal_sufficiency, conditional_independence_tests]
+  failure_modes: [faithfulness_violation, finite_sample_errors, hidden_confounding]
+  composes_with: [PCMCI time-series causal discovery, Backdoor adjustment]
+  analog_domains: [graphical_models, constraint_satisfaction]
+  evidence_pointers: ["Spirtes, Glymour & Scheines (2000)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: PCMCI time-series causal discovery
+  aliases: [PCMCI, momentary conditional independence]
+  family: causal
+  mechanism_tags: [causal_discovery, time_series, conditional_independence, lagged_effects]
+  assumptions: [stationarity, causal_markov_condition, sufficient_time_series]
+  failure_modes: [nonstationarity, autocorrelation, hidden_confounding]
+  composes_with: [Granger causality test, PC algorithm causal discovery, Vector autoregression]
+  analog_domains: [dynamical_systems, information_flow]
+  evidence_pointers: ["Runge et al. (2019)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Negative controls and placebo testing
+  aliases: [negative control outcomes, placebo tests]
+  family: causal
+  mechanism_tags: [causal_validation, bias_detection, robustness]
+  assumptions: [bias_mechanisms, detectable_violations]
+  failure_modes: [uninformative_controls, residual_bias]
+  composes_with: [Difference-in-differences, Backdoor adjustment, Synthetic control method]
+  analog_domains: [falsification, quality_control]
+  evidence_pointers: ["Lipsitch, Tchetgen & Cohen (2010)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Fast Fourier transform spectral analysis
+  aliases: [FFT, Fourier analysis]
+  family: signal_processing
+  mechanism_tags: [frequency_domain, spectral_analysis, cycles, harmonic]
+  assumptions: [stationarity, finite_energy, sampling]
+  failure_modes: [nonstationarity, spectral_leakage, aliasing]
+  composes_with: [Welch periodogram estimation, Discrete wavelet transform denoising]
+  analog_domains: [acoustics, vibration_analysis]
+  evidence_pointers: ["Cooley & Tukey (1965)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Discrete wavelet transform denoising
+  aliases: [DWT, wavelet shrinkage]
+  family: signal_processing
+  mechanism_tags: [multi_resolution, denoising, localization, wavelet]
+  assumptions: [multi_scale_structure, sparsity]
+  failure_modes: [boundary_effects, wavelet_choice, threshold_selection]
+  composes_with: [Continuous wavelet transform scalogram, Fast Fourier transform spectral analysis]
+  analog_domains: [image_compression, seismology]
+  evidence_pointers: ["Daubechies (1988)", "Mallat (1989)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Continuous wavelet transform scalogram
+  aliases: [CWT, scalogram]
+  family: signal_processing
+  mechanism_tags: [time_frequency, localization, wavelet, regime_visualization]
+  assumptions: [multi_scale_structure, continuity]
+  failure_modes: [redundancy, computational_cost, wavelet_choice]
+  composes_with: [Discrete wavelet transform denoising, Spectral entropy measure]
+  analog_domains: [geophysics, neurophysiology]
+  evidence_pointers: ["Torrence & Compo (1998)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Spectral entropy measure
+  aliases: [FFT spectral entropy, frequency entropy]
+  family: signal_processing
+  mechanism_tags: [entropy, complexity, spectral_analysis, regularity]
+  assumptions: [stationarity, spectral_density]
+  failure_modes: [nonstationarity, window_choice, estimation_error]
+  composes_with: [Welch periodogram estimation, Fast Fourier transform spectral analysis]
+  analog_domains: [information_theory, complexity_science]
+  evidence_pointers: ["Inouye et al. (1991)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Welch periodogram estimation
+  aliases: [Welch method, averaged periodogram]
+  family: signal_processing
+  mechanism_tags: [spectral_estimation, variance_reduction, frequency_domain]
+  assumptions: [stationarity, overlapping_windows]
+  failure_modes: [bias_variance_tradeoff, windowing, leakage]
+  composes_with: [Fast Fourier transform spectral analysis, Spectral entropy measure]
+  analog_domains: [spectral_estimation, vibration_analysis]
+  evidence_pointers: ["Welch (1967)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Kalman filter state estimation
+  aliases: [Kalman, linear Gaussian filter]
+  family: signal_processing
+  mechanism_tags: [state_space, recursive_estimation, optimal_filtering, tracking]
+  assumptions: [linearity, gaussian_noise, known_model]
+  failure_modes: [model_misspecification, nonlinearity, outliers]
+  composes_with: [Unscented Kalman filter, Hidden Markov model regimes, Bollinger band mean reversion]
+  analog_domains: [navigation, control_theory]
+  evidence_pointers: ["Kalman (1960)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Unscented Kalman filter
+  aliases: [UKF, sigma point filter]
+  family: signal_processing
+  mechanism_tags: [nonlinear_filtering, state_space, sigma_points]
+  assumptions: [gaussian_approximation, smooth_nonlinearity]
+  failure_modes: [sigma_point_scaling, high_dimensions, model_misspecification]
+  composes_with: [Kalman filter state estimation, Hidden Markov model regimes]
+  analog_domains: [navigation, nonlinear_control]
+  evidence_pointers: ["Julier & Uhlmann (1997)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Hidden Markov model regimes
+  aliases: [HMM, Baum-Welch regimes]
+  family: signal_processing
+  mechanism_tags: [regime_detection, latent_states, probabilistic_inference, markov]
+  assumptions: [markov_property, ergodicity, discrete_states]
+  failure_modes: [state_misspecification, local_optima, regime_classification_error]
+  composes_with: [Hamilton regime switching model, Kalman filter state estimation, CUSUM change point detection]
+  analog_domains: [speech_recognition, dynamical_systems]
+  evidence_pointers: ["Baum & Petrie (1966)", "Rabiner (1989)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: CUSUM change point detection
+  aliases: [cumulative sum control chart]
+  family: signal_processing
+  mechanism_tags: [change_point, sequential_detection, cumulative_sums]
+  assumptions: [stationarity_between_changes, drift_detection]
+  failure_modes: [threshold_tuning, slow_detection, false_alarms]
+  composes_with: [Hidden Markov model regimes, Moving average trend filter]
+  analog_domains: [quality_control, surveillance]
+  evidence_pointers: ["Page (1954)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Empirical mode decomposition
+  aliases: [EMD, Hilbert-Huang transform]
+  family: signal_processing
+  mechanism_tags: [adaptive_decomposition, intrinsic_modes, nonlinear_nonstationary]
+  assumptions: [intrinsic_mode_functions, local_time_scales]
+  failure_modes: [mode_mixing, endpoint_effects, stopping_criteria]
+  composes_with: [Continuous wavelet transform scalogram, Fast Fourier transform spectral analysis]
+  analog_domains: [nonlinear_vibrations, geophysics]
+  evidence_pointers: ["Huang et al. (1998)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Graph Laplacian regularization
+  aliases: [manifold regularization, Laplacian smoothing]
+  family: network_optimization
+  mechanism_tags: [graph_signal, regularization, smoothness, network_structure]
+  assumptions: [smooth_graph_signals, network_connectedness]
+  failure_modes: [graph_misspecification, scale_sensitivity, nonstationarity]
+  composes_with: [Ledoit-Wolf covariance shrinkage, Louvain community detection]
+  analog_domains: [spectral_graph_theory, heat_diffusion]
+  evidence_pointers: ["Belkin & Niyogi (2001)", "Smola & Kondor (2003)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: PageRank centrality ranking
+  aliases: [eigenvector centrality]
+  family: network_optimization
+  mechanism_tags: [centrality, eigenvector, network_ranking, importance]
+  assumptions: [network_connectedness, ergodicity]
+  failure_modes: [dangling_nodes, scale_bias, graph_misspecification]
+  composes_with: [Louvain community detection, Lead-lag network inference]
+  analog_domains: [web_search, citation_networks]
+  evidence_pointers: ["Page et al. (1999)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Louvain community detection
+  aliases: [modularity optimization]
+  family: network_optimization
+  mechanism_tags: [community_structure, modularity, network_partitioning]
+  assumptions: [community_structure, network_connectedness]
+  failure_modes: [resolution_limit, instability, degeneracy]
+  composes_with: [Minimum spanning tree asset clustering, Graph Laplacian regularization]
+  analog_domains: [social_networks, modularity_optimization]
+  evidence_pointers: ["Blondel et al. (2008)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Minimum spanning tree asset clustering
+  aliases: [MST asset graph]
+  family: network_optimization
+  mechanism_tags: [asset_network, hierarchical_clustering, correlation_structure]
+  assumptions: [correlation_structure, metric_property]
+  failure_modes: [nonstationarity, estimation_error, heavy_tails]
+  composes_with: [Hierarchical risk parity, Louvain community detection, Ledoit-Wolf covariance shrinkage]
+  analog_domains: [percolation, network_science]
+  evidence_pointers: ["Mantegna (1999)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Lead-lag network inference
+  aliases: [lead lag structure, temporal network]
+  family: network_optimization
+  mechanism_tags: [lead_lag, network_inference, information_flow, cross_asset]
+  assumptions: [information_flow, stationarity]
+  failure_modes: [nonstationarity, estimation_error, regime_shift]
+  composes_with: [Granger causality test, PageRank centrality ranking]
+  analog_domains: [information_cascades, neuronal_networks]
+  evidence_pointers: ["Curme et al. (2015)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Independent component analysis
+  aliases: [ICA, blind source separation]
+  family: network_optimization
+  mechanism_tags: [blind_source_separation, non_gaussian, latent_factor, unmixing]
+  assumptions: [independent_sources, non_gaussianity, mixing_linearity]
+  failure_modes: [source_order_ambiguity, gaussian_sources, estimation_error]
+  composes_with: [Factor model risk decomposition, Minimum spanning tree asset clustering]
+  analog_domains: [cocktail_party_problem, signal_separation]
+  evidence_pointers: ["Hyvarinen & Oja (2000)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Markowitz mean-variance optimization
+  aliases: [modern portfolio theory, MVO]
+  family: network_optimization
+  mechanism_tags: [portfolio_optimization, mean_variance, allocation]
+  assumptions: [stationarity, estimation_accuracy, rational_objective]
+  failure_modes: [estimation_error, concentration, nonstationarity]
+  composes_with: [Ledoit-Wolf covariance shrinkage, Black-Litterman allocation, Hierarchical risk parity]
+  analog_domains: [portfolio_theory, quadratic_programming]
+  evidence_pointers: ["Markowitz (1952)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Hierarchical risk parity
+  aliases: [HRP]
+  family: network_optimization
+  mechanism_tags: [risk_parity, hierarchical, portfolio_optimization, diversification]
+  assumptions: [correlation_structure, tree_structure]
+  failure_modes: [estimation_error, nonstationarity, quasi_diag_errors]
+  composes_with: [Minimum spanning tree asset clustering, Ledoit-Wolf covariance shrinkage, Markowitz mean-variance optimization]
+  analog_domains: [hierarchical_clustering, risk_budgeting]
+  evidence_pointers: ["Lopez de Prado (2016)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Black-Litterman allocation
+  aliases: [BL model, equilibrium prior allocation]
+  family: network_optimization
+  mechanism_tags: [bayesian_allocation, views_combination, prior_posterior]
+  assumptions: [equilibrium_prior, view_confidence, normal_returns]
+  failure_modes: [view_specification, prior_sensitivity, estimation_error]
+  composes_with: [Markowitz mean-variance optimization, Kelly criterion sizing]
+  analog_domains: [bayesian_inference, decision_theory]
+  evidence_pointers: ["Black & Litterman (1992)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Kelly criterion sizing
+  aliases: [Kelly bet, growth optimal sizing]
+  family: network_optimization
+  mechanism_tags: [position_sizing, growth_optimal, risk_of_ruin]
+  assumptions: [stationarity, edge_estimate_accuracy, known_odds]
+  failure_modes: [overbetting, estimation_error, drawdowns]
+  composes_with: [Volatility-managed momentum, Black-Litterman allocation, Betting against beta]
+  analog_domains: [information_theory, gambling_theory]
+  evidence_pointers: ["Kelly (1956)"]
+  source: spark-curated
+  license: CC0-1.0
