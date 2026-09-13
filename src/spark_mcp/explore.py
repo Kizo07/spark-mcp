@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from typing import Any
 
 import numpy as np
@@ -312,19 +313,27 @@ def problem_class(problem: str) -> str:
 
 
 def _parse_score_reply(reply: str) -> tuple[float, float] | None:
-    """Tolerant parse of the scorer reply: strip markdown fences, fall back to
-    the first {...} block, clamp to [0, 1]. None when no usable JSON."""
-    import re
-
+    """Tolerant parse of the scorer reply: strip markdown fences, then scan
+    balanced {...} blocks and return the first that parses with both keys
+    (a greedy .* would glue two separate blocks together and fail)."""
     text = reply.strip()
     if text.startswith("```"):
         text = re.sub(r"^```[a-zA-Z]*\s*", "", text)
         text = re.sub(r"\s*```\s*$", "", text)
-    candidates = [text]
-    m = re.search(r"\{.*\}", text, re.DOTALL)
-    if m:
-        candidates.append(m.group(0))
-    for candidate in candidates:
+    blocks: list[str] = [text]
+    depth = 0
+    start = None
+    for i, ch in enumerate(text):
+        if ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}" and depth:
+            depth -= 1
+            if depth == 0 and start is not None:
+                blocks.append(text[start : i + 1])
+                start = None
+    for candidate in blocks:
         try:
             parsed = json.loads(candidate)
             rel = float(np.clip(float(parsed["relevance"]), 0.0, 1.0))
@@ -348,9 +357,10 @@ def _llm_scores(
     key = hashlib.sha1(
         f"{node['node_id']}|{pclass}|{model_id}".encode()
     ).hexdigest()
-    row = db.conn.execute(
-        "SELECT relevance, structural_fit FROM score_cache WHERE cache_key = ?", (key,)
-    ).fetchone()
+    with db.locked():  # raw read — threaded scoring pass shares one connection
+        row = db.conn.execute(
+            "SELECT relevance, structural_fit FROM score_cache WHERE cache_key = ?", (key,)
+        ).fetchone()
     if row is not None:
         return float(row["relevance"]), float(row["structural_fit"])
     prompt = (
@@ -488,17 +498,14 @@ def explore_methods(
     weights = (list(cfg.research.scoring_weights) + [0.0] * 5)[:5]
     pclass = problem_class(problem)
 
-    candidates = retrieval.hybrid_recall(
-        db,
-        problem,
-        as_of,
-        embedder=embedder,
-        k_vec=cfg.research.top_k,
-        k_fts=cfg.research.top_k,
-        rrf_k=cfg.research.rrf_k,
-        node_types=("technique",),
-    )
-    if not candidates:  # unmatchable problem text: fall back to all visible techniques
+    full_field = llm is not None and bool(getattr(cfg.research, "scoring_full_field", False))
+    if full_field:
+        # Semantic coverage: with an LLM scorer, rank the ENTIRE visible
+        # technique field, not a lexically-recalled window. Lexical padding
+        # demonstrably buries on-target cards (Hamilton regime switching and
+        # CUSUM never entered a 30-candidate set for a regime-detection
+        # problem). score_cache keys (node, problem_class, model) make the
+        # per-problem cost one-time; the scoring pass below is threaded.
         rows = db.conn.execute(
             "SELECT * FROM graph_nodes WHERE type = 'technique' AND as_of <= ?"
             " ORDER BY node_id",
@@ -507,6 +514,26 @@ def explore_methods(
         candidates = [dict(r) for r in rows]
         for c in candidates:
             c["mech_tags"] = json.loads(c["mech_tags"])
+    else:
+        candidates = retrieval.hybrid_recall(
+            db,
+            problem,
+            as_of,
+            embedder=embedder,
+            k_vec=cfg.research.top_k,
+            k_fts=cfg.research.top_k,
+            rrf_k=cfg.research.rrf_k,
+            node_types=("technique",),
+        )
+        if not candidates:  # unmatchable problem text: fall back to all visible techniques
+            rows = db.conn.execute(
+                "SELECT * FROM graph_nodes WHERE type = 'technique' AND as_of <= ?"
+                " ORDER BY node_id",
+                (as_of,),
+            ).fetchall()
+            candidates = [dict(r) for r in rows]
+            for c in candidates:
+                c["mech_tags"] = json.loads(c["mech_tags"])
 
     posteriors = _family_posteriors(db, cfg, as_of)
     scorer = DeterministicScorer(db, as_of, cfg)
@@ -552,15 +579,34 @@ def explore_methods(
     fit_exponent = float(cfg.research.family_fit_factor_exponent)
 
     # Pass 1: raw factored relevance per candidate (LLM or deterministic),
-    # plus structural_fit in the same pass when an LLM is present.
+    # plus structural_fit in the same pass when an LLM is present. LLM
+    # scoring runs threaded (the cache writes serialize on the db lock); a
+    # per-candidate failure falls back to the deterministic scorer and is
+    # tallied — scoring_mode alone cannot show a partial fallback.
+    def _score_one(node: dict) -> tuple[float, float | None] | None:
+        return _llm_scores(db, llm, node, problem, pclass) if llm else None
+
+    if llm is not None and len(candidates) > 1:
+        workers = max(int(getattr(cfg.research, "scoring_workers", 1)), 1)
+        if workers > 1:
+            from concurrent.futures import ThreadPoolExecutor
+
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                llm_results = list(pool.map(_score_one, candidates))
+        else:
+            llm_results = [_score_one(c) for c in candidates]
+    else:
+        llm_results = [_score_one(c) for c in candidates]
+
     raw_relevance: list[float] = []
     llm_fit: list[float | None] = []
-    for node in candidates:
-        llm_scores = _llm_scores(db, llm, node, problem, pclass) if llm else None
+    llm_fallback_count = 0
+    for node, llm_scores in zip(candidates, llm_results, strict=True):
         if llm_scores is not None:
             raw_relevance.append(llm_scores[0])
             llm_fit.append(llm_scores[1])
         else:
+            llm_fallback_count += 1 if llm is not None else 0
             raw_relevance.append(
                 scorer.relevance(problem_tokens, node) * _family_factor(node.get("family"))
             )
@@ -636,6 +682,7 @@ def explore_methods(
             "problem_class": pclass,
             "mode": mode,
             "scoring_mode": "llm" if llm else "deterministic",
+            "llm_fallback_count": 0,
             "temperature": temperature,
             "mmr_lambda": lam,
             "k": k,
@@ -700,6 +747,7 @@ def explore_methods(
         "problem_class": pclass,
         "mode": mode,
         "scoring_mode": "llm" if llm else "deterministic",
+        "llm_fallback_count": llm_fallback_count,
         "temperature": temperature,
         "mmr_lambda": lam,
         "k": k,

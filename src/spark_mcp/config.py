@@ -94,6 +94,14 @@ class ResearchConfig(BaseModel):
     # techniques by deterministic relevance so the §8.2 pool draw has real
     # choice — a 6-of-6 pool would repeat identically on every call (G1).
     selection_recall_pad_to: int = 30
+    # With an LLM scorer, rank the ENTIRE visible technique field instead of
+    # a lexically-recalled window (degraded mode keeps the recall+pad path).
+    # Lexical recall demonstrably buries on-target cards (Hamilton regime
+    # switching, CUSUM, DWT never entered a 30-candidate set for problems
+    # squarely in their domain). score_cache makes the per-problem cost
+    # one-time; scoring_workers threads the per-candidate calls.
+    scoring_full_field: bool = True
+    scoring_workers: int = 8
     # Softened family factor exponent for the structural_fit channel: edges
     # are the legitimate cross-family composition route, so fit is penalized
     # by factor^exponent rather than the full factor.

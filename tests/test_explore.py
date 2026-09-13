@@ -397,3 +397,43 @@ def test_recall_floor_pads_thin_recall_sets(seeded, cfg, embedder):
         as_of="2024-01-01T00:00:00Z", embedder=embedder, seed=3,
     )
     assert out_nopad["candidate_count"] < out_padded["candidate_count"]
+
+
+def test_full_field_scoring_with_llm_ranks_every_technique(seeded, cfg, embedder):
+    """With an LLM present and scoring_full_field (default), the candidate
+    field is the entire technique table — semantic coverage, not a lexical
+    window. FakeLLM scores everything; no fallbacks."""
+    from spark_mcp.llm import FakeLLM
+
+    n_nodes = seeded.conn.execute(
+        "SELECT COUNT(*) AS n FROM graph_nodes WHERE type = 'technique'"
+    ).fetchone()["n"]
+    llm = FakeLLM(replies={'"relevance"': '{"relevance": 0.8, "structural_fit": 0.5}'})
+    out = explore_methods(
+        seeded, cfg, "anything at all", k=5, mode="balanced",
+        as_of="2024-01-01T00:00:00Z", embedder=embedder, llm=llm, seed=5,
+    )
+    assert out["scoring_mode"] == "llm"
+    assert out["candidate_count"] == n_nodes
+    assert out["llm_fallback_count"] == 0
+
+
+def test_llm_fallbacks_are_counted_not_hidden(seeded, cfg, embedder):
+    """A scorer that returns no usable JSON falls back per candidate and the
+    result says so — scoring_mode alone cannot show a partial fallback."""
+    from spark_mcp.llm import FakeLLM
+
+    llm = FakeLLM(replies={})
+    out = explore_methods(
+        seeded, cfg, "some problem statement", k=5, mode="balanced",
+        as_of="2024-01-01T00:00:00Z", embedder=embedder, llm=llm, seed=5,
+    )
+    assert out["llm_fallback_count"] == out["candidate_count"]
+    assert out["llm_fallback_count"] > 0
+
+
+def test_parse_score_reply_two_blocks_takes_first_valid():
+    from spark_mcp.explore import _parse_score_reply
+
+    two = '{"relevance": 0.6, "structural_fit": 0.3} then {"relevance": broken'
+    assert _parse_score_reply(two) == (0.6, 0.3)
