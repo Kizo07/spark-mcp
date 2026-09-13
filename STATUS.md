@@ -227,3 +227,26 @@ G4 re-evaluates; (b) accept G4-red risk and direct Phase 6–7 to proceed —
 skill evolution would run on posteriors that are statistically healthy but
 on a suggestion base whose blind-eval depth is unproven; (c) re-scope G1's
 judge protocol (plan change, not orchestrator discretion).
+
+## G1 round 6 + knob-frontier measurement (2026-09-13, post corpus saturation)
+
+User-funded remediation (option 1): corpus saturation `2550aa2` (+37
+canonical techniques across the three thin shelves, 138 total; not tuned to
+any eval). Re-scored full field (glm-5.3); round 6 (same blind protocol):
+
+- Overlap half: **GREEN** — mean 0.208, per-problem ≤ 0.28.
+- Judge half: **[5,1,2,1,2]** (reviews/2026-09-13_g1-judge-round6.md) —
+  P3 and P5 newly pass (HMM/lead-lag; Kalman/CWT), total ≥3-rated picks
+  7 → 11. Scorer independently verified: P2's top ranks are local
+  projections/2SLS/doubly-robust; P4's are Ledoit-Wolf/HRP/Marchenko-Pastur.
+- **Knob frontier** (reviews/2026-09-13_g1-knob-frontier.md, 2×40-seed Monte
+  Carlo against historical judge-card ratings): temperature is not a lever
+  (compressed score range); min_eligible trades the two halves off along a
+  frontier from (overlap 0.21, P(all-five) 0.00) to (overlap 0.30, P 0.01).
+  **No in-scope §8.2 setting satisfies both halves.** The G1 judge criterion
+  as specified is measured-infeasible on this corpus with this judge's
+  strictness; crossing it needs a plan §18.0 protocol change (Tier-3, human)
+  or proceeding with G4 recorded red (human).
+
+G4 re-evaluation: still RED (G1 judge). Phases 6–7 remain unstarted per the
+goal's stop rule; awaiting the user's choice between the two remaining paths.
