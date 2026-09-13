@@ -46,3 +46,15 @@ def new_node_id() -> str:
 
 def new_edge_id() -> str:
     return f"edge_{_ulidish()}"
+
+
+def new_skill_id() -> str:
+    return f"skill_{_ulidish()}"
+
+
+def new_candidate_id() -> str:
+    return f"cand_{_ulidish()}"
+
+
+def new_approval_id() -> str:
+    return f"appr_{_ulidish()}"

@@ -1,0 +1,74 @@
+# Replay-suite seed fixtures (plan §11/§21): hand-written quant-research
+# tasks, seeded at Phase 6 start and grown from real failures thereafter.
+# Scoring (no LLM): a fixture's rubric items and reference_keywords are
+# matched against the skill's procedure_steps text (see evolve/gepa.py for
+# the exact matching rules). held_in fixtures form the default development
+# suite; held_in:false fixtures are held out and reported separately in every
+# verdict (heldout_gap is the anti-gaming alarm).
+- task_id: replay_momentum_cost_audit
+  prompt: >
+    Audit a 12-1 momentum backtest before anyone trusts its Sharpe: are the
+    universe, costs, and significance discipline all defensible?
+  family: quant
+  held_in: true
+  rubric:
+    - states the universe and point-in-time membership rules before ranking
+    - applies explicit transaction cost and slippage assumptions
+    - reports Sharpe paired with a deflated significance check
+    - checks turnover and capacity before trusting the result
+  reference_keywords: ["momentum", "turnover", "sharpe", "costs"]
+- task_id: replay_regime_switch
+  prompt: >
+    Build a regime-switching overlay for a trend model and prove the regime
+    labels are not in-sample decoration.
+  family: quant
+  held_in: true
+  rubric:
+    - names the regime segmentation method and its parameters
+    - validates regime labels out of sample before using them
+    - checks parameter stability across the labelled regimes
+  reference_keywords: ["regime", "out-of-sample"]
+- task_id: replay_causal_dag
+  prompt: >
+    Test whether order-flow imbalance causes next-day volatility, under a
+    declared causal design rather than a correlation hunt.
+  family: causal
+  held_in: true
+  rubric:
+    - draws an explicit causal graph before estimating anything
+    - names the adjustment set and the conditioning variables
+    - runs a placebo or negative control to challenge the effect
+  reference_keywords: ["dag", "adjustment", "placebo"]
+- task_id: replay_leakage_screen
+  prompt: >
+    Screen a feature pipeline for lookahead and point-in-time violations
+    before the backtest is allowed to run.
+  family: quant
+  held_in: true
+  rubric:
+    - verifies data availability as of each decision timestamp
+    - checks feature construction for lookahead windows
+    - documents the as_of policy used by the pipeline
+  reference_keywords: ["lookahead", "point-in-time"]
+- task_id: replay_panel_fe
+  prompt: >
+    Estimate a panel model of cross-sectional returns with firm and time
+    effects, and defend the inference.
+  family: econometrics
+  held_in: false
+  rubric:
+    - chooses a panel estimator with fixed effects for firm and time
+    - clusters standard errors at the firm level
+    - tests residuals for cross-sectional dependence
+  reference_keywords: ["fixed", "effects", "cluster"]
+- task_id: replay_spectral_micro
+  prompt: >
+    Characterize intraday liquidity oscillation with a spectral method and
+    show the peaks are not noise.
+  family: signal_processing
+  held_in: false
+  rubric:
+    - selects a spectral estimation method suited to uneven sampling
+    - estimates significance of peaks against a null spectrum
+    - checks stability of the dominant frequencies across windows
+  reference_keywords: ["spectral", "fft", "window"]

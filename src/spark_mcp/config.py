@@ -34,10 +34,21 @@ class PeerConfig(BaseModel):
     url: str | None = None
 
 
+class GatewayConfig(BaseModel):
+    """QuantFlow Gateway skill-write peer (plan §11 C7). Default absent: the
+    promotion write-path blocks with GatewayWriteBlocked and the champion
+    stays staged in Spark's registry, which remains the system of record."""
+
+    enabled: bool = False
+    url: str | None = None
+    token_env: str = "QUANTFLOW_GATEWAY_TOKEN"
+
+
 class PeersConfig(BaseModel):
     quantflow: PeerConfig = Field(default_factory=PeerConfig)
     alpha_engine: PeerConfig = Field(default_factory=PeerConfig)
     documents: PeerConfig = Field(default_factory=PeerConfig)
+    gateway: GatewayConfig = Field(default_factory=GatewayConfig)
 
 
 class ResearchConfig(BaseModel):
@@ -207,6 +218,16 @@ class ResearchConfig(BaseModel):
     # threshold or overcame at least one failure (resolution non-empty).
     hook_tool_calls_threshold: int = 50
     hook_tokens_threshold: int = 200_000
+    # Phase 6 GEPA caps (plan §11, §21 cost-blowup row): population and
+    # generation caps bound the native evolution loop; pareto_top_k is the
+    # parent pool the population refreshes from each generation.
+    gepa_population_size: int = 6
+    gepa_generations: int = 2
+    gepa_pareto_top_k: int = 3
+    # Replay gaming alarm (plan §11/§21): every replay verdict reports
+    # heldout_gap; a gap above this flags the fixture set for refresh review
+    # (challengers overfitting held-in tasks must surface).
+    replay_heldout_gap_alarm: float = 0.25
 
 
 class BudgetsConfig(BaseModel):

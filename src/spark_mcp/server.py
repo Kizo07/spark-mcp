@@ -1,6 +1,7 @@
 """MCP server: Phase-0 health tools, Phase-1 ledger & memory tools, Phase-2
 method graph & novelty tools, Phase-3 gates & backtest-seam tools, Phase-4
-QuantFlow Tier-2 hook seam, Phase-5 QD archive & exploration tools.
+QuantFlow Tier-2 hook seam, Phase-5 QD archive & exploration tools, Phase-6
+skill evolution (distill/challenger/replay/approve).
 
 `create_server(config)` builds a `Services` (config + database handle +
 embedder/llm clients + backtest provider) that the tool functions close over —
@@ -19,6 +20,7 @@ from pathlib import Path
 from fastmcp import FastMCP
 
 from . import __version__, archive, explore, graph, hooks, ledger, memory, novelty
+from . import skills as skills_service
 from .budgets import spend_summary
 from .config import Config
 from .gates import service as gates_service
@@ -473,6 +475,114 @@ def create_server(
                 "format": "md",
                 "markdown": _report_markdown(services, hypothesis_id, episode_id),
             }
+        )
+
+    # -- Phase 6: skill evolution (plan §6.3 tools 16-18/22, §11, §19 M11) -----
+
+    @mcp.tool()
+    def distill_skill(
+        episode_ids: list[str],
+        name: str,
+        role: str | None = None,
+        procedure_steps: list[str] | None = None,
+        references: list[str] | None = None,
+        client_id: str | None = None,
+    ) -> dict:
+        """Draft candidate from validated trajectories (plan §6.3 tool 16,
+        C10): every episode must exist and carry trajectory evidence (Tier-1
+        events and/or Tier-2 hook summaries). Writes a skills row status=
+        'draft' at the next free version; body_uri is the registry-internal
+        spark://skills/{name}/{version} pointer (filesystem deployment is
+        forbidden, §3.3); the procedure body lives in the lineage JSON.
+        Credit is assigned at promotion. Idempotent on client_id.
+        """
+        if procedure_steps is None:
+            raise ValueError("procedure_steps is required")
+        return skills_service.distill_skill(
+            services.db,
+            cfg,
+            episode_ids,
+            name,
+            role,
+            procedure_steps,
+            references=references,
+            client_id=client_id,
+        )
+
+    @mcp.tool()
+    def propose_skill_challenger(
+        skill_name: str,
+        op: str,
+        source_episode_ids: list[str] | None = None,
+        client_id: str | None = None,
+    ) -> dict:
+        """Challenger via mutation operators / mini-GEPA (plan §6.3 tool 17).
+        op in {repair, split, merge, paraphrase, gepa} (deterministic
+        definitions in spark_mcp.skills). Writes the challenger skills row
+        (status='challenger', version = next free for the name) plus a pending
+        skill_candidates row awaiting run_replay evidence. Idempotent on
+        client_id.
+        """
+        return skills_service.propose_skill_challenger(
+            services.db,
+            cfg,
+            skill_name,
+            op,
+            source_episode_ids=source_episode_ids,
+            client_id=client_id,
+            llm=services.llm,
+        )
+
+    @mcp.tool()
+    def run_replay(
+        skill_name: str | None = None,
+        suite: str | None = None,
+        task_ids: list[str] | None = None,
+        seed: int | None = None,
+    ) -> dict:
+        """Replay-suite verdicts (plan §6.3 tool 18, §11): scores skill
+        versions against the seeded quant-research fixtures and reports the
+        held-in/held-out split with heldout_gap in every verdict (anti-
+        gaming alarm, §21). Without an LLM the score is deterministic
+        keyword/rubric coverage; with one, an LLM judge 0-1 per rubric item,
+        cached per (skill_version, task_id, model_id). Scores land on the
+        newest pending candidate for each skill; with no pending candidate
+        the latest version is scored as a regression run.
+        """
+        return skills_service.run_replay(
+            services.db,
+            cfg,
+            skill_name=skill_name,
+            suite=suite,
+            task_ids=task_ids,
+            seed=seed,
+            llm=services.llm,
+        )
+
+    @mcp.tool()
+    def approve(
+        target_type: str,
+        target_id: str,
+        decision: str,
+        rationale: str,
+        decided_by: str = "human:operator",
+    ) -> dict:
+        """Human gate (plan §6.3 tool 22, M11): target_type in {belief, skill,
+        adoption}, decision in {approved, rejected}. belief resolves a
+        pending_human promotion (§12.3); skill ratifies or vetoes a staged
+        champion (veto rolls back to the rollback_target, §11); adoption
+        records the human authorization for taking a champion into a live
+        QuantFlow book (the book edit itself is out of band). Idempotent on
+        (target_type, target_id, decision).
+        """
+        return skills_service.approve(
+            services.db,
+            cfg,
+            target_type,
+            target_id,
+            decision,
+            rationale,
+            decided_by=decided_by,
         )
 
     return mcp

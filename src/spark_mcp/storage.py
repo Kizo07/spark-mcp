@@ -20,7 +20,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 # Versioned migrations. Key = user_version the schema moves TO.
 MIGRATIONS: dict[int, str] = {
@@ -353,6 +353,48 @@ MIGRATIONS: dict[int, str] = {
         PRIMARY KEY (descriptor_spec_version, cell_key)
     );
     CREATE INDEX IF NOT EXISTS idx_qd_cells_family ON qd_cells(family);
+    """,
+    8: """
+    -- Phase 6: skill evolution (plan §5.1, §11, M11). skill_candidates carries
+    -- the replay evidence for one challenger; approvals is the M11 human-gate
+    -- audit surface (also recording auto-with-human-notify gate decisions,
+    -- decided_by='gate'); replay_score_cache holds LLM judge scores keyed by
+    -- (skill_name, version, task_id, model_id) so a model swap re-scores
+    -- rather than silently re-scales (§21).
+    CREATE TABLE IF NOT EXISTS skill_candidates (
+        candidate_id TEXT PRIMARY KEY,
+        skill_name TEXT NOT NULL,
+        parent_version INTEGER,
+        source_episode_ids TEXT NOT NULL,   -- JSON array
+        mutation_op TEXT,
+        eval_scores TEXT,                   -- JSON {held_in: {...}, held_out: {...}}
+        heldout_gap REAL,                   -- replay-gaming alarm (§21)
+        verdict TEXT NOT NULL DEFAULT 'pending',  -- promoted|rejected|pending
+        decided_at TEXT,
+        decided_by TEXT                     -- 'gate' | 'human:…'
+    );
+    CREATE INDEX IF NOT EXISTS idx_skill_candidates_name
+        ON skill_candidates(skill_name, verdict);
+
+    CREATE TABLE IF NOT EXISTS approvals (
+        approval_id TEXT PRIMARY KEY,
+        target_type TEXT NOT NULL,          -- belief|skill|adoption
+        target_id TEXT NOT NULL,
+        decision TEXT NOT NULL,             -- approved|rejected
+        rationale TEXT NOT NULL,
+        decided_by TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS replay_score_cache (
+        cache_key TEXT PRIMARY KEY,         -- sha1(skill_name|version|task_id|model_id)
+        skill_name TEXT NOT NULL,
+        version INTEGER NOT NULL,
+        task_id TEXT NOT NULL,
+        model_id TEXT NOT NULL,
+        score REAL NOT NULL,
+        created_at TEXT NOT NULL
+    );
     """,
 }
 

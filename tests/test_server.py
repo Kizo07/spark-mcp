@@ -36,7 +36,7 @@ def test_spark_health():
     payload = json.loads(_call("spark_health"))
     assert payload["service"] == "spark"
     assert payload["db_exists"] is True
-    assert payload["schema_version"] == 7  # Phase 5: migration v7 adds qd_cells
+    assert payload["schema_version"] == 8  # Phase 6: v8 adds skill evolution tables
 
 
 def test_spark_doctor_reports_degraded_mode_and_capabilities():

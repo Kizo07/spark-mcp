@@ -38,7 +38,7 @@ def test_phase1_tools_full_flow(tmp_path):
     async def run():
         async with Client(_server(tmp_path)) as client:
             health = json.loads((await client.call_tool("spark_health", {})).content[0].text)
-            assert health["schema_version"] == 7  # Phase 5: migration v7 adds qd_cells
+            assert health["schema_version"] == 8  # Phase 6: v8 adds skill evolution tables
 
             prop = json.loads(
                 (await client.call_tool("hypothesis_propose", PROPOSE_ARGS)).content[0].text
