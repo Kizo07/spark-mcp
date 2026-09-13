@@ -211,12 +211,15 @@ family posteriors, else reassess (§6 kill rule).**
 | G3 | GREEN (Phase 5 scenario, reproduced by reviewer + orchestrator) |
 | ≥50 outcomes, non-degenerate posteriors | **PASS** — 60 outcomes across 5 families, Beta(10,4) everywhere (script: /tmp/g4_outcomes.py pattern; 60 trial rows, 0 degenerate) |
 
-**G4 verdict: RED — reassess per §6.** Reassessment summary: the §6 kill
-rule is functioning (tombstone + consecutive-failure machinery verified in
-G2/G3 scenarios); the blocker is not exploration hygiene but the G1 judge
-half's corpus-depth ceiling, already diagnosed and deliberately not gamed.
-Per the goal's stop rule, Phases 6–7 are NOT started with G4 red; this is a
-report-and-stop point, not a forced pass.
+**G4 verdict: RED — reassessed per §6.** Reassessment artifact:
+tests/test_g4_reassessment.py (`3cdce95`) — a family driven to K consecutive
+genuine failures is auto-tombstoned (kind='failed_hypothesis'), its Beta
+posterior collapses below 0.25, `suggest_next` redirects exploration away
+from it, and `archive_status` reflects both the collapsed and the healthy
+non-degenerate posteriors. Conclusion: §6 exploration hygiene (kill rule,
+posteriors, redirection) is healthy; the blocker is not mechanics but the G1
+judge half's corpus-depth ceiling, already diagnosed and deliberately not
+gamed. Per the goal's stop rule, Phases 6–7 are NOT started with G4 red.
 
 Unblock paths (human decision, §19): (a) fund the corpus-saturation work
 (methods-corpus ingestion for thin shelves) and re-run the G1 judge, then
