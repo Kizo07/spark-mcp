@@ -142,6 +142,11 @@ class ResearchConfig(BaseModel):
     dsr_alpha: float = 0.05
     kill_rule_failures: int = 5
     min_T: int = 30
+    # Tier-2 run-summary difficulty heuristics (plan §15.1, v1 §6 defaults):
+    # a QuantFlow hook summary triggers a retrospective when it exceeds either
+    # threshold or overcame at least one failure (resolution non-empty).
+    hook_tool_calls_threshold: int = 50
+    hook_tokens_threshold: int = 200_000
 
 
 class BudgetsConfig(BaseModel):

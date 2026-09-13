@@ -1,5 +1,6 @@
 """MCP server: Phase-0 health tools, Phase-1 ledger & memory tools, Phase-2
-method graph & novelty tools, Phase-3 gates & backtest-seam tools.
+method graph & novelty tools, Phase-3 gates & backtest-seam tools, Phase-4
+QuantFlow Tier-2 hook seam.
 
 `create_server(config)` builds a `Services` (config + database handle +
 embedder/llm clients + backtest provider) that the tool functions close over —
@@ -17,7 +18,7 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
-from . import __version__, explore, graph, ledger, memory, novelty
+from . import __version__, explore, graph, hooks, ledger, memory, novelty
 from .budgets import spend_summary
 from .config import Config
 from .gates import service as gates_service
@@ -396,6 +397,23 @@ def create_server(
         return gates_service.risk_decompose(
             services.db, cfg, services.provider, episode_id, spec, client_id=client_id
         )
+
+    @mcp.tool()
+    def run_summary_ingest(payload: dict) -> dict:
+        """Ingest a QuantFlow Tier-2 run summary (plan §15.1 C9/C10): counts,
+        failure sketches, skill activations, difficulty signals — not full
+        transcripts. The payload must carry schema_version=1 (newer versions
+        are rejected with HookSchemaError naming the received version) and is
+        validated before any write. A valid summary records a Tier-2
+        trajectory event (actor 'quantflow-hook', kind 'hook_summary') and,
+        when episode_id resolves, enriches the episode with the
+        agent-assembly fingerprint (fingerprint_spec_version defaults to
+        'unversioned'), skill versions (default {}), and retrospective
+        difficulty signals (ResearchConfig.hook_*_thresholds). QuantFlow-side
+        emission is optional — manual log_outcome close-out remains the
+        supported path (§15.1 fallback row 1).
+        """
+        return hooks.ingest_run_summary(services.db, cfg, payload)
 
     @mcp.tool()
     def report_write(

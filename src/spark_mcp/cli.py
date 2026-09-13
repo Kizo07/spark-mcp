@@ -1,13 +1,15 @@
-"""Operator CLI: init-db, doctor, serve, seed import (plan §13/M10 — CLI and
-MCP tools call the same service functions; no logic fork)."""
+"""Operator CLI: init-db, doctor, serve, seed import, closeout (plan §13/M10 —
+CLI and MCP tools call the same service functions; no logic fork)."""
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import typer
 from rich import print
 
+from . import hooks
 from .config import Config
 from .graph import import_seeds
 from .llm import build_embedder
@@ -54,6 +56,28 @@ def doctor(config: str | None = typer.Option(None, "--config", "-c")) -> None:
 def serve(config: str | None = typer.Option(None, "--config", "-c")) -> None:
     """Run the MCP server over stdio."""
     create_server(_load(config)).run()
+
+
+@app.command()
+def closeout(
+    payload: str = typer.Option(
+        ..., "--payload", help="Path to a QuantFlow Tier-2 run-summary JSON file (plan §15.1)."
+    ),
+    config: str | None = typer.Option(None, "--config", "-c"),
+) -> None:
+    """Ingest a QuantFlow Tier-2 run-summary payload from a JSON file.
+
+    The cron/manual-operator close-out path: same hooks.ingest_run_summary the
+    run_summary_ingest MCP tool calls (plan §13, no logic fork). Prints the
+    returned dict as JSON; a schema violation exits non-zero with the
+    HookSchemaError message.
+    """
+    cfg = _load(config)
+    db = open_db(cfg.db_path())
+    data = json.loads(Path(payload).read_text(encoding="utf-8"))
+    result = hooks.ingest_run_summary(db, cfg, data)
+    db.close()
+    print(json.dumps(result, indent=2, sort_keys=True))
 
 
 @seed_app.command("import")

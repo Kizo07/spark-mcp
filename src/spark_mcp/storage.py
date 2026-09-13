@@ -20,7 +20,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 6
 
 # Versioned migrations. Key = user_version the schema moves TO.
 MIGRATIONS: dict[int, str] = {
@@ -326,6 +326,15 @@ MIGRATIONS: dict[int, str] = {
     -- be enforced from the ledger. NULL = unattributed (manual/ad-hoc rows).
     ALTER TABLE spend_ledger ADD COLUMN run_id TEXT;
     CREATE INDEX IF NOT EXISTS idx_spend_ledger_run ON spend_ledger(run_id);
+    """,
+    6: """
+    -- Phase 4 (§15.1 C9): the QuantFlow hook-enrichment columns on episodes —
+    -- agent_assembly_fingerprint, fingerprint_spec_version, skill_versions —
+    -- already exist since migration 2 (plan §5.1 put them in the day-one DDL,
+    -- M13), so an ALTER here would fail with a duplicate-column error on every
+    -- database that ran migration 2, i.e. all of them. This marker pins the
+    -- Phase-4 schema state; any future additive episode columns land in
+    -- migration 7+.
     """,
 }
 

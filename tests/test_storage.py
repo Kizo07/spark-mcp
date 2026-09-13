@@ -6,7 +6,7 @@ from spark_mcp.storage import open_db
 def test_migrate_creates_meta_and_version(tmp_path):
     db = open_db(tmp_path / "spark.db")
     version = db.conn.execute("PRAGMA user_version").fetchone()[0]
-    assert version == 5
+    assert version == 6
     name = db.conn.execute(
         "SELECT value FROM spark_meta WHERE key='schema_name'"
     ).fetchone()[0]
@@ -19,7 +19,7 @@ def test_migrations_are_idempotent(tmp_path):
     db = open_db(path)
     db.close()
     db2 = open_db(path)  # second open: no pending migrations, no error
-    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == 5
+    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == 6
     db2.close()
 
 
@@ -30,6 +30,38 @@ def test_migration_v5_attributes_spend_to_runs(tmp_path):
     cols = {r[1] for r in db.conn.execute("PRAGMA table_info(spend_ledger)")}
     assert "run_id" in cols
     db.close()
+
+
+def test_migration_v6_episode_hook_columns(tmp_path):
+    """v6 (§15.1 C9): episodes carry the QuantFlow hook-enrichment columns
+    (agent_assembly_fingerprint, fingerprint_spec_version, skill_versions).
+    They were created by migration 2 (day-one plan §5.1 DDL, M13), so v6 is a
+    marker migration — asserted here so the columns' presence is pinned."""
+    db = open_db(tmp_path / "spark.db")
+    cols = {r[1]: r for r in db.conn.execute("PRAGMA table_info(episodes)")}
+    for name in ("agent_assembly_fingerprint", "fingerprint_spec_version", "skill_versions"):
+        assert name in cols, f"missing episode column {name}"
+    assert cols["skill_versions"][4] == "'{}'"  # dflt_value: JSON object default
+    db.close()
+
+
+def test_migration_v6_upgrades_a_v5_database(tmp_path):
+    """The v5 -> v6 upgrade path applies cleanly over a pre-Phase-4 database."""
+    from spark_mcp import storage
+
+    path = tmp_path / "spark.db"
+    marker = storage.MIGRATIONS.pop(6)
+    try:
+        db = open_db(path)  # db frozen at v5 (Phase-3 state)
+        assert db.conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        cols = {r[1] for r in db.conn.execute("PRAGMA table_info(episodes)")}
+        assert "agent_assembly_fingerprint" in cols  # present since migration 2
+        db.close()
+    finally:
+        storage.MIGRATIONS[6] = marker
+    db2 = open_db(path)  # reopen with v6 restored: marker applies
+    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == 6
+    db2.close()
 
 
 def test_phase1_tables_exist(tmp_path):

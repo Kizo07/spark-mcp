@@ -131,3 +131,31 @@ delta review: overlap half green (0.212, all problems ≤0.30), judge half red
 ([5,1,1,1,1]) with a corrected diagnosis — depth-per-problem vs draw entropy
 plus thin corpus shelves — and a plan-scoped remedy (Phase-4 ingestion).
 Final commit records this file and all review artifacts.*
+
+## Phase 4 — QuantFlow hook seam, Spark-side (built 2026-09-13; pending review)
+
+- `hooks.py`: Tier-2 run-summary receiver per §15.1 C9/C10. `validate_run_summary`
+  is strict (schema_version=1; newer versions refused with the received
+  version named — forward compat) and runs before any write;
+  `ingest_run_summary` records a Tier-2 trajectory event (actor
+  `quantflow-hook`, kind `hook_summary`, payload `{"tier": 2, ...}`) and
+  enriches the episode with fingerprint + spec version (`'unversioned'`
+  default, §15.1 fallback row 2), skill versions (`{}`, row 3), and the v1 §6
+  retrospective difficulty signals (`ResearchConfig.hook_tool_calls_threshold=50`,
+  `hook_tokens_threshold=200_000`).
+- Documented decision: unknown `episode_id` does NOT raise — the Tier-2 event
+  is still recorded (it is evidence), the episode is untouched, and the result
+  carries `enriched=False` + `warning`. Schema violations DO raise
+  `HookSchemaError` before any write.
+- Schema v6 is a marker migration: the episode enrichment columns exist since
+  migration 2 (day-one plan §5.1 DDL, M13); an ALTER would fail on every
+  existing database.
+- Entry points share one service function (plan §13, no fork): the
+  `run_summary_ingest` MCP tool and `spark closeout --payload <path.json>`.
+  QuantFlow-side emission stays optional — manual `log_outcome` close-out
+  remains the supported path (§15.1 fallback row 1).
+- **Deferred: §15.2 alpha_engine telemetry push** — the peer does not speak the
+  §15.2 contract on this machine (same finding as the G2 live-peer half);
+  extension point named `hooks.telemetry_push` (raises NotImplementedError)
+  until the peer exposes the contract.
+- Verdict: pending milestone review (AGENTS.md rule 5).
