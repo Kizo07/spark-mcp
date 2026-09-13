@@ -479,22 +479,23 @@ def test_suggest_next_tool_over_mcp(tmp_path):
     )
 
 
-def test_numeric_turnover_out_of_range_refused(archive, cfg):
+def test_numeric_turnover_out_of_range_refused(db, cfg):
     import math
 
     import pytest
 
     from spark_mcp.errors import ToolError
 
+    arch = archive.Archive(db, cfg)
     base = {"family": "quant", "horizon": "20d"}
     for bad in (-1.0, float("nan"), float("inf"), True):
         with pytest.raises(ToolError, match="turnover"):
-            archive.insert(
+            arch.insert(
                 hypothesis_id="hyp_x", descriptors={**base, "turnover": bad},
                 metrics={}, reward_type="predictive",
             )
     # boundary: 0.0 is a valid 'low'
-    out = archive.insert(
+    out = arch.insert(
         hypothesis_id="hyp_ok", descriptors={**base, "turnover": 0.0},
         metrics={"oos_ic": 0.5}, reward_type="predictive",
     )
@@ -502,20 +503,21 @@ def test_numeric_turnover_out_of_range_refused(archive, cfg):
     assert not math.isnan(out["elite_score"])
 
 
-def test_non_replacing_insert_reports_incumbent_score(archive, cfg):
+def test_non_replacing_insert_reports_incumbent_score(db, cfg):
+    arch = archive.Archive(db, cfg)
     d = {"family": "quant", "horizon": "20d", "turnover": "low"}
-    first = archive.insert(
+    first = arch.insert(
         hypothesis_id="hyp_a", descriptors=d,
         metrics={"oos_ic": 0.8}, reward_type="predictive",
     )
-    weaker = archive.insert(
+    weaker = arch.insert(
         hypothesis_id="hyp_b", descriptors=d,
         metrics={"oos_ic": 0.1}, reward_type="predictive",
     )
     assert weaker["elite_replaced"] is False
     assert weaker["incumbent_elite_score"] == first["elite_score"]
     # a replacing insert has no incumbent to report
-    stronger = archive.insert(
+    stronger = arch.insert(
         hypothesis_id="hyp_c", descriptors=d,
         metrics={"oos_ic": 0.95}, reward_type="predictive",
     )
