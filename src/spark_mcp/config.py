@@ -86,14 +86,23 @@ class ResearchConfig(BaseModel):
     selection_min_eligible: int = 24
     selection_pool_extra: int = 0
     selection_obvious_drop: int = 1
+    # Recall floor for explore_methods (0 disables): when hybrid recall
+    # returns fewer candidates than this, pad with the best remaining
+    # techniques by deterministic relevance so the §8.2 pool draw has real
+    # choice — a 6-of-6 pool would repeat identically on every call (G1).
+    selection_recall_pad_to: int = 30
     # Softened family factor exponent for the structural_fit channel: edges
     # are the legitimate cross-family composition route, so fit is penalized
     # by factor^exponent rather than the full factor.
     family_fit_factor_exponent: float = 0.5
     # Pool draws use temperature x this multiplier (higher = flatter draws =
     # more repeat-query exploration); the reported selection_probability is
-    # always the unflattened softmax.
-    selection_pool_temp_multiplier: float = 3.0
+    # always the unflattened softmax. Calibrated with the LLM scorer live
+    # (G1 simulation over the 5 canonical problems, 12-seed Monte Carlo):
+    # sharper LLM scores concentrate the draw, so the balanced-mode default
+    # sits at 6.0 (mean repeat-overlap ~0.20 vs SLO 0.30); the deterministic
+    # path is insensitive to this knob (flat scores already explore).
+    selection_pool_temp_multiplier: float = 6.0
     scoring_weights: list[float] = Field(default=[0.35, 0.20, 0.20, 0.15, 0.10])
     temperatures: dict[str, float] = Field(
         default={"safe": 0.3, "balanced": 0.7, "exploratory": 1.2}

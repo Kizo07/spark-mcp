@@ -515,6 +515,33 @@ def explore_methods(
     family_weights = scorer.family_weights(problem_tokens)
     family_floor = float(cfg.research.family_weight_floor)
 
+    # Recall floor: hybrid recall can return a handful of nodes for problems
+    # whose vocabulary is thin in the corpus (FTS finds few matches, no
+    # embedder). A 6-of-6 pool has no real draw in it — repeat queries would
+    # return the same k by construction (G1 overlap). Pad the recall set up
+    # to selection_recall_pad_to with the best remaining techniques by
+    # deterministic relevance, so the §8.2 draw always has room to explore.
+    # Padding orders candidates; the LLM/deterministic scorer still ranks all
+    # of them — nothing is promoted past the score stage.
+    pad_to = int(cfg.research.selection_recall_pad_to)
+    if pad_to > 0 and len(candidates) < pad_to:
+        have = {c["node_id"] for c in candidates}
+        rest = [
+            dict(r)
+            for r in db.conn.execute(
+                "SELECT * FROM graph_nodes WHERE type = 'technique' AND as_of <= ?"
+                " ORDER BY node_id",
+                (as_of,),
+            ).fetchall()
+            if r["node_id"] not in have
+        ]
+        for c in rest:
+            c["mech_tags"] = json.loads(c["mech_tags"])
+        rest.sort(
+            key=lambda c: (-scorer.relevance(problem_tokens, c), c["node_id"])
+        )
+        candidates = candidates + rest[: pad_to - len(candidates)]
+
     def _family_factor(node_family: str | None) -> float:
         # on-family candidates keep full lexical relevance; off-family ones
         # keep `family_floor` of it (cross-family composition stays possible)

@@ -352,3 +352,25 @@ def test_parse_score_reply_tolerates_fences_and_prose():
     assert _parse_score_reply('{"relevance": 1.7, "structural_fit": -0.2}') == (1.0, 0.0)
     assert _parse_score_reply("no json here") is None
     assert _parse_score_reply('{"relevance": 0.5}') is None
+
+
+def test_recall_floor_pads_thin_recall_sets(seeded, cfg, embedder):
+    """problems with thin FTS recall get padded up to
+    selection_recall_pad_to with best-remaining techniques, so the draw has
+    real choice; padding disabled -> recall set unchanged."""
+    thin = "esoteric niche query zqxwvf"
+    out_padded = explore_methods(
+        seeded, cfg, thin, k=5, mode="balanced",
+        as_of="2024-01-01T00:00:00Z", embedder=embedder, seed=3,
+    )
+    assert out_padded["candidate_count"] == min(
+        cfg.research.selection_recall_pad_to, 200
+    )
+    cfg_nopad = cfg.model_copy(
+        update={"research": cfg.research.model_copy(update={"selection_recall_pad_to": 0})}
+    )
+    out_nopad = explore_methods(
+        seeded, cfg_nopad, thin, k=5, mode="balanced",
+        as_of="2024-01-01T00:00:00Z", embedder=embedder, seed=3,
+    )
+    assert out_nopad["candidate_count"] < out_padded["candidate_count"]
