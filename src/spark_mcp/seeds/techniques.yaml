@@ -1,4 +1,6 @@
 # Spark seed corpus — technique cards (plan §16.1, Phase 2: 100 cards).
+# 2026-09-13 corpus-saturation pass: the three thin shelves (signal_processing,
+# econometrics, causal) gained 37 canonical-method cards (101 -> 138).
 # Card schema: {name, aliases, family, mechanism_tags, assumptions,
 # failure_modes, composes_with, analog_domains, evidence_pointers, source,
 # license}. `assumptions`/`failure_modes` reference concept nodes in
@@ -858,6 +860,150 @@
   source: spark-curated
   license: CC0-1.0
 
+- name: Box-Jenkins ARIMA modeling
+  aliases: [autoregressive integrated moving average, Box-Jenkins methodology]
+  family: econometrics
+  mechanism_tags: [autoregressive_modeling, differencing, forecasting, univariate_time_series]
+  assumptions: [stationarity_differences, ergodicity, autocorrelation_structure]
+  failure_modes: [regime_shift, structural_break, parameter_proliferation]
+  composes_with: [Vector autoregression, GARCH volatility model]
+  analog_domains: [time_series, industrial_processes]
+  evidence_pointers: ["Box & Jenkins (1970)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: KPSS stationarity test
+  aliases: [Kwiatkowski-Phillips-Schmidt-Shin test, stationarity test]
+  family: econometrics
+  mechanism_tags: [stationarity_testing, unit_root_testing, lag_truncation, hypothesis_testing]
+  assumptions: [stationarity, linearity, lag_structure]
+  failure_modes: [low_power, structural_break, bandwidth_sensitivity]
+  composes_with: [Augmented Dickey-Fuller test, Zivot-Andrews structural break unit root test]
+  analog_domains: [time_series, hypothesis_testing]
+  evidence_pointers: ["Kwiatkowski, Phillips, Schmidt & Shin (1992)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Zivot-Andrews structural break unit root test
+  aliases: [ZA test, unit root test with one structural break]
+  family: econometrics
+  mechanism_tags: [unit_root_testing, structural_break, trend_stationarity, hypothesis_testing]
+  assumptions: [structural_break, stationarity, linearity]
+  failure_modes: [low_power, small_sample, misspecification]
+  composes_with: [Augmented Dickey-Fuller test, Bai-Perron multiple break dating]
+  analog_domains: [time_series, structural_analysis]
+  evidence_pointers: ["Zivot & Andrews (1992)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Johansen cointegration test
+  aliases: [Johansen trace test, Johansen maximum eigenvalue test]
+  family: econometrics
+  mechanism_tags: [cointegration_rank_testing, maximum_likelihood, multivariate_time_series, hypothesis_testing]
+  assumptions: [cointegration, linearity, stationarity_differences]
+  failure_modes: [lag_misspecification, small_sample, heavy_tails]
+  composes_with: [Vector error correction model, Engle-Granger cointegration test]
+  analog_domains: [time_series, maximum_likelihood]
+  evidence_pointers: ["Johansen (1991)", "Johansen (1995)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Breusch-Godfrey autocorrelation test
+  aliases: [BG test, LM serial correlation test]
+  family: econometrics
+  mechanism_tags: [autocorrelation_testing, residual_diagnostics, lagrange_multiplier, regression_diagnostics]
+  assumptions: [correct_specification, ergodicity, lag_structure]
+  failure_modes: [lag_misspecification, low_power, nonlinearity]
+  composes_with: [White heteroskedasticity test, OLS with Newey-West HAC standard errors]
+  analog_domains: [regression_diagnostics, time_series]
+  evidence_pointers: ["Breusch (1978)", "Godfrey (1978)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: White heteroskedasticity test
+  aliases: [White test, heteroskedasticity-consistent test]
+  family: econometrics
+  mechanism_tags: [heteroskedasticity_testing, residual_diagnostics, asymptotic_inference, regression_diagnostics]
+  assumptions: [correct_specification, ergodicity, asymptotic_normality]
+  failure_modes: [small_sample, nonlinearity, low_power]
+  composes_with: [Breusch-Godfrey autocorrelation test, Huber robust regression]
+  analog_domains: [regression_diagnostics, robust_inference]
+  evidence_pointers: ["White (1980)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Diebold-Mariano forecast comparison test
+  aliases: [DM test, predictive accuracy comparison]
+  family: econometrics
+  mechanism_tags: [forecast_evaluation, loss_differential, predictive_accuracy, out_of_sample_testing]
+  assumptions: [stationarity, ergodicity, correct_specification]
+  failure_modes: [autocorrelation, small_sample, data_snooping]
+  composes_with: [Box-Jenkins ARIMA modeling, GARCH volatility model]
+  analog_domains: [forecasting, decision_science]
+  evidence_pointers: ["Diebold & Mariano (1995)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Smooth transition autoregression
+  aliases: [STAR, LSTAR, ESTAR]
+  family: econometrics
+  mechanism_tags: [smooth_transition, nonlinear_time_series, regime_switching, autoregression]
+  assumptions: [smooth_nonlinearity, stationarity, threshold_dynamics]
+  failure_modes: [nonconvergence, threshold_misspecification, parameter_proliferation]
+  composes_with: [Hamilton regime switching model, GARCH volatility model]
+  analog_domains: [nonlinear_dynamics, phase_transitions]
+  evidence_pointers: ["Terasvirta (1994)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Bai-Perron multiple break dating
+  aliases: [Bai-Perron structural change test, break dating]
+  family: econometrics
+  mechanism_tags: [structural_break, break_dating, sequential_testing, global_optimization]
+  assumptions: [structural_break, stationarity_between_changes, identification]
+  failure_modes: [low_power, small_sample, heteroskedasticity]
+  composes_with: [Zivot-Andrews structural break unit root test, Hamilton regime switching model]
+  analog_domains: [structural_analysis, time_series]
+  evidence_pointers: ["Bai & Perron (1998)", "Bai & Perron (2003)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Bayesian online change-point detection
+  aliases: [BOCPD, Adams-MacKay change point detection]
+  family: econometrics
+  mechanism_tags: [change_point, online_inference, run_length_posterior, message_passing]
+  assumptions: [hazard_function, known_model, drift_detection]
+  failure_modes: [prior_sensitivity, model_misspecification, slow_detection]
+  composes_with: [CUSUM change point detection, Hidden Markov model regimes]
+  analog_domains: [sequential_analysis, bayesian_inference]
+  evidence_pointers: ["Adams & MacKay (2007)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Markov-switching multifractal model
+  aliases: [MSMF, Calvet-Fisher-Thompson model]
+  family: econometrics
+  mechanism_tags: [multifractal_volatility, regime_switching, volatility_components, long_memory]
+  assumptions: [multifractality, markov_property, stationarity_variance]
+  failure_modes: [parameter_proliferation, estimation_error, overfitting]
+  composes_with: [GARCH volatility model, Hamilton regime switching model]
+  analog_domains: [volatility_modeling, multifractals]
+  evidence_pointers: ["Calvet, Fisher & Thompson (2006)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Trend scanning labeler
+  aliases: [t-stat trend scanning, Lopez de Prado trend labeling]
+  family: econometrics
+  mechanism_tags: [trend_labeling, t_statistic_paths, lookback_selection, machine_learning_labels]
+  assumptions: [linearity, sufficient_data, ergodicity]
+  failure_modes: [look_ahead_bias, multiple_testing_bias, small_sample]
+  composes_with: [Moving average trend filter, Donchian channel breakout]
+  analog_domains: [labeling_methods, time_series]
+  evidence_pointers: ["Lopez de Prado (2018)"]
+  source: spark-curated
+  license: CC0-1.0
+
 - name: Backdoor adjustment
   aliases: [Pearl backdoor criterion, confounder adjustment]
   family: causal
@@ -978,6 +1124,150 @@
   source: spark-curated
   license: CC0-1.0
 
+- name: Jorda local projections
+  aliases: [local projections, LP-IV]
+  family: causal
+  mechanism_tags: [impulse_response, local_projection, policy_evaluation, nonlinear_dynamics]
+  assumptions: [exogeneity, lag_structure, stationarity]
+  failure_modes: [omitted_variable_bias, parameter_proliferation, small_sample]
+  composes_with: [Vector autoregression, Gertler-Karadi high-frequency monetary identification]
+  analog_domains: [monetary_economics, dynamical_systems]
+  evidence_pointers: ["Jorda (2005)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Gertler-Karadi high-frequency monetary identification
+  aliases: [GK identification, monetary policy surprises]
+  family: causal
+  mechanism_tags: [monetary_policy, high_frequency_identification, event_window, instrumental_variables]
+  assumptions: [high_frequency_identification, instrument_relevance, rate_shocks]
+  failure_modes: [anticipation_effects, measurement_error, omitted_variable_bias]
+  composes_with: [Jorda local projections, Romer-Romer narrative monetary shocks]
+  analog_domains: [monetary_economics, event_studies]
+  evidence_pointers: ["Gertler & Karadi (2015)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Romer-Romer narrative monetary shocks
+  aliases: [narrative identification, Romer and Romer shocks]
+  family: causal
+  mechanism_tags: [monetary_policy, narrative_identification, forecast_residuals, time_series]
+  assumptions: [narrative_identification, rate_shocks, exogeneity]
+  failure_modes: [measurement_error, omitted_variable_bias, anticipation_effects]
+  composes_with: [Jorda local projections, Gertler-Karadi high-frequency monetary identification]
+  analog_domains: [monetary_economics, economic_history]
+  evidence_pointers: ["Romer & Romer (1989)", "Romer & Romer (2004)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Double machine learning
+  aliases: [DML, debiased machine learning, orthogonalized ML]
+  family: causal
+  mechanism_tags: [orthogonalization, cross_fitting, semiparametric_inference, machine_learning]
+  assumptions: [no_unmeasured_confounding, cross_fitting, neyman_orthogonality]
+  failure_modes: [overfitting, weak_identification, computational_cost]
+  composes_with: [LASSO variable selection, Backdoor adjustment]
+  analog_domains: [machine_learning, semiparametric_statistics]
+  evidence_pointers: ["Chernozhukov et al. (2018)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Causal forests
+  aliases: [generalized random forests, Wager-Athey forests]
+  family: causal
+  mechanism_tags: [heterogeneous_effects, honest_splitting, tree_ensembles, nonparametric_estimation]
+  assumptions: [honest_estimation, no_unmeasured_confounding, positivity]
+  failure_modes: [small_sample, tuning_instability, extrapolation]
+  composes_with: [Double machine learning, Propensity score matching]
+  analog_domains: [machine_learning, precision_medicine]
+  evidence_pointers: ["Athey & Imbens (2016)", "Wager & Athey (2018)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Local average treatment effect
+  aliases: [LATE, Imbens-Angrist estimand]
+  family: causal
+  mechanism_tags: [instrumental_variables, local_estimand, compliers, heterogeneous_effects]
+  assumptions: [instrument_relevance, instrument_exogeneity, monotonicity]
+  failure_modes: [weak_instruments, exclusion_violation, heterogeneous_effects]
+  composes_with: [Two-stage least squares instrumental variables, Regression discontinuity design]
+  analog_domains: [program_evaluation, labor_economics]
+  evidence_pointers: ["Imbens & Angrist (1994)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Synthetic difference-in-differences
+  aliases: [SDID, synthetic DiD]
+  family: causal
+  mechanism_tags: [panel_data, synthetic_control, difference_in_differences, regularized_weighting]
+  assumptions: [donor_pool_quality, parallel_trends, no_interference]
+  failure_modes: [donor_pool_contamination, small_sample, extrapolation]
+  composes_with: [Synthetic control method, Difference-in-differences]
+  analog_domains: [program_evaluation, panel_methods]
+  evidence_pointers: ["Arkhangelsky et al. (2021)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Callaway-Sant'Anna group-time DiD
+  aliases: [CS DiD, group-time ATT estimator]
+  family: causal
+  mechanism_tags: [staggered_adoption, group_time_effects, event_study, panel_data]
+  assumptions: [parallel_trends, no_anticipation, exchangeability]
+  failure_modes: [anticipation_effects, compositional_changes, small_sample]
+  composes_with: [Difference-in-differences, Synthetic difference-in-differences]
+  analog_domains: [program_evaluation, panel_methods]
+  evidence_pointers: ["Callaway & Sant'Anna (2021)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Shift-share instrumental variables
+  aliases: [Bartik instruments, exposure-shift design]
+  family: causal
+  mechanism_tags: [shift_share, instrumental_variables, exposure_design, regional_variation]
+  assumptions: [instrument_relevance, instrument_exogeneity, exogeneity]
+  failure_modes: [endogeneity, weak_instruments, omitted_variable_bias]
+  composes_with: [Two-stage least squares instrumental variables, Difference-in-differences]
+  analog_domains: [labor_economics, international_trade]
+  evidence_pointers: ["Bartik (1991)", "Goldsmith-Pinkham, Sorkin & Swift (2020)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Regression kink design
+  aliases: [RKD]
+  family: causal
+  mechanism_tags: [regression_kink, quasi_experimental, marginal_incentives, local_estimation]
+  assumptions: [threshold_effect, continuity, monotonicity]
+  failure_modes: [manipulation, bunching, low_power]
+  composes_with: [Regression discontinuity design, Local average treatment effect]
+  analog_domains: [public_finance, behavioral_responses]
+  evidence_pointers: ["Card, Lee, Pei & Weber (2015)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Triple differences
+  aliases: [DDD, difference-in-difference-in-differences]
+  family: causal
+  mechanism_tags: [triple_differences, quasi_experimental, panel_data, robustness_design]
+  assumptions: [parallel_trends, no_interference, exchangeability]
+  failure_modes: [compositional_changes, omitted_variable_bias, small_sample]
+  composes_with: [Difference-in-differences, Callaway-Sant'Anna group-time DiD]
+  analog_domains: [program_evaluation, natural_experiments]
+  evidence_pointers: ["Gruber (1994)", "Olden & Moen (2022)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Heckman selection correction
+  aliases: [Heckit, Heckman two-step]
+  family: causal
+  mechanism_tags: [selection_bias, inverse_mills_ratio, limited_dependent, two_step_estimation]
+  assumptions: [normality, selection_bias, correct_specification]
+  failure_modes: [misspecification, small_sample, finite_sample_bias]
+  composes_with: [Propensity score matching, Panel fixed effects estimator]
+  analog_domains: [labor_economics, selection_models]
+  evidence_pointers: ["Heckman (1979)"]
+  source: spark-curated
+  license: CC0-1.0
+
 - name: Fast Fourier transform spectral analysis
   aliases: [FFT, Fourier analysis]
   family: signal_processing
@@ -1095,6 +1385,162 @@
   composes_with: [Continuous wavelet transform scalogram, Fast Fourier transform spectral analysis]
   analog_domains: [nonlinear_vibrations, geophysics]
   evidence_pointers: ["Huang et al. (1998)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Roll implicit spread estimator
+  aliases: [Roll model, effective spread from autocovariance]
+  family: signal_processing
+  mechanism_tags: [market_microstructure, spread_estimation, autocovariance, implicit_costs]
+  assumptions: [bid_ask_bounce, stationarity, liquidity]
+  failure_modes: [autocorrelation, nonstationarity, microstructure_noise]
+  composes_with: [Hasbrouck price impact decomposition, VPIN order-flow toxicity]
+  analog_domains: [market_microstructure, queueing_theory]
+  evidence_pointers: ["Roll (1984)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Hasbrouck price impact decomposition
+  aliases: [Hasbrouck information share, trade-correlated price variance]
+  family: signal_processing
+  mechanism_tags: [market_microstructure, price_impact, variance_decomposition, order_flow]
+  assumptions: [order_flow_imbalance, stationarity, lag_structure]
+  failure_modes: [endogeneity, omitted_variable_bias, microstructure_noise]
+  composes_with: [Roll implicit spread estimator, Avellaneda-Stoikov market making]
+  analog_domains: [market_microstructure, information_theory]
+  evidence_pointers: ["Hasbrouck (1991)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Realized variance and bipower variation
+  aliases: [realized volatility, BV estimator, multipower variation]
+  family: signal_processing
+  mechanism_tags: [realized_volatility, quadratic_variation, jump_separation, high_frequency]
+  assumptions: [sampling, ergodicity, intraday_patterns]
+  failure_modes: [microstructure_noise, small_sample, nonstationarity]
+  composes_with: [Truncated realized variance, Pre-averaged realized volatility]
+  analog_domains: [financial_econometrics, stochastic_processes]
+  evidence_pointers: ["Andersen, Bollerslev, Diebold & Ebens (2001)", "Barndorff-Nielsen & Shephard (2004)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Hayashi-Yoshida asynchronous covariance
+  aliases: [HY estimator, all-overlap covariance estimator]
+  family: signal_processing
+  mechanism_tags: [asynchronous_trading, covariance_estimation, high_frequency, overlap_sampling]
+  assumptions: [asynchronous_trading, ergodicity, sampling]
+  failure_modes: [microstructure_noise, small_sample, endogeneity]
+  composes_with: [Realized variance and bipower variation, Lead-lag network inference]
+  analog_domains: [financial_econometrics, sensor_fusion]
+  evidence_pointers: ["Hayashi & Yoshida (2005)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Lee-Mykland jump test
+  aliases: [LM jump test, realized jump detection]
+  family: signal_processing
+  mechanism_tags: [jump_detection, high_frequency, sequential_testing, local_variance]
+  assumptions: [sampling, ergodicity, stationarity_between_changes]
+  failure_modes: [microstructure_noise, multiple_testing_bias, small_sample]
+  composes_with: [Realized variance and bipower variation, Truncated realized variance]
+  analog_domains: [quality_control, geophysics]
+  evidence_pointers: ["Lee & Mykland (2008)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Truncated realized variance
+  aliases: [threshold realized variance, jump-truncated volatility]
+  family: signal_processing
+  mechanism_tags: [integrated_variance, jump_robustness, thresholding, high_frequency]
+  assumptions: [jumps, sampling, ergodicity]
+  failure_modes: [threshold_selection, microstructure_noise, small_sample]
+  composes_with: [Realized variance and bipower variation, Lee-Mykland jump test]
+  analog_domains: [financial_econometrics, robust_statistics]
+  evidence_pointers: ["Mancini (2009)", "Ait-Sahalia & Jacod (2009)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Pre-averaged realized volatility
+  aliases: [pre-averaging estimator, noise-robust realized variance]
+  family: signal_processing
+  mechanism_tags: [noise_robustness, realized_volatility, pre_averaging, high_frequency]
+  assumptions: [microstructure_noise, sampling, ergodicity]
+  failure_modes: [tuning_constant, small_sample, nonstationarity]
+  composes_with: [Realized variance and bipower variation, Hayashi-Yoshida asynchronous covariance]
+  analog_domains: [financial_econometrics, signal_estimation]
+  evidence_pointers: ["Jacod, Li, Mykland, Podolskij & Vetter (2009)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: VPIN order-flow toxicity
+  aliases: [volume-synchronized probability of informed trading, order toxicity]
+  family: signal_processing
+  mechanism_tags: [order_flow, informed_trading, volume_bucketing, toxicity]
+  assumptions: [order_flow_imbalance, informed_trading, volume_bucketing]
+  failure_modes: [sampling, structural_break, estimation_error]
+  composes_with: [Roll implicit spread estimator, Hasbrouck price impact decomposition]
+  analog_domains: [market_microstructure, epidemiology_diffusion]
+  evidence_pointers: ["Easley, Lopez de Prado & O'Hara (2012)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Avellaneda-Stoikov market making
+  aliases: [AS model, reservation price market making]
+  family: signal_processing
+  mechanism_tags: [market_making, optimal_control, inventory_skewing, limit_order_book]
+  assumptions: [inventory_risk, liquidity, rational_objective]
+  failure_modes: [adverse_selection, jumps, parameter_instability]
+  composes_with: [Roll implicit spread estimator, Kelly criterion sizing]
+  analog_domains: [market_microstructure, optimal_control]
+  evidence_pointers: ["Avellaneda & Stoikov (2008)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: L1 trend filtering
+  aliases: [l1 trend filtering, piecewise linear trend extraction]
+  family: signal_processing
+  mechanism_tags: [trend_filtering, sparse_regression, piecewise_linear, denoising]
+  assumptions: [sparsity, linearity, ergodicity]
+  failure_modes: [tuning_constant, nonstationarity, endpoint_effects]
+  composes_with: [Hodrick-Prescott trend filter, Discrete wavelet transform denoising]
+  analog_domains: [signal_processing, operations_research]
+  evidence_pointers: ["Kim, Koh, Boyd & Gorinevsky (2009)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Hodrick-Prescott trend filter
+  aliases: [HP filter, Whittaker-Henderson smoothing]
+  family: signal_processing
+  mechanism_tags: [trend_cycle, smoothing_spline, penalized_least_squares, macro_filtering]
+  assumptions: [linearity, stationarity, sufficient_data]
+  failure_modes: [endpoint_effects, structural_break, overfitting]
+  composes_with: [L1 trend filtering, Baxter-King bandpass filter]
+  analog_domains: [macroeconomics, spline_smoothing]
+  evidence_pointers: ["Whittaker (1923)", "Hodrick & Prescott (1997)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Baxter-King bandpass filter
+  aliases: [BK filter, fixed-length bandpass filter]
+  family: signal_processing
+  mechanism_tags: [bandpass_filtering, business_cycles, frequency_domain, fixed_length_filter]
+  assumptions: [stationarity, sampling, windowing]
+  failure_modes: [endpoint_effects, window_choice, nonstationarity]
+  composes_with: [Hodrick-Prescott trend filter, Fast Fourier transform spectral analysis]
+  analog_domains: [macroeconomics, spectral_analysis]
+  evidence_pointers: ["Baxter & King (1999)"]
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Particle filter state estimation
+  aliases: [sequential Monte Carlo, SMC filter]
+  family: signal_processing
+  mechanism_tags: [sequential_monte_carlo, nonlinear_filtering, state_space, sampling]
+  assumptions: [markov_property, nonlinearity, known_model]
+  failure_modes: [degeneracy, small_sample, computational_cost]
+  composes_with: [Unscented Kalman filter, Hidden Markov model regimes]
+  analog_domains: [target_tracking, robotics]
+  evidence_pointers: ["Gordon, Salmond & Smith (1993)"]
   source: spark-curated
   license: CC0-1.0
 

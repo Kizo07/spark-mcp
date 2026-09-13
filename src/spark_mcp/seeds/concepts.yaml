@@ -5,6 +5,8 @@
 # Phase 3 nit fix: the layer grew to cover every concept referenced by the
 # technique cards, so seed import resolves all ASSUMES/FAILS_WHEN references
 # (unresolved_refs == 0; was 226/524 dropped into an aggregate counter).
+# 2026-09-13 corpus-saturation pass: +16 concepts for the new microstructure /
+# identification cards (247 -> 263; still unresolved_refs == 0).
 
 - name: Stationarity
   mechanism_tags: [time_series, distributional_stability]
@@ -1487,3 +1489,100 @@
   summary: Segmenting the series for local analysis; each window's content depends on length and placement.
   source: spark-curated
   license: CC0-1.0
+
+- name: Microstructure noise
+  mechanism_tags: [market_microstructure, noise, price_contamination]
+  summary: The gap between the observed transaction price and the latent efficient price created by bid-ask bounce, discreteness, and latency; the dominant bias in high-frequency estimation.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Bid-ask bounce
+  mechanism_tags: [market_microstructure, negative_autocovariance, spread]
+  summary: Transaction prices alternate between bid and ask as orders arrive, inducing negative autocovariance in price changes even when the efficient price follows a random walk.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Asynchronous trading
+  mechanism_tags: [market_microstructure, stale_prices, epps_effect]
+  summary: Assets print at non-synchronized times, so statistics computed on a fixed clock suffer stale-price attenuation toward zero (the Epps effect).
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Order flow imbalance
+  mechanism_tags: [market_microstructure, order_flow, price_impact]
+  summary: Net signed trading pressure over an interval; the state variable that moves prices and exposes liquidity providers to informed counterparties.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Informed trading
+  mechanism_tags: [market_microstructure, information_asymmetry, toxicity]
+  summary: Trading on private information; its presence makes order flow toxic, because liquidity providers systematically lose to better-informed traders.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Volume bucketing
+  mechanism_tags: [volume_clock, resampling, information_content]
+  summary: Resampling on increments of traded volume rather than clock time, so each bucket contains roughly equal information; the basis of volume-time analytics.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Inventory risk
+  mechanism_tags: [market_making, inventory, risk_aversion]
+  summary: The exposure of a liquidity provider to adverse price moves while holding a position; the force that skews quotes toward reducing the inventory.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Adverse selection
+  mechanism_tags: [information_asymmetry, liquidity_provision, market_microstructure]
+  summary: The risk of trading against a counterparty with superior information; it widens spreads and taxes every liquidity-supplying strategy.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Multifractality
+  mechanism_tags: [volatility, long_memory, scaling_laws]
+  summary: Volatility fluctuations organized across a continuum of time scales with scale-dependent singularity strengths, generating long memory in absolute moments.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Hazard function
+  mechanism_tags: [change_point, survival_analysis, run_length]
+  summary: The conditional probability that a change point arrives next period given none has occurred yet; the prior glue of online change-point models.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: High-frequency identification
+  mechanism_tags: [identification, event_study, monetary_policy]
+  summary: Isolating policy shocks from asset price changes in narrow windows around announcements, when no other confounding news plausibly arrives.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Narrative identification
+  mechanism_tags: [identification, historical_records, shock_recovery]
+  summary: Recovering shocks from historical records of policymakers' intentions and forecasts rather than from realized outcomes.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Cross-fitting
+  mechanism_tags: [sample_splitting, overfitting_control, machine_learning]
+  summary: Training nuisance models on one slice of the data and evaluating the target score on another, so nuisance overfitting cannot contaminate the parameter of interest.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Neyman orthogonality
+  mechanism_tags: [semiparametric, robustness, nuisance_parameters]
+  summary: A score whose first-order sensitivity to nuisance-parameter error vanishes, so first-stage estimation noise propagates only at second order.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Honest estimation
+  mechanism_tags: [tree_methods, sample_splitting, bias_reduction]
+  summary: Tree ensembles that separate the data used to grow partitions from the data used to estimate leaf values, removing adaptive-selection bias from predictions.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Bunching
+  mechanism_tags: [behavioral_response, threshold, manipulation_detection]
+  summary: Mass piling up on one side of a threshold because agents respond to it; evidence of manipulation and a threat to kink and cutoff designs.
+  source: spark-curated
+  license: CC0-1.0
+

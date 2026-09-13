@@ -53,8 +53,11 @@ def test_seed_import_counts_nodes_edges_embeddings(seeded, embedder):
     n_nodes = seeded.conn.execute("SELECT COUNT(*) FROM graph_nodes").fetchone()[0]
     n_edges = seeded.conn.execute("SELECT COUNT(*) FROM graph_edges").fetchone()[0]
     n_emb = seeded.conn.execute("SELECT COUNT(*) FROM vec_embeddings").fetchone()[0]
-    # 101 technique cards + a concept layer covering every referenced concept
-    assert 330 <= n_nodes <= 370
+    # 138 technique cards + a 263-node concept layer covering every referenced
+    # concept (bounds re-pinned 2026-09-13 corpus-saturation pass: the three
+    # thin shelves — signal_processing, econometrics, causal — gained 37
+    # canonical cards + 16 concepts; node total went 348 -> 401)
+    assert 380 <= n_nodes <= 440
     assert n_edges > 0
     assert n_emb == n_nodes  # embed-on-write: every seeded node embedded
     families = {
