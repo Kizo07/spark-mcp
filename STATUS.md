@@ -340,3 +340,65 @@ Other implementation decisions (for the milestone reviewer):
 
 G5 scenario: tests/test_g5_scenario.py (evidence printed from the test).
 Test counts: 391 total at the pre-review build; ruff clean.
+
+## Phase 6 — Skill evolution (closed 2026-09-13, after one FAIL → fix → re-review)
+
+- Built (2adaa50): distill_skill (Tier-1+Tier-2 evidence, C10), five
+  deterministic operators + native mini-GEPA (evolve/gepa.py, no dspy;
+  held-in only, §21), run_replay (6 fixtures, held_in/held_out +
+  heldout_gap, cached LLM judge), promotion gate with
+  auto-with-human-notify (approvals rows as the veto surface), approve
+  (tool 22), retirement + rollback_target chain, Gateway-only write path
+  (C7: versioned manifest + ack; every failure mode -> named
+  GatewayWriteBlocked, champion staged_in_spark).
+- First review **FAIL** (reviews/2026-09-13_phase-6.md): B1 decide/retire
+  unreachable + no gate criterion; B2 veto could kill the wrong version
+  after a lineage fork (reproduced live); M1 cherry-picked replay subsets
+  satisfied the gate.
+- Fixed (fd83666, 4cf12ec): exact candidate→challenger linkage (migration
+  v10, written at propose time; ambiguous legacy fallback refuses); full-
+  suite coverage enforced on promotions only; decide_skill_promotion +
+  retire_skill MCP tools and CLI; documented 'auto' criterion (first-
+  promotion floor / beat incumbent's held-in mean / heldout_gap alarm)
+  with all four branches pinned in a committed test.
+- **Re-review verdict: GO** (reviews/2026-09-13_phase-6-rereview.md) —
+  PASS-WITH-NITS on all three items, live-verified.
+
+## Phase 7 — Analogy, consolidation, curriculum (closed 2026-09-13)
+
+- analogy.py: SME-lite systematicity |M|/(|M|+|I|+0.5|A|) over decomposed
+  mech-tag relations; config threshold with named refusals; falsifiable
+  financial translation per mapping (LLM-cached + degraded template);
+  combine_methods pipeline/ensemble/residualizer grammar; analogy budget
+  cap via a __analogy__ sentinel row excluded from posterior reads.
+- consolidate.py: one service fn for MCP + CLI (N13); §12.3 belief decay
+  written (pinned exp(-1)); SLO listing; gap analysis; per-consolidation
+  budget cap (warn -> partial report, fail_closed -> pre-write refusal);
+  consolidation_runs + immutable artifact JSON.
+- suggest_next consumes gap reports BY ID (families boosted; report id on
+  the trajectory). curriculum.py: exercises from real gaps (explicit
+  deferral when none), replay-scored against the champion. report_write
+  HTML renderer decision: deferred (§20/N5).
+- **G5 GREEN** (tests/test_g5_scenario.py, reproduced by reviewer +
+  orchestrator): analogy-derived hypothesis validated through the DSR
+  gate; gap report consumed by id with boosted families; curriculum
+  exercise from a real gap replay-scored.
+- **Review verdict: PASS-WITH-NITS, GO** (reviews/2026-09-13_phase-7.md).
+
+## Goal state — Phases 4–7 complete (2026-09-13)
+
+Gates: G1 GREEN under the user-amended distribution protocol (overlap
+0.236; union judge [17,3,8,3,3]); G2 GREEN; G3 GREEN; G4 GREEN (honest
+evaluation, incl. the red period + §6 reassessment artifact); G5 GREEN.
+Per-phase reviews: 4 PASS-WITH-NITS (fallback tier), 5 PASS-WITH-NITS,
+6 PASS-WITH-NITS (after FAIL→fix→re-review GO), 7 PASS-WITH-NITS.
+Final suite: 396 tests, ruff clean, independence gate green. The only
+file modified outside spark-mcp/ is the plan's §18.0 G1 row (user-
+authorized Tier-3 amendment); the fd83666 history wart (concurrent Phase-6
+/Phase-7 edits sharing files) is documented in its commit message.
+
+Deferred to future work (recorded, not lost): live quantflow hook emission
+(change-list rows 1-3) + desk call sites (row 4); Gateway write-path
+activation (needs a versioned endpoint); Phase-2 deferred-by-design items;
+embeddings route; LLM-spend accounting on all LLM seams; P1–P5 carried
+nits per their review files.
