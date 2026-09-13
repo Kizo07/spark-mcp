@@ -676,7 +676,11 @@ def explore_methods(
         # when a stored posterior exists; at the (1,1) prior that mean is 0.5
         # — identical to the uniform constant this replaced, so empty-state
         # outputs (G1-pinned) are unchanged. Families without a stored row
-        # keep the uniform fallback.
+        # keep the uniform fallback. NOTE (Phase-5 review nit 2): with a
+        # stored row this makes exploration_bonus ≡ prior_success — §8.1's
+        # two terms collapse into one number with effective weight
+        # w_e + w_p = 0.25. Deliberate v1 simplification; an uncertainty
+        # bonus (Beta variance/UCB) is the recorded upgrade path.
         exploration_bonus = (
             prior_success
             if fam_stats.get("posterior_source") == "stored"

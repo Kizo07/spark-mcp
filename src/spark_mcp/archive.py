@@ -1,4 +1,5 @@
-"""QD archive — native numpy MAP-Elites (plan §10; pyribs is not installable
+"""QD archive — native MAP-Elites (pure-Python grid; plan §10; pyribs is not
+installable on this machine's index and is an optional accelerator only).
 on this machine, so the grid is native).
 
 Encoding (§10.1, descriptors v1): `family × horizon × turnover`, categorical,
@@ -42,6 +43,7 @@ approximation (novelty._cell_emptiness).
 from __future__ import annotations
 
 import json
+import math
 from typing import Any
 
 from . import budgets
@@ -137,6 +139,11 @@ class Archive:
         if name == "turnover":
             numeric = _clip01(value) is not None and isinstance(value, (int, float))
             if numeric:
+                if isinstance(value, bool) or not math.isfinite(float(value)) or float(value) < 0:
+                    raise ToolError(
+                        "QD insertion refused: numeric turnover must be a finite"
+                        f" value >= 0, got {value!r}"
+                    )
                 thresholds = [
                     float(t) for t in self._cfg.research.qd_turnover_thresholds
                 ]
@@ -343,6 +350,11 @@ class Archive:
             "reward_type": reward_type,
             "elite_replaced": replaced,
             "elite_hypothesis_id": elite_hypothesis_id,
+            # Non-replacing inserts return the CHALLENGER's score above; this
+            # field disambiguates by exposing the incumbent that held the cell.
+            "incumbent_elite_score": (
+                None if replaced else float(incumbent["descriptors"].get("elite_score") or 0.0)  # type: ignore[index]
+            ),
             "trials": trials,
         }
 

@@ -156,8 +156,9 @@ class ResearchConfig(BaseModel):
         ]
     )
     # Horizon bins are trading-day categories matching the corpus horizon
-    # vocabulary (hypotheses declare horizons like '20d'; the long_horizon
-    # corpus tag maps to 'long'). Case-insensitive exact match, else refused.
+    # vocabulary (hypotheses declare horizons like '20d'). Case-insensitive
+    # EXACT match only — no aliases (a 'long_horizon' corpus tag is refused,
+    # not mapped; callers normalize before insertion).
     qd_horizon_bins: list[str] = Field(
         default=["1d", "5d", "20d", "60d", "120d", "long"]
     )
