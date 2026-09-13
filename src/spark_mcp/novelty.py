@@ -5,13 +5,19 @@
 
 Defined behavior at the edges: an empty archive ⇒ max_cos = 0 (the idea is
 maximally novel vs nothing); no graph grounding ⇒ structural_overlap = 0;
-both keep N in [0, 1] and deterministic. cell_emptiness is a v1
-approximation — the QD grid lands in Phase 5, so until then
-cell_emptiness = 1 − distinct_families_tried / family_count_norm
-(ResearchConfig.family_count_norm, default 20), with distinct families taken
-PIT from episodes. In degraded mode (no embedder) max_cos falls back to a
-deterministic lexical proxy (max Jaccard of idea tokens vs archive text) so
-N stays meaningful without external calls; the basis is reported.
+both keep N in [0, 1] and deterministic. cell_emptiness has two modes
+(Phase 5): with an archive.Archive injected AND a known candidate family the
+term is REAL QD occupancy (§7) — 1.0 when the candidate family's slice has
+zero trials, else 1 − slice_trials/max_slice_trials over the grid, bounded
+[0,1] (a check_novelty candidate carries a family but no horizon/turnover,
+so the family slice is the finest archive granularity it can address; the
+basis is reported as cell_emptiness_basis='qd_archive'). Degraded mode — no
+archive injected (default None) or a family outside the bin vocabulary —
+keeps the v1 approximation 1 − distinct_families_tried / family_count_norm
+(basis 'family_count_approximation'), families PIT from episodes. In
+degraded mode (no embedder) max_cos falls back to a deterministic lexical
+proxy (max Jaccard of idea tokens vs archive text) so N stays meaningful
+without external calls; the basis is reported.
 """
 
 from __future__ import annotations
@@ -22,6 +28,7 @@ import numpy as np
 
 from . import retrieval
 from .config import Config
+from .errors import ToolError
 from .llm import split_model_id
 from .storage import Database
 from .timeutil import now_iso, validate_iso
@@ -177,8 +184,9 @@ def _structural_overlap(
 
 
 def _cell_emptiness(db: Database, cfg: Config, as_of: str) -> tuple[float, int]:
-    """v1 approximation (Phase 5 brings the real QD occupancy): 1 −
-    distinct_families_tried / family_count_norm, families PIT from episodes."""
+    """Degraded approximation (the REAL QD occupancy lives in
+    archive.Archive.cell_emptiness, §7): 1 − distinct_families_tried /
+    family_count_norm, families PIT from episodes."""
     row = db.conn.execute(
         "SELECT COUNT(DISTINCT research_family) AS n FROM episodes WHERE as_of <= ?",
         (as_of,),
@@ -186,6 +194,27 @@ def _cell_emptiness(db: Database, cfg: Config, as_of: str) -> tuple[float, int]:
     tried = int(row["n"]) if row else 0
     norm = max(int(cfg.research.family_count_norm), 1)
     return 1.0 - min(tried / norm, 1.0), tried
+
+
+def _cell_emptiness_term(
+    db: Database,
+    cfg: Config,
+    as_of: str,
+    family: str | None,
+    archive: Any | None,
+) -> tuple[float, int, str]:
+    """§7 cell_emptiness with basis: the archive's REAL family-slice occupancy
+    when an archive is injected and the family is in the QD vocabulary; the
+    degraded family-count approximation otherwise."""
+    approx, tried = _cell_emptiness(db, cfg, as_of)
+    if archive is not None and family is not None:
+        try:
+            # families_tried stays the episode-derived count (field meaning
+            # unchanged across modes); the basis flags which term fed N.
+            return archive.cell_emptiness(family), tried, "qd_archive"
+        except ToolError:
+            pass  # family outside the bin vocabulary: degraded approximation
+    return approx, tried, "family_count_approximation"
 
 
 def surprise(
@@ -214,8 +243,15 @@ def check_novelty(
     edge_set: set[tuple[str, str]] | None = None,
     exclude_subject_ids: set[str] | None = None,
     nearest_k: int = 5,
+    archive: Any | None = None,
 ) -> dict:
-    """Bounded novelty + surprise for an idea/hypothesis (§6.1 tool 5, §7)."""
+    """Bounded novelty + surprise for an idea/hypothesis (§6.1 tool 5, §7).
+
+    `archive`: an archive.Archive instance for the REAL §7 cell_emptiness
+    term; None (default) keeps the degraded family-count approximation.
+    Unknown families (outside the QD bin vocabulary) fall back to the
+    approximation even when an archive is present.
+    """
     as_of = validate_iso(as_of) if as_of else now_iso()
     idea_tokens = retrieval.tokens(idea_or_code)
 
@@ -239,7 +275,9 @@ def check_novelty(
         exclude_subject_ids,
     )
     structural = _structural_overlap(db, edge_set, as_of)
-    emptiness, families_tried = _cell_emptiness(db, cfg, as_of)
+    emptiness, families_tried, emptiness_basis = _cell_emptiness_term(
+        db, cfg, as_of, family, archive
+    )
 
     w1, w2, w3 = (list(cfg.research.novelty_weights) + [0.0, 0.0, 0.0])[:3]
     n = w1 * (1.0 - max_cos) + w2 * (1.0 - structural) + w3 * emptiness
@@ -252,6 +290,7 @@ def check_novelty(
         "max_cos_basis": basis,  # embedding | lexical (degraded)
         "structural_overlap": structural,
         "cell_emptiness": emptiness,
+        "cell_emptiness_basis": emptiness_basis,  # qd_archive | family_count_approximation
         "families_tried": families_tried,
         "nearest_hits": nearest_hits,
         "as_of": as_of,

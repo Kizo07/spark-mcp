@@ -227,7 +227,10 @@ def test_trajectory_records_tool_calls(db, cfg):
         "SELECT kind, run_id FROM trajectory_events ORDER BY seq"
     ).fetchall()
     # Phase 3: log_outcome also records the §8.3 family-outcome gate event.
-    assert {r["kind"] for r in rows} <= {"tool_call", "gate"}
+    # Phase 5: a success outcome attempts QD insertion (§10); this episode's
+    # family 'momentum' is outside the QD bin vocabulary, so the named
+    # refusal lands as an 'observation' event (never an error to the caller).
+    assert {r["kind"] for r in rows} <= {"tool_call", "gate", "observation"}
     assert [r["kind"] for r in rows].count("tool_call") == 3
     assert {hyp["hypothesis_id"], reg["episode_id"]} <= {r["run_id"] for r in rows}
 

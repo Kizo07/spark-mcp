@@ -52,7 +52,9 @@ class ResearchConfig(BaseModel):
     # cell_emptiness v1 normalizer: QD grid lands in Phase 5, so emptiness is
     # approximated as 1 − distinct_families_tried / family_count_norm (§7 note).
     family_count_norm: int = 20
-    # Phase 2 uniform exploration bonus; bandit posteriors replace it in Phase 5.
+    # Phase 2 uniform exploration bonus; Phase 5 uses the family Thompson
+    # posterior mean for stored rows (§8.3) and keeps this as the fallback for
+    # families with no stored posterior (empty-state behavior stays 0.5).
     exploration_bonus_uniform: float = 0.5
     # Family-aware relevance (degraded/deterministic mode): candidates from a
     # family the problem doesn't point at keep this fraction of their lexical
@@ -139,6 +141,63 @@ class ResearchConfig(BaseModel):
     contradiction_cos: float = 0.75
     qd_grid: list[int] = Field(default=[8, 6, 4])
     qd_descriptors: list[str] = Field(default=["family", "horizon", "turnover"])
+    # QD descriptor bins (Phase 5, plan §10.1): categorical bin lists, one per
+    # qd_descriptors dimension; len(qd_*_bins) must equal the matching qd_grid
+    # entry. Family bins 1-5 mirror the Phase-2 seed corpus families
+    # (seeds/techniques.yaml: quant/econometrics/causal/signal_processing/
+    # network_optimization); nlp reserves the §15.3 documents desk; macro and
+    # portfolio reserve adjacent desks named on the plan's tool surface.
+    # A descriptor value outside its bin list is refused at insertion (named
+    # ToolError) — there is deliberately no catch-all bin.
+    qd_family_bins: list[str] = Field(
+        default=[
+            "quant", "econometrics", "causal", "signal_processing",
+            "network_optimization", "nlp", "macro", "portfolio",
+        ]
+    )
+    # Horizon bins are trading-day categories matching the corpus horizon
+    # vocabulary (hypotheses declare horizons like '20d'; the long_horizon
+    # corpus tag maps to 'long'). Case-insensitive exact match, else refused.
+    qd_horizon_bins: list[str] = Field(
+        default=["1d", "5d", "20d", "60d", "120d", "long"]
+    )
+    # Turnover bins are daily-turnover categories. A numeric params.turnover
+    # (BacktestSpec) maps through qd_turnover_thresholds = upper bounds for
+    # low/medium/high (above the last bound -> very_high); a string value must
+    # match a bin name directly.
+    qd_turnover_bins: list[str] = Field(
+        default=["low", "medium", "high", "very_high"]
+    )
+    qd_turnover_thresholds: list[float] = Field(default=[0.25, 0.75, 1.5])
+    # Elite score weights (plan §10.2, M12), full predictive set.
+    qd_reward_weights: dict[str, float] = Field(
+        default={
+            "oos": 0.30, "deflated_significance": 0.20, "robustness": 0.15,
+            "orthogonality": 0.15, "novelty": 0.10, "efficiency": 0.10,
+        }
+    )
+    # Causal adds stability, drawn FROM the same budget: the six full-set
+    # weights are rescaled by (1 - qd_causal_stability_weight) so the causal
+    # set still sums to 1.0 (default -> stability 0.10, others x0.9).
+    qd_causal_stability_weight: float = 0.10
+    # Descriptive/execution reduced non-Sharpe set (no oos_ic / deflated
+    # significance — a descriptive study is not scored like an alpha factor,
+    # §10.2); also used for the allow_descriptive=True opt-in insertion.
+    qd_reduced_reward_weights: dict[str, float] = Field(
+        default={
+            "robustness": 0.30, "orthogonality": 0.30,
+            "novelty": 0.20, "efficiency": 0.20,
+        }
+    )
+    # hypothesis_type -> reward-set name, single mapping dict (§10.2).
+    qd_reward_type_map: dict[str, str] = Field(
+        default={
+            "predictive": "full", "portfolio": "full", "risk": "full",
+            "causal": "causal", "descriptive": "reduced", "execution": "reduced",
+        }
+    )
+    # archive_status elites list length.
+    qd_archive_status_top_n: int = 10
     dsr_alpha: float = 0.05
     kill_rule_failures: int = 5
     min_T: int = 30

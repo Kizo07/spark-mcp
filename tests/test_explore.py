@@ -156,7 +156,10 @@ def test_unknown_mode_refused(tmp_path):
 
 
 def test_explore_respects_as_of_for_pit():
-    """Episodes after as_of must not affect prior_success / families tried."""
+    """Episodes after as_of must not affect prior_success / families tried.
+    Phase 5: both now read the stored exploration_state posterior (PIT via
+    updated_at) with the episode-derived computation as reconciliation
+    fallback — the as_of assertions are unchanged."""
     import tempfile
 
     async def run():

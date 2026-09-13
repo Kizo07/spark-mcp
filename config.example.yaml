@@ -18,8 +18,8 @@ research:
   novelty_weights: [0.5, 0.3, 0.2]
   sigma_floor: 0.01
   s_cap: 5.0
-  family_count_norm: 20        # cell_emptiness v1 normalizer (QD grid: Phase 5)
-  exploration_bonus_uniform: 0.5  # bandit posteriors replace this in Phase 5
+  family_count_norm: 20        # cell_emptiness degraded-mode normalizer (§7)
+  exploration_bonus_uniform: 0.5  # fallback for families with no stored posterior (§8.3)
   family_weight_floor: 0.05   # off-family relevance floor (deterministic mode)
   family_morph_min_len: 4     # substring-match min length for family vocab
   family_part_discount: 0.3   # part-of-compound tag match discount
@@ -51,6 +51,22 @@ research:
   contradiction_cos: 0.75
   qd_grid: [8, 6, 4]
   qd_descriptors: [family, horizon, turnover]
+  # QD descriptor bins (§10.1): first five family bins mirror the seed corpus;
+  # nlp/macro/portfolio reserve adjacent desks. Unknown categories are refused.
+  qd_family_bins: [quant, econometrics, causal, signal_processing,
+                   network_optimization, nlp, macro, portfolio]
+  qd_horizon_bins: [1d, 5d, 20d, 60d, 120d, long]
+  qd_turnover_bins: [low, medium, high, very_high]
+  qd_turnover_thresholds: [0.25, 0.75, 1.5]  # upper bounds: low/medium/high
+  # Elite score weights (§10.2); causal adds stability from the same budget
+  # (others x (1 - qd_causal_stability_weight)); descriptive/execution use the
+  # reduced non-Sharpe set and are excluded from insertion by default.
+  qd_reward_weights: {oos: 0.30, deflated_significance: 0.20, robustness: 0.15,
+                      orthogonality: 0.15, novelty: 0.10, efficiency: 0.10}
+  qd_causal_stability_weight: 0.10
+  qd_reduced_reward_weights: {robustness: 0.30, orthogonality: 0.30,
+                              novelty: 0.20, efficiency: 0.20}
+  qd_archive_status_top_n: 10
   dsr_alpha: 0.05
   kill_rule_failures: 5
   min_T: 30

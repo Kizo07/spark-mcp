@@ -273,8 +273,10 @@ def _record_family_outcome_impl(
     completed, a significance_gate verdict, or a log_outcome (§8.3). Provider
     exceptions/transport errors are infra, not hypothesis evidence, and never
     reach this function (N6) — they persist a failed trial (§9.2) without
-    ticking the kill rule. The §8.3 family posterior penalty is a Phase-5
-    deferral: `killed` is flagged here but the Beta posterior stays (1,1).
+    ticking the kill rule. The §8.3 family posterior penalty still rides the
+    kill-rule tombstone; the Beta posterior itself updates here (Phase 5):
+    success → alpha+1, failure → beta+1, initialized from
+    cfg.research.bandit_prior (§5.1 exploration_state.posterior).
 
     `trials`/`successes` are bandit observation-event counters (§8.3
     visit/reward aggregates), one increment per genuine family outcome — they
@@ -285,11 +287,13 @@ def _record_family_outcome_impl(
     concurrently (row UPDATE is atomic; tombstone insert is INSERT OR IGNORE
     on the dedupe key)."""
     now = now_iso()
+    prior_a, prior_b = (list(cfg.research.bandit_prior) + [1.0, 1.0])[:2]
     with db.transaction():
         db.execute(
-            "INSERT INTO exploration_state (family, updated_at) VALUES (?, ?)"
+            "INSERT INTO exploration_state (family, posterior, updated_at)"
+            " VALUES (?, ?, ?)"
             " ON CONFLICT(family) DO NOTHING",
-            (family, now),
+            (family, json.dumps({"alpha": prior_a, "beta": prior_b}), now),
         )
         db.execute(
             "UPDATE exploration_state SET"
@@ -301,11 +305,22 @@ def _record_family_outcome_impl(
             (1 if success else 0, 1 if success else 0, now, family),
         )
         state = db.conn.execute(
-            "SELECT consecutive_failures, killed FROM exploration_state WHERE family = ?",
+            "SELECT consecutive_failures, killed, posterior FROM exploration_state"
+            " WHERE family = ?",
             (family,),
         ).fetchone()
         failures = int(state["consecutive_failures"])
         killed = bool(state["killed"])
+        try:
+            post = json.loads(state["posterior"])
+            a, b = float(post["alpha"]), float(post["beta"])
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+            a, b = prior_a, prior_b
+        a, b = (a + 1.0, b) if success else (a, b + 1.0)
+        db.execute(
+            "UPDATE exploration_state SET posterior = ? WHERE family = ?",
+            (json.dumps({"alpha": a, "beta": b}), family),
+        )
         tombstone_id = None
         if failures >= cfg.research.kill_rule_failures and not killed:
             tombstone = memory.add_tombstone(
@@ -338,6 +353,7 @@ def _record_family_outcome_impl(
                 "consecutive_failures": failures,
                 "killed": killed,
                 "tombstone_id": tombstone_id,
+                "posterior": {"alpha": a, "beta": b},
             },
         )
     return {

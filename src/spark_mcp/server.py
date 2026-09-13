@@ -1,6 +1,6 @@
 """MCP server: Phase-0 health tools, Phase-1 ledger & memory tools, Phase-2
 method graph & novelty tools, Phase-3 gates & backtest-seam tools, Phase-4
-QuantFlow Tier-2 hook seam.
+QuantFlow Tier-2 hook seam, Phase-5 QD archive & exploration tools.
 
 `create_server(config)` builds a `Services` (config + database handle +
 embedder/llm clients + backtest provider) that the tool functions close over —
@@ -18,7 +18,7 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
-from . import __version__, explore, graph, hooks, ledger, memory, novelty
+from . import __version__, archive, explore, graph, hooks, ledger, memory, novelty
 from .budgets import spend_summary
 from .config import Config
 from .gates import service as gates_service
@@ -256,6 +256,9 @@ def create_server(
         cell_emptiness) vs the PIT archive (graph nodes + prior hypotheses in
         family); S needs a realized_ic, else null. Degraded mode uses a
         deterministic lexical max_cos proxy (reported as max_cos_basis).
+        cell_emptiness uses the real QD archive occupancy when the family is
+        in the bin vocabulary (cell_emptiness_basis='qd_archive'), else the
+        family-count approximation.
         """
         as_of = _as_of_or_now(as_of)
         return novelty.check_novelty(
@@ -268,6 +271,7 @@ def create_server(
             realized_ic=realized_ic,
             predicted_ic=predicted_ic,
             predicted_sigma=predicted_sigma,
+            archive=archive.Archive(services.db, cfg),
         )
 
     @mcp.tool()
@@ -415,6 +419,41 @@ def create_server(
         """
         return hooks.ingest_run_summary(services.db, cfg, payload)
 
+    # -- Phase 5: QD archive & exploration (plan §6.1 tool 6, §6.3 tool 19) ----
+
+    @mcp.tool()
+    def suggest_next(
+        n: int = 3,
+        as_of: str | None = None,
+        seed: int | None = None,
+        gap_report_id: str | None = None,
+    ) -> dict:
+        """Underexplored-region suggestions (§6.1 tool 6): Thompson-sampled
+        family utilities (QD cell emptiness x family posterior mean), softmax
+        -> selection probabilities; each suggestion is the family's emptiest
+        cell with resolved descriptor names + up to n candidate methods and
+        hypotheses from the graph (family match). Pass `seed` for a
+        reproducible draw. gap_report_id lands in Phase 7 (consolidation gap
+        reports) — passing one raises a named ToolError, it is never silently
+        ignored. A trajectory event records the call.
+        """
+        as_of = _as_of_or_now(as_of)
+        return explore.suggest_next(
+            services.db, cfg, n=n, as_of=as_of, seed=seed, gap_report_id=gap_report_id
+        )
+
+    @mcp.tool()
+    def archive_status(as_of: str | None = None) -> dict:
+        """Archive + exploration status (§6.3 tool 19): coverage
+        (occupied/total cells, per-family), top-N elites by cell score,
+        family_M (§9.2 trial counts), spend (§14 spend_summary), family
+        Beta posteriors (§8.3), and the predictor error map (per-family mean
+        |predicted_ic - realized_ic| over episodes carrying both, §21).
+        as_of defaults to now.
+        """
+        as_of = _as_of_or_now(as_of)
+        return archive.status(services.db, cfg, as_of)
+
     @mcp.tool()
     def report_write(
         hypothesis_id: str | None = None,
@@ -553,7 +592,7 @@ def _report_markdown(services: Services, hypothesis_id: str | None, episode_id: 
     spend = spend_summary(db)
     lines.append(
         f"- spend ledger: ${spend['today_usd']:.4f} usd today, ${spend['total_usd']:.4f} usd total"
-        " (§14; archive_status will expose the same summary in Phase 5)"
+        " (§14; archive_status exposes the same summary)"
     )
     lines.append("")
     return "\n".join(lines)

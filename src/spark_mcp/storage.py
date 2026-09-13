@@ -20,7 +20,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 # Versioned migrations. Key = user_version the schema moves TO.
 MIGRATIONS: dict[int, str] = {
@@ -335,6 +335,24 @@ MIGRATIONS: dict[int, str] = {
     -- database that ran migration 2, i.e. all of them. This marker pins the
     -- Phase-4 schema state; any future additive episode columns land in
     -- migration 7+.
+    """,
+    7: """
+    -- Phase 5: QD archive (plan §5.1, §10.1). SQL is the durable source of
+    -- truth (M7): the in-memory grid in archive.py is rebuilt from these rows
+    -- at construction; insert() writes through to this table inside the
+    -- caller's transaction. descriptor_spec_version bumps start a fresh grid
+    -- when new dimensions land (§10.1) — history stays under the old version.
+    CREATE TABLE IF NOT EXISTS qd_cells (
+        cell_key TEXT NOT NULL,              -- 'f:h:t' = family:horizon:turnover idx
+        descriptors TEXT NOT NULL,           -- JSON resolved names + score detail
+        descriptor_spec_version INTEGER NOT NULL DEFAULT 1,
+        elite_hypothesis_id TEXT, dsr REAL, oos_ic REAL,
+        family TEXT, trials INTEGER NOT NULL DEFAULT 0,
+        reward_type TEXT NOT NULL,           -- per-type rewards (M12)
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (descriptor_spec_version, cell_key)
+    );
+    CREATE INDEX IF NOT EXISTS idx_qd_cells_family ON qd_cells(family);
     """,
 }
 

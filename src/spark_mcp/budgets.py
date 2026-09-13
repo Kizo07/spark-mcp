@@ -1,11 +1,12 @@
 """Budget v1 (plan §14 / M15): spend ledger, rate-card estimation, enforcement.
 
 Every spend event appends to `spend_ledger`; `report_write` includes a cost
-section built from it here, and the Phase 5 `archive_status` will expose the
-same `spend_summary` (its return gains a `spend` field, old fields intact).
-Spend rows carry `run_id` (v5): the episode that caused the spend, or the
-consolidation run id (§13) — the per-episode and per-consolidation caps key on
-it; NULL means unattributed (manual/ad-hoc rows).
+section built from it here, and the Phase 5 `archive_status` exposes the same
+`spend_summary` as its `spend` field (plan §6.3 tool 19). Spend rows carry
+`run_id` (v5): the episode that caused the spend, or the consolidation run id
+(§13) — the per-episode and per-consolidation caps key on it; NULL means
+unattributed (manual/ad-hoc rows). The QD archive's efficiency reward term
+consumes the same ledger (archive.score_components).
 
 Enforcement policy (config `budgets.policy`), identical for the daily,
 per-episode, and per-consolidation caps:

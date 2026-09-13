@@ -14,8 +14,9 @@ import json
 import sqlite3
 from typing import Any
 
-from . import __version__, budgets, graph, memory, novelty, trajectory
+from . import __version__, archive, budgets, graph, memory, novelty, trajectory
 from .config import Config
+from .errors import ToolError
 from .ids import new_episode_id, new_hypothesis_id, new_trial_id
 from .storage import Database
 from .timeutil import now_iso, validate_iso
@@ -241,6 +242,7 @@ def propose_hypothesis(
         as_of=as_of,
         embedder=embedder,
         exclude_subject_ids={hypothesis_id},
+        archive=archive.Archive(db, cfg),  # real §7 cell_emptiness when in vocabulary
     )
     result = {
         "hypothesis_id": hypothesis_id,
@@ -527,6 +529,51 @@ def _log_outcome_impl(
             episode_id=episode_id,
             failure_reason=failure_reason,
         )
+
+        # Phase 5 (§6.3 tool 15, §10): a success/validated outcome inserts the
+        # hypothesis into the QD archive (SQL durable truth, M7; the write
+        # joins this transaction). Named refusals — unknown descriptor
+        # category, or the descriptive/execution exclusion (§10.2) — are
+        # logged on the trajectory, never an error to the caller.
+        if outcome in ("success", "validated"):
+            hypothesis = get_hypothesis(db, episode["hypothesis_id"]) or {}
+            params = episode.get("params") or {}
+            merged_metrics = {**(episode.get("metrics") or {}), **(metrics or {})}
+            if episode.get("corrected_metrics"):
+                merged_metrics["corrected_metrics"] = episode["corrected_metrics"]
+            try:
+                inserted = archive.Archive(db, cfg).insert(
+                    episode["hypothesis_id"],
+                    {
+                        "family": episode["research_family"],
+                        "horizon": hypothesis.get("horizon"),
+                        "turnover": params.get("turnover"),
+                    },
+                    merged_metrics,
+                    hypothesis.get("hypothesis_type") or "",
+                    episode_id=episode_id,
+                )
+                trajectory.record(
+                    db,
+                    episode_id,
+                    "spark",
+                    "gate",
+                    {
+                        "kind": "qd_insert",
+                        "cell_key": inserted["cell_key"],
+                        "elite_score": inserted["elite_score"],
+                        "elite_replaced": inserted["elite_replaced"],
+                        "reward_type": inserted["reward_type"],
+                    },
+                )
+            except ToolError as e:
+                trajectory.record(
+                    db,
+                    episode_id,
+                    "spark",
+                    "observation",
+                    {"kind": "qd_insert_refused", "reason": str(e)},
+                )
 
         trajectory.record(
             db,

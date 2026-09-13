@@ -12,15 +12,22 @@ ASSUMES/FAILS_WHEN concept atoms, whole mechanism-tag compounds with
 affix/part/middle-word discounts, size-normalized so big families can't win
 by bulk). The factor applies softly to structural_fit too (edges are the
 legitimate cross-family composition route). LLM scores are cached per
-(method, problem_class, model_id). exploration_bonus is the Phase 2 uniform
-constant (bandit posteriors arrive with the QD archive in Phase 5);
-prior_success is the family deflated hit rate (Beta-posterior mean,
-cfg.research.bandit_prior) from PIT episodes, default 0.5 with no data.
-Selection (§8.2): candidates within selection_score_band of the best score
-form the defensible set; the pool is drawn from it with a flattened
-(higher-temperature) softmax, then MMR(λ) diversification → k suggestions,
-each carrying its full decomposition + selection probability (the reported
-selection_probability is always the unflattened softmax).
+(method, problem_class, model_id). exploration_bonus (Phase 5, §8.3) is the
+family's Thompson posterior MEAN from exploration_state (Beta(a,b) stored
+row; the (1,1) prior mean is 0.5, which keeps empty-state outputs identical
+to the Phase 2 uniform constant it replaced); families with no stored
+posterior keep the uniform fallback. prior_success is the same Beta-posterior
+mean — family deflated hit rate semantics. Selection (§8.2): candidates
+within selection_score_band of the best score form the defensible set; the
+pool is drawn from it with a flattened (higher-temperature) softmax, then
+MMR(λ) diversification → k suggestions, each carrying its full decomposition
++ selection probability (the reported selection_probability is always the
+unflattened softmax).
+suggest_next (plan §6.1 tool 6) lives here too: underexplored-region
+suggestions — Thompson-sampled family utility = QD cell emptiness (§7,
+archive mode) × family posterior mean, softmax → selection probabilities,
+and each chosen family's emptiest cell returns its descriptor names plus
+candidate methods/hypotheses from the graph (family match).
 """
 
 from __future__ import annotations
@@ -32,8 +39,9 @@ from typing import Any
 
 import numpy as np
 
-from . import graph, novelty, retrieval, trajectory
+from . import archive, graph, novelty, retrieval, trajectory
 from .config import Config
+from .errors import ToolError
 from .llm import split_model_id
 from .storage import Database
 from .timeutil import now_iso, validate_iso
@@ -390,9 +398,33 @@ def _llm_scores(
 def _family_posteriors(
     db: Database, cfg: Config, as_of: str
 ) -> dict[str, dict[str, float]]:
-    """Family deflated hit rates from PIT episodes: Beta(a,b) posterior mean."""
-    a, b = (list(cfg.research.bandit_prior) + [1.0, 1.0])[:2]
+    """Family Thompson posteriors (§8.3): the stored Beta(a,b) in
+    exploration_state is authoritative when a row exists (PIT via
+    updated_at — planner state rows updated after as_of are invisible);
+    families with PIT outcome episodes but no stored row fall back to the
+    episode-derived Beta posterior (reconciliation path)."""
+    a0, b0 = (list(cfg.research.bandit_prior) + [1.0, 1.0])[:2]
+    out: dict[str, dict[str, float]] = {}
     rows = db.conn.execute(
+        "SELECT family, posterior, trials, successes FROM exploration_state"
+        " WHERE updated_at <= ?",
+        (as_of,),
+    ).fetchall()
+    for r in rows:
+        try:
+            post = json.loads(r["posterior"])
+            a, b = float(post["alpha"]), float(post["beta"])
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+            a, b = a0, b0
+        out[r["family"]] = {
+            "prior_success": a / (a + b) if (a + b) > 0 else 0.5,
+            "trials": int(r["trials"]),
+            "wins": int(r["successes"]),
+            "alpha": a,
+            "beta": b,
+            "posterior_source": "stored",
+        }
+    ep_rows = db.conn.execute(
         "SELECT research_family AS family,"
         " SUM(CASE WHEN outcome IN ('success','validated') THEN 1 ELSE 0 END) AS wins,"
         " SUM(CASE WHEN outcome IN ('success','validated','failure','failed')"
@@ -400,13 +432,18 @@ def _family_posteriors(
         " FROM episodes WHERE as_of <= ? GROUP BY research_family",
         (as_of,),
     ).fetchall()
-    out = {}
-    for r in rows:
+    for r in ep_rows:
+        family = r["family"]
+        if family in out:
+            continue  # stored posterior wins; episode row is the fallback only
         trials, wins = int(r["trials"]), int(r["wins"])
-        out[r["family"]] = {
-            "prior_success": (wins + a) / (trials + a + b),
+        out[family] = {
+            "prior_success": (wins + a0) / (trials + a0 + b0),
             "trials": trials,
             "wins": wins,
+            "alpha": wins + a0,
+            "beta": trials - wins + b0,
+            "posterior_source": "episodes",
         }
     return out
 
@@ -536,11 +573,12 @@ def explore_methods(
                 c["mech_tags"] = json.loads(c["mech_tags"])
 
     posteriors = _family_posteriors(db, cfg, as_of)
+    qd_archive = archive.Archive(db, cfg)  # real §7 cell_emptiness term
     scorer = DeterministicScorer(db, as_of, cfg)
     problem_tokens = retrieval.tokens(problem)
-    exploration_bonus = float(cfg.research.exploration_bonus_uniform)
     family_weights = scorer.family_weights(problem_tokens)
     family_floor = float(cfg.research.family_weight_floor)
+    exploration_bonus_uniform = float(cfg.research.exploration_bonus_uniform)
 
     # Recall floor: hybrid recall can return a handful of nodes for problems
     # whose vocabulary is thin in the corpus (FTS finds few matches, no
@@ -634,6 +672,16 @@ def explore_methods(
             structural_fit = structural_fit * factor**fit_exponent
         fam_stats = posteriors.get(node.get("family") or "", {})
         prior_success = float(fam_stats.get("prior_success", 0.5))
+        # Phase 5 (§8.3): the bonus is the family's Thompson posterior MEAN
+        # when a stored posterior exists; at the (1,1) prior that mean is 0.5
+        # — identical to the uniform constant this replaced, so empty-state
+        # outputs (G1-pinned) are unchanged. Families without a stored row
+        # keep the uniform fallback.
+        exploration_bonus = (
+            prior_success
+            if fam_stats.get("posterior_source") == "stored"
+            else exploration_bonus_uniform
+        )
         nov = novelty.check_novelty(
             db,
             cfg,
@@ -642,6 +690,7 @@ def explore_methods(
             as_of=as_of,
             embedder=embedder,
             exclude_subject_ids={node["node_id"]},
+            archive=qd_archive,
         )
         decomposition = {
             "relevance": relevance,
@@ -784,3 +833,140 @@ def explore_methods(
         },
     )
     return result
+
+
+# ---------------------------------------------------------------------------
+# suggest_next (plan §6.1 tool 6, §8.2/§8.3)
+
+
+def suggest_next(
+    db: Database,
+    cfg: Config,
+    n: int = 3,
+    as_of: str | None = None,
+    seed: int | None = None,
+    gap_report_id: str | None = None,
+) -> dict:
+    """Underexplored-region suggestions.
+
+    Family utility is Thompson-sampled per QD bin family: a Beta(a,b) draw
+    from the family's stored posterior (cfg.research.bandit_prior when no
+    row exists) multiplied by the family's REAL QD cell emptiness (§7,
+    archive mode). Selection probabilities are the softmax over those
+    utilities (temperature 1.0); each suggestion is the chosen family's
+    emptiest cell, returned with its resolved descriptor names and up to n
+    candidate methods (graph technique nodes) + hypotheses (family match,
+    PIT-visible). A trajectory event records the call.
+
+    gap_report_id is accepted per §6.1 tool 6 but consumption of a
+    consolidation gap report lands in Phase 7 (consolidate, §18.0 G5) —
+    passing one raises a named ToolError rather than silently ignoring it.
+    """
+    if gap_report_id is not None:
+        raise ToolError(
+            "gap_report_id consumption lands in Phase 7 (consolidation gap"
+            " reports, plan §6.1 tool 6 / §18.0 G5); pass gap_report_id=None"
+            " for archive-driven underexplored-region suggestions"
+        )
+    if n < 1:
+        raise ValueError("n must be >= 1")
+    as_of = validate_iso(as_of) if as_of else now_iso()
+    research = cfg.research
+    fams = list(research.qd_family_bins)
+    a0, b0 = (list(research.bandit_prior) + [1.0, 1.0])[:2]
+
+    qd_archive = archive.Archive(db, cfg)
+    stored = archive.family_posteriors(db)
+    rng = np.random.default_rng(seed)
+    utilities = np.zeros(len(fams), dtype=np.float64)
+    emptiness: dict[str, float] = {}
+    for i, fam in enumerate(fams):
+        post = stored.get(fam)
+        a, b = (post["alpha"], post["beta"]) if post else (a0, b0)
+        theta = float(rng.beta(a, b))  # Thompson draw from the family posterior
+        e = qd_archive.cell_emptiness(fam)
+        emptiness[fam] = e
+        utilities[i] = e * theta
+    logits = utilities - utilities.max()
+    probs = np.exp(logits)
+    probs /= probs.sum()
+
+    count = min(int(n), len(fams))
+    picks = rng.choice(len(fams), size=count, replace=False, p=probs)
+    suggestions = []
+    for pick in picks:
+        fam = fams[int(pick)]
+        post = stored.get(fam)
+        a, b = (post["alpha"], post["beta"]) if post else (a0, b0)
+        cell = qd_archive.emptiest_cell(fam)
+        methods = [
+            {
+                "method_id": r["node_id"],
+                "label": r["label"],
+                "selection_probability": float(probs[pick]),
+            }
+            for r in db.conn.execute(
+                "SELECT node_id, label FROM graph_nodes"
+                " WHERE type = 'technique' AND family = ? AND as_of <= ?"
+                " ORDER BY node_id LIMIT ?",
+                (fam, as_of, int(n)),
+            ).fetchall()
+        ]
+        hypotheses = [
+            {
+                "hypothesis_id": r["hypothesis_id"],
+                "mechanism": r["mechanism"],
+                "status": r["status"],
+                "selection_probability": float(probs[pick]),
+            }
+            for r in db.conn.execute(
+                "SELECT hypothesis_id, mechanism, status FROM hypotheses"
+                " WHERE research_family = ? AND as_of <= ?"
+                " ORDER BY created_at DESC LIMIT ?",
+                (fam, as_of, int(n)),
+            ).fetchall()
+        ]
+        suggestions.append(
+            {
+                "cell_key": cell["cell_key"],
+                "descriptors": cell["descriptors"],
+                "family": fam,
+                "cell_trials": cell["trials"],
+                "cell_emptiness": emptiness[fam],
+                "family_posterior": {"alpha": a, "beta": b, "mean": a / (a + b)},
+                "utility": float(utilities[pick]),
+                "selection_probability": float(probs[pick]),
+                "methods": methods,
+                "hypotheses": hypotheses,
+            }
+        )
+    trajectory.record(
+        db,
+        "suggest_next",
+        "spark",
+        "tool_call",
+        {
+            "tool": "suggest_next",
+            "n": n,
+            "seed": seed,
+            "as_of": as_of,
+            "suggestions": [
+                {
+                    "cell_key": s["cell_key"],
+                    "family": s["family"],
+                    "cell_trials": s["cell_trials"],
+                    "selection_probability": s["selection_probability"],
+                }
+                for s in suggestions
+            ],
+        },
+    )
+    return {
+        "as_of": as_of,
+        "n": n,
+        "seed": seed,
+        "suggestions": suggestions,
+        "family_selection_probabilities": {
+            fam: float(p) for fam, p in zip(fams, probs, strict=True)
+        },
+    }

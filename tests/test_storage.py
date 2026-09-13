@@ -6,7 +6,7 @@ from spark_mcp.storage import open_db
 def test_migrate_creates_meta_and_version(tmp_path):
     db = open_db(tmp_path / "spark.db")
     version = db.conn.execute("PRAGMA user_version").fetchone()[0]
-    assert version == 6
+    assert version == 7  # Phase 5: migration v7 adds qd_cells
     name = db.conn.execute(
         "SELECT value FROM spark_meta WHERE key='schema_name'"
     ).fetchone()[0]
@@ -19,7 +19,7 @@ def test_migrations_are_idempotent(tmp_path):
     db = open_db(path)
     db.close()
     db2 = open_db(path)  # second open: no pending migrations, no error
-    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == 6
+    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == 7
     db2.close()
 
 
@@ -46,11 +46,12 @@ def test_migration_v6_episode_hook_columns(tmp_path):
 
 
 def test_migration_v6_upgrades_a_v5_database(tmp_path):
-    """The v5 -> v6 upgrade path applies cleanly over a pre-Phase-4 database."""
+    """The v5 -> v6 -> v7 upgrade path applies cleanly over a pre-Phase-4
+    database (v6 is the Phase-4 marker; v7 adds qd_cells in Phase 5)."""
     from spark_mcp import storage
 
     path = tmp_path / "spark.db"
-    marker = storage.MIGRATIONS.pop(6)
+    markers = {v: storage.MIGRATIONS.pop(v) for v in (6, 7)}
     try:
         db = open_db(path)  # db frozen at v5 (Phase-3 state)
         assert db.conn.execute("PRAGMA user_version").fetchone()[0] == 5
@@ -58,10 +59,28 @@ def test_migration_v6_upgrades_a_v5_database(tmp_path):
         assert "agent_assembly_fingerprint" in cols  # present since migration 2
         db.close()
     finally:
-        storage.MIGRATIONS[6] = marker
-    db2 = open_db(path)  # reopen with v6 restored: marker applies
-    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == 6
+        storage.MIGRATIONS.update(markers)
+    db2 = open_db(path)  # reopen with v6/v7 restored: both apply
+    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == 7
+    tables = {
+        r[0]
+        for r in db2.conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    }
+    assert "qd_cells" in tables
     db2.close()
+
+
+def test_migration_v7_creates_qd_cells(tmp_path):
+    """Phase 5 (plan §5.1/§10.1): qd_cells is the durable QD archive truth."""
+    db = open_db(tmp_path / "spark.db")
+    cols = {r[1] for r in db.conn.execute("PRAGMA table_info(qd_cells)")}
+    for name in (
+        "cell_key", "descriptors", "descriptor_spec_version",
+        "elite_hypothesis_id", "dsr", "oos_ic", "family", "trials",
+        "reward_type", "updated_at",
+    ):
+        assert name in cols, f"missing qd_cells column {name}"
+    db.close()
 
 
 def test_phase1_tables_exist(tmp_path):
@@ -90,6 +109,7 @@ def test_phase1_tables_exist(tmp_path):
         "score_cache",
         "exploration_state",
         "spend_ledger",
+        "qd_cells",
     ):
         assert t in tables, f"missing table {t}"
     db.close()
