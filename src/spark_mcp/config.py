@@ -78,14 +78,17 @@ class ResearchConfig(BaseModel):
     # score ranking. The set is never smaller than selection_min_eligible so
     # the draw stays stochastic (G1-grade repeat-overlap), and the pool is
     # k + selection_pool_extra so MMR picks k from a meaningfully random draw.
-    # selection_obvious_drop top scorers are excluded from the set: the
-    # champion is the obvious move — suggestions surface challengers (G1 asks
-    # for non-obvious-yet-plausible, and the excluded pick would otherwise
-    # recur in every repeat, driving repeat-overlap up).
+    # selection_obvious_drop > 0 excludes the top-N scorers from the draw
+    # ("challenger mode"): with the recall floor in place its original
+    # repeat-overlap rationale is obsolete (simulated: inclusion moves mean
+    # overlap 0.20 -> 0.198), and hiding the single best-scoring candidate
+    # removes the pick most likely to be a plausible fit — so the default is
+    # 0 (champion eligible). Round-3 blind-judge rationales independently
+    # pointed at the excluded champion as the correct answer.
     selection_score_band: float = 0.12
     selection_min_eligible: int = 24
     selection_pool_extra: int = 0
-    selection_obvious_drop: int = 1
+    selection_obvious_drop: int = 0
     # Recall floor for explore_methods (0 disables): when hybrid recall
     # returns fewer candidates than this, pad with the best remaining
     # techniques by deterministic relevance so the §8.2 pool draw has real

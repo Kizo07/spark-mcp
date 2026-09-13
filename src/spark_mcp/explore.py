@@ -666,7 +666,7 @@ def explore_methods(
     order = sorted(
         range(len(scored)), key=lambda i: (-scored[i]["score"], scored[i]["method_id"])
     )
-    pool_order = order[obvious_drop:]  # the champion is the obvious move
+    pool_order = order[obvious_drop:]  # selection_obvious_drop > 0 = challenger mode
     best = scored[pool_order[0]]["score"]
     eligible_idx = [i for i in pool_order if scored[i]["score"] >= best - band]
     min_eligible = max(int(cfg.research.selection_min_eligible), k + 1)

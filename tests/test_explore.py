@@ -310,21 +310,44 @@ def test_family_factor_floors_off_family_relevance(seeded, cfg, embedder):
     assert all(c["score"] > 0 for c in off_family)
 
 
-def test_obvious_champion_not_suggested(seeded, cfg, embedder):
-    """selection_obvious_drop: the single best-scoring candidate is excluded
-    from the draw — suggestions surface challengers (non-obvious picks)."""
-    out = explore_methods(
-        seeded,
-        cfg,
-        CANONICAL_PROBLEMS[3],
-        k=5,
-        mode="balanced",
-        as_of="2024-01-01T00:00:00Z",
-        embedder=embedder,
-        seed=23,
-    )
-    champion = out["candidates"][0]["method_id"]
-    assert champion not in out["suggestion_ids"]
+def test_obvious_champion_exclusion_is_a_knob(seeded, cfg, embedder):
+    """selection_obvious_drop: default 0 keeps the best-scoring candidate
+    eligible (its original repeat-overlap rationale died with the recall
+    floor; hiding the top pick removes the most-plausible suggestion).
+    Setting it to 1 restores challenger mode: the champion can never appear."""
+    seen_default, seen_challenger = [], []
+    for seed in (23, 24, 25, 26):
+        out = explore_methods(
+            seeded,
+            cfg,
+            CANONICAL_PROBLEMS[3],
+            k=5,
+            mode="balanced",
+            as_of="2024-01-01T00:00:00Z",
+            embedder=embedder,
+            seed=seed,
+        )
+        seen_default.append(out["candidates"][0]["method_id"] in out["suggestion_ids"])
+        cfg_c = cfg.model_copy(
+            update={
+                "research": cfg.research.model_copy(update={"selection_obvious_drop": 1})
+            }
+        )
+        out_c = explore_methods(
+            seeded,
+            cfg_c,
+            CANONICAL_PROBLEMS[3],
+            k=5,
+            mode="balanced",
+            as_of="2024-01-01T00:00:00Z",
+            embedder=embedder,
+            seed=seed,
+        )
+        seen_challenger.append(
+            out_c["candidates"][0]["method_id"] in out_c["suggestion_ids"]
+        )
+    assert any(seen_default)  # champion is suggestible in default mode
+    assert not any(seen_challenger)  # challenger mode excludes it every time
 
 
 def test_seeded_reproducibility_includes_family_weights(tmp_path):
