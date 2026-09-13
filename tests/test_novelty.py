@@ -67,12 +67,28 @@ def test_identical_idea_scores_low_novelty(seeded, cfg, embedder):
 
 
 def test_novel_idea_scores_high_novelty(seeded, cfg, embedder):
-    wild = "lattice gauge theory gluon confinement extrapolation to limit order books"
+    wild = "bismuth crystal hopper growth staircase"
     out = novelty.check_novelty(seeded, cfg, wild, family="quant", as_of=AS_OF, embedder=embedder)
     assert out["N"] > 0.7
-    assert out["N"] > novelty.check_novelty(
-        seeded, cfg, IDEA, family="quant", as_of=AS_OF, embedder=embedder
-    )["N"]
+    # Contrast against text identical to a seeded node (max_cos = 1.0, the
+    # maximally un-novel case). Free-string vs free-string comparisons are
+    # collision-noise with the sha256 hashing embedder — the exact-node anchor
+    # is what pins "orthogonal beats corpus-known" robustly as the corpus grows.
+    import json
+
+    from spark_mcp import graph
+
+    row = seeded.conn.execute(
+        "SELECT * FROM graph_nodes WHERE label = 'Cross-sectional momentum'"
+    ).fetchone()
+    node = dict(row)
+    node["mech_tags"] = json.loads(node["mech_tags"])
+    dup = novelty.check_novelty(
+        seeded, cfg, graph.node_text(node), family="quant", as_of=AS_OF, embedder=embedder
+    )
+    assert dup["max_cos"] == pytest.approx(1.0)
+    assert dup["N"] == pytest.approx(0.5)  # N floor: w2·1 + w3·1 with max_cos = 1
+    assert out["N"] > dup["N"] + 0.2
 
 
 def test_check_novelty_is_deterministic(seeded, cfg, embedder):

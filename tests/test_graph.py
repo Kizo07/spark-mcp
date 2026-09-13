@@ -53,7 +53,8 @@ def test_seed_import_counts_nodes_edges_embeddings(seeded, embedder):
     n_nodes = seeded.conn.execute("SELECT COUNT(*) FROM graph_nodes").fetchone()[0]
     n_edges = seeded.conn.execute("SELECT COUNT(*) FROM graph_edges").fetchone()[0]
     n_emb = seeded.conn.execute("SELECT COUNT(*) FROM vec_embeddings").fetchone()[0]
-    assert 135 <= n_nodes <= 175  # ~101 technique cards + ~40-52 concept nodes
+    # 101 technique cards + a concept layer covering every referenced concept
+    assert 330 <= n_nodes <= 370
     assert n_edges > 0
     assert n_emb == n_nodes  # embed-on-write: every seeded node embedded
     families = {
@@ -87,6 +88,14 @@ def test_seed_import_is_idempotent(seeded, embedder):
     assert stats["nodes"] == 0
     assert stats["skipped_existing"] == before
     assert after == before
+
+
+def test_seed_import_resolves_every_reference(db, embedder):
+    """Phase 2 review nit: every assumptions/failure_modes/composes_with ref
+    must resolve to a node — misses are silent (aggregate counter only), so
+    this pins unresolved_refs == 0."""
+    stats = import_seeds(db, embedder)
+    assert stats["unresolved_refs"] == 0
 
 
 def test_fts5_label_search_on_seeded_graph(seeded):

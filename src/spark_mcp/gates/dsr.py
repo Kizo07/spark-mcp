@@ -140,10 +140,13 @@ def min_backtest_length(
 ) -> int | float:
     """MinBTL: smallest T (>= min_t) with DSR(target_sr; T) p < alpha.
 
-    Solved by binary search over dsr() (monotone in T: sqrt(T-1) grows while
-    the null scale sr0_e = 1/sqrt(T-1) shrinks toward its asymptote). Returns
-    math.inf when no finite T clears alpha (target at or below the asymptotic
-    null max — no amount of data makes it significant).
+    Solved by binary search over T (monotone in T: sqrt(T-1) grows while
+    the null scale sr0_e = 1/sqrt(T-1) shrinks toward its asymptote). The
+    `clears` predicate inlines dsr()'s z-inequality — dsr p < alpha is
+    algebraically z > z_alpha since Phi is monotone — instead of calling
+    dsr() per probe; the golden pins in test_dsr.py pin the result either
+    way. Returns math.inf when no finite T clears alpha (target at or below
+    the asymptotic null max — no amount of data makes it significant).
     """
     if not 0.0 < alpha < 1.0:
         raise ValueError(f"alpha must be in (0, 1), got {alpha!r}")

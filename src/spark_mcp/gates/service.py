@@ -210,7 +210,9 @@ def tombstone_precheck(
                 f"{best['cosine']:.3f}\nReply with exactly ALLOW or BLOCK."
             )
             check["adjudicated"] = True
-            if "ALLOW" in verdict.upper():
+            # N10: exact match only — a substring test ("ALLOW" in ...) would
+            # let a "DISALLOW" reply through.
+            if verdict.strip().upper() == "ALLOW":
                 check["status"] = "miss"
                 return check, None
             check["status"] = "hit"
@@ -265,9 +267,23 @@ def _record_family_outcome_impl(
     """Maintain per-family exploration counters; the kill rule fires when
     consecutive deflated failures reach cfg.research.kill_rule_failures:
     one auto-tombstone (dedupe-keyed, kind='failed_hypothesis', evidence =
-    triggering episode) and the family's `killed` flag. Safe to call inside
-    an outer transaction (savepoint-nested) and concurrently (row UPDATE is
-    atomic; tombstone insert is INSERT OR IGNORE on the dedupe key)."""
+    triggering episode) and the family's `killed` flag.
+
+    Callers must be genuine evaluation/gate outcomes only: a backtest that
+    completed, a significance_gate verdict, or a log_outcome (§8.3). Provider
+    exceptions/transport errors are infra, not hypothesis evidence, and never
+    reach this function (N6) — they persist a failed trial (§9.2) without
+    ticking the kill rule. The §8.3 family posterior penalty is a Phase-5
+    deferral: `killed` is flagged here but the Beta posterior stays (1,1).
+
+    `trials`/`successes` are bandit observation-event counters (§8.3
+    visit/reward aggregates), one increment per genuine family outcome — they
+    are NOT the §9.2 trial count, which lives in the trials table
+    (M_family). Success resets consecutive_failures (§8.3).
+
+    Safe to call inside an outer transaction (savepoint-nested) and
+    concurrently (row UPDATE is atomic; tombstone insert is INSERT OR IGNORE
+    on the dedupe key)."""
     now = now_iso()
     with db.transaction():
         db.execute(
@@ -351,9 +367,11 @@ def _backtest_run_impl(
     """Dispatch a backtest under the trial governor (§9.2 + §12.2 + §14).
 
     Order: validate BacktestSpec -> tombstone pre-check (mandatory, logged) ->
-    budget fail-closed check -> PENDING trial row -> spend row -> provider
-    dispatch -> completed trial + episode 'testing' + metrics. All writes and
-    the dispatch share one transaction: exactly one winner per idem key, one
+    PENDING trial row -> spend row -> budget enforcement (daily + per-episode;
+    fail_closed raises here, rolling trial + spend back before any dispatch) ->
+    provider dispatch -> completed trial + episode 'testing' + metrics. All
+    writes and the dispatch share one transaction: exactly one winner per idem
+    key, one
     provider call, losers read the winner's committed row.
     """
     if client_id:
@@ -440,8 +458,9 @@ def _backtest_run_impl(
             return result
 
         # -- §14 budget v1: the spend row lands first so a run that pushes the
-        # day over the limit triggers on itself; fail-closed raises here ->
-        # the whole transaction (trial + spend) rolls back.
+        # day (or this episode) over the limit triggers on itself;
+        # fail-closed raises here -> the whole transaction (trial + spend)
+        # rolls back, before any dispatch.
         budgets.record_spend(
             db,
             cfg,
@@ -450,9 +469,13 @@ def _backtest_run_impl(
             usd=None,
             tokens=0,
             estimated=True,
+            run_id=episode_id,
         )
         hard = cfg.budgets.policy == "fail_closed"
         budgets.enforce_daily_budget(db, cfg, run_id=episode_id, source="backtest_run", hard=hard)
+        budgets.enforce_episode_budget(
+            db, cfg, episode_id=episode_id, source="backtest_run", hard=hard
+        )
 
         # -- dispatch ------------------------------------------------------------
         # Provider failures must PERSIST the failed trial (§9.2: completion or
@@ -477,12 +500,15 @@ def _backtest_run_impl(
                 f"provider {_provider_name(provider)!r} does not support backtest: {e}"
             )
         except Exception as e:
+            # N6: provider/transport errors are infra, not hypothesis evidence.
+            # The trial still fails (§9.2: completion or failure updates the
+            # row), but the kill rule must not tick — a flaky endpoint says
+            # nothing about the family's deflated failures. Same treatment as
+            # NotImplementedError above; genuine evaluation/gate failures tick
+            # via significance_gate / log_outcome only.
             db.execute(
                 "UPDATE trials SET status = 'failed', completed_at = ? WHERE trial_id = ?",
                 (now_iso(), trial_id),
-            )
-            _record_family_outcome_impl(
-                db, cfg, family, success=False, episode_id=episode_id, failure_reason=str(e)
             )
             trajectory.record(
                 db, episode_id, "spark", "tool_call",

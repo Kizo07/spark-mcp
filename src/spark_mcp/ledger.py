@@ -499,8 +499,10 @@ def _log_outcome_impl(
             )
             tombstone_id = tombstone["tombstone_id"]
 
-        # §14: every spend event appends to spend_ledger; over-limit days are
-        # warned about (policy warn) or refused (policy fail_closed).
+        # §14: every spend event appends to spend_ledger; over-limit days
+        # (policy warn) or episodes are warned about, or refused whole under
+        # fail_closed — the raise rolls this outcome's episode update, trial
+        # accounting, and spend row back together (see budgets module docstring).
         budgets.record_spend(
             db,
             cfg,
@@ -509,8 +511,10 @@ def _log_outcome_impl(
             usd=usd,
             tokens=tokens,
             estimated=spend_estimated,
+            run_id=episode_id,
         )
         budgets.enforce_daily_budget(db, cfg, run_id=episode_id, source="log_outcome")
+        budgets.enforce_episode_budget(db, cfg, episode_id=episode_id, source="log_outcome")
 
         # §8.3 kill rule: success resets consecutive_failures, failure ticks it.
         from .gates.service import record_family_outcome

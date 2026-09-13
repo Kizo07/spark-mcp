@@ -276,6 +276,12 @@ MIGRATIONS: dict[int, str] = {
     -- exploration_state: per-family exploration counters + bandit posterior.
     -- Phase 3 maintains trials/successes/consecutive_failures (+ the kill-rule
     -- flag); Phase 5's QD archive consumes the rest (posterior, windows).
+    -- trials/successes are bandit observation-EVENT counters (§8.3
+    -- visit/reward aggregates): +1 per genuine family outcome (a completed
+    -- backtest, a significance_gate verdict, a log_outcome) — not the §9.2
+    -- trial count, which lives in the trials table (M_family). Provider/infra
+    -- errors deliberately do not feed them (they are not hypothesis evidence;
+    -- Phase 3 review nit N6).
     CREATE TABLE IF NOT EXISTS exploration_state (
         family TEXT PRIMARY KEY,
         trials INTEGER NOT NULL DEFAULT 0,
@@ -312,6 +318,14 @@ MIGRATIONS: dict[int, str] = {
     ALTER TABLE tombstones ADD COLUMN dedupe_key TEXT;
     CREATE UNIQUE INDEX IF NOT EXISTS idx_tombstones_dedupe
         ON tombstones(dedupe_key);
+    """,
+    5: """
+    -- Phase 3 review nits (N4/N8): attribute spend to the run that caused it
+    -- (episode_id for backtest_run/log_outcome, consolidation run id for
+    -- consolidate, §13) so per-episode and per-consolidation caps (§14) can
+    -- be enforced from the ledger. NULL = unattributed (manual/ad-hoc rows).
+    ALTER TABLE spend_ledger ADD COLUMN run_id TEXT;
+    CREATE INDEX IF NOT EXISTS idx_spend_ledger_run ON spend_ledger(run_id);
     """,
 }
 

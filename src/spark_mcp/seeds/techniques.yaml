@@ -779,7 +779,7 @@
   family: econometrics
   mechanism_tags: [regression, distributional, robust, tails]
   assumptions: [linearity, monotonicity]
-  failure_modes: [crossing_quantiles, heteroskedasticity, computation_cost]
+  failure_modes: [crossing_quantiles, heteroskedasticity, computational_cost]
   composes_with: [LASSO variable selection, Huber robust regression]
   analog_domains: [order_statistics, distributional_analysis]
   evidence_pointers: ["Koenker & Bassett (1978)"]

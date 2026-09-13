@@ -3,12 +3,22 @@
 Every spend event appends to `spend_ledger`; `report_write` includes a cost
 section built from it here, and the Phase 5 `archive_status` will expose the
 same `spend_summary` (its return gains a `spend` field, old fields intact).
+Spend rows carry `run_id` (v5): the episode that caused the spend, or the
+consolidation run id (§13) — the per-episode and per-consolidation caps key on
+it; NULL means unattributed (manual/ad-hoc rows).
 
-Enforcement policy (config `budgets.policy`):
+Enforcement policy (config `budgets.policy`), identical for the daily,
+per-episode, and per-consolidation caps:
 - `warn` (default): over-limit spend logs a trajectory event and proceeds.
-- `fail_closed`: raises ToolError. `backtest_run` checks BEFORE the trial row
-  and dispatch, so a raise there leaves no trial and no provider call; the
-  spend row rolls back with the same transaction.
+- `fail_closed`: raises ToolError. `backtest_run` records the pending trial +
+  spend row first and enforces inside the same transaction, before dispatch:
+  a raise rolls the trial and spend rows back together and never dispatches —
+  the end state matches a pre-check (no trial, no dispatch, no spend).
+  `log_outcome` enforces the same way: under fail_closed an over-cap outcome
+  is refused whole (episode update + trial accounting + spend roll back), on
+  the principle that fail_closed never partially commits an over-budget
+  event — an out-of-band run that already happened is re-logged once the cap
+  is raised, or under `warn`.
 """
 
 from __future__ import annotations
@@ -48,8 +58,9 @@ def record_spend(
     run_id: str | None = None,
 ) -> dict:
     """Append one spend_ledger row. `usd` missing -> rate-card estimate
-    (0.0 when the model is unknown), always flagged estimated. Returns the
-    recorded row."""
+    (0.0 when the model is unknown), always flagged estimated. `run_id`
+    attributes the spend (episode_id / consolidation run id) for the
+    per-episode and per-consolidation caps. Returns the recorded row."""
     if usd is None:
         usd = estimate_usd(cfg, tokens=tokens)
         estimated = True
@@ -60,11 +71,12 @@ def record_spend(
         "usd": float(usd),
         "tokens": int(tokens),
         "estimated": bool(estimated),
+        "run_id": run_id,
     }
     db.execute(
-        "INSERT INTO spend_ledger (ts, family, source, usd, tokens, estimated)"
-        " VALUES (?, ?, ?, ?, ?, ?)",
-        (row["ts"], family, source, row["usd"], row["tokens"], int(row["estimated"])),
+        "INSERT INTO spend_ledger (ts, family, source, usd, tokens, estimated, run_id)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (row["ts"], family, source, row["usd"], row["tokens"], int(row["estimated"]), run_id),
     )
     return row
 
@@ -106,6 +118,73 @@ def enforce_daily_budget(
         "spark",
         "observation",
         {"kind": "budget_warning", "message": message, "today_usd": summary["today_usd"]},
+    )
+    return [message]
+
+
+def run_spend(db: Database, run_id: str) -> float:
+    """Total spend attributed to one run_id — one episode (backtest_run /
+    log_outcome) or one consolidation run (§13) — across the ledger."""
+    row = db.conn.execute(
+        "SELECT COALESCE(SUM(usd), 0.0) AS s FROM spend_ledger WHERE run_id = ?",
+        (run_id,),
+    ).fetchone()
+    return float(row["s"])
+
+
+def enforce_episode_budget(
+    db: Database, cfg: Config, *, episode_id: str, source: str, hard: bool = False
+) -> list[str]:
+    """Check the episode's total (all spend attributed to it) against
+    cfg.budgets.per_episode_usd (§14). Same warn/fail_closed policy as
+    enforce_daily_budget; callers run it inside the same transaction as the
+    spend/trial write, so a fail_closed raise rolls both back together.
+    """
+    spent = run_spend(db, episode_id)
+    limit = float(cfg.budgets.per_episode_usd)
+    if spent <= limit:
+        return []
+    message = (
+        f"episode budget exceeded: ${spent:.4f} spent on episode {episode_id} "
+        f"(limit ${limit:.2f}, source {source})"
+    )
+    if hard or cfg.budgets.policy == "fail_closed":
+        raise ToolError(message)
+    trajectory.record(
+        db,
+        episode_id,
+        "spark",
+        "observation",
+        {"kind": "budget_warning", "message": message, "episode_usd": spent},
+    )
+    return [message]
+
+
+def enforce_consolidation_budget(
+    db: Database, cfg: Config, *, run_id: str, source: str, hard: bool = False
+) -> list[str]:
+    """Per-run cap for consolidate (plan §13): LLM spend attributed to one
+    consolidation run vs cfg.budgets.per_consolidation_usd — over the cap the
+    run stops mid-pass rather than overrunning. Phase 7's consolidate passes
+    its run id; the enforcement lives here (budgets v1) so both policies are
+    tested before the tool lands. Same policy/transaction rule as the daily
+    and per-episode caps."""
+    spent = run_spend(db, run_id)
+    limit = float(cfg.budgets.per_consolidation_usd)
+    if spent <= limit:
+        return []
+    message = (
+        f"consolidation budget exceeded: ${spent:.4f} spent on run {run_id} "
+        f"(limit ${limit:.2f}, source {source})"
+    )
+    if hard or cfg.budgets.policy == "fail_closed":
+        raise ToolError(message)
+    trajectory.record(
+        db,
+        run_id,
+        "consolidator",
+        "observation",
+        {"kind": "budget_warning", "message": message, "run_usd": spent},
     )
     return [message]
 

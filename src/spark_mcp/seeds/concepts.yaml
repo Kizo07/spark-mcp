@@ -2,6 +2,9 @@
 # mechanism-concept nodes). These are the shared vocabulary that technique
 # cards reference via `assumptions` / `failure_modes` (edges ASSUMES /
 # FAILS_WHEN) and that structural-overlap novelty (§7) uses for grounding.
+# Phase 3 nit fix: the layer grew to cover every concept referenced by the
+# technique cards, so seed import resolves all ASSUMES/FAILS_WHEN references
+# (unresolved_refs == 0; was 226/524 dropped into an aggregate counter).
 
 - name: Stationarity
   mechanism_tags: [time_series, distributional_stability]
@@ -312,5 +315,1175 @@
 - name: Tail risk
   mechanism_tags: [extreme_events, downside]
   summary: Exposure to rare large losses that volatility measures miss; the bill for most carry and short-vol premia.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Aliasing
+  mechanism_tags: [sampling, frequency_domain]
+  summary: High-frequency content folds into lower frequencies when the sampling rate is too low, creating spurious cycles.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Anchoring bias
+  mechanism_tags: [behavioral, underreaction]
+  summary: Judgments overweight an initial reference point and adjust too little, sustaining predictable drift.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Anticipation effects
+  mechanism_tags: [behavioral, timing]
+  summary: Agents act ahead of expected changes, moving outcomes before the nominal event date.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Asymptotic normality
+  mechanism_tags: [statistics, inference]
+  summary: Estimators converge in distribution to a Gaussian as the sample grows, justifying standard errors and p-values.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Autocorrelation structure
+  mechanism_tags: [time_series, dependence]
+  summary: Serial dependence follows a specific pattern; unmodeled autocorrelation biases tests and standard errors.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Backwardation
+  mechanism_tags: [futures, term_structure]
+  summary: Futures trade below expected spot, paying a positive roll yield to longs; typical of shortage-prone commodities.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Bandwidth sensitivity
+  mechanism_tags: [rdd, nonparametric]
+  summary: Local estimates swing materially with the bandwidth choice; high sensitivity signals fragile identification.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Bias mechanisms
+  mechanism_tags: [causal, mediation]
+  summary: The specific causal paths through which bias reaches an estimate; naming them is required for valid adjustment.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Bias variance tradeoff
+  mechanism_tags: [estimation, prediction]
+  summary: Flexibility cuts bias but adds variance; the tradeoff sets the best achievable out-of-sample error.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Biased coefficients
+  mechanism_tags: [estimation, bias]
+  summary: Estimators that systematically miss true parameters; shrinkage trades such bias against variance.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Both models misspecified
+  mechanism_tags: [double_ml, causal]
+  summary: Double robustness fails when both nuisance models are wrong; the estimator inherits both biases.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Boundary effects
+  mechanism_tags: [signal_processing, estimation]
+  summary: Window edges distort estimates near the series ends; boundary values are systematically wrong.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Causal Markov condition
+  mechanism_tags: [causal, graphs]
+  summary: Each variable is independent of its non-effects given its direct causes; links a causal graph to observable independences.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Causal sufficiency
+  mechanism_tags: [causal_discovery, confounding]
+  summary: No unobserved common causes among measured variables; required for causal rather than associational discovery.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Cointegration rank one
+  mechanism_tags: [cointegration, pairs]
+  summary: Exactly one long-run relationship binds the series; the single stationary spread is what pairs trading monetizes.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Community structure
+  mechanism_tags: [networks, clustering]
+  summary: Nodes group into densely connected blocks; community detection exploits that organization.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Compositional changes
+  mechanism_tags: [panels, sampling]
+  summary: The population's makeup shifts over time, creating spurious aggregate trends.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Computational cost
+  mechanism_tags: [numerics, scaling]
+  summary: Compute time and memory grow with data size and model complexity; methods that don't fit the budget never run.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Concentration
+  mechanism_tags: [portfolio_construction, estimation_error]
+  summary: Optimizers pile weights where estimates look best, so estimation error comes to dominate the book.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Conditional independence tests
+  mechanism_tags: [causal_discovery, testing]
+  summary: Decisions of the form X independent of Y given Z; the raw material constraint-based structure learning is built from, with finite-sample error rates.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Consistent estimators
+  mechanism_tags: [statistics, inference]
+  summary: Converge to the true parameter as data accumulates; without consistency, inference has no anchor.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Contango drag
+  mechanism_tags: [futures, term_structure]
+  summary: Futures above expected spot impose a negative roll yield that bleeds long positions.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Continuity
+  mechanism_tags: [rdd, functional_form]
+  summary: Outcome or signal varies smoothly through the cutoff or window; the working assumption behind local identification.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Convexity mispricing
+  mechanism_tags: [rates, options]
+  summary: Linear models misprice nonlinear payoff curvature; the gap is extractable with convex instruments.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Correct specification
+  mechanism_tags: [specification, inference]
+  summary: Functional form and regressors match the data-generating process; the prerequisite for valid inference.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Correlated predictors
+  mechanism_tags: [regression, multicollinearity]
+  summary: Regressors move together, inflating coefficient variance and scrambling attribution.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Correlation structure
+  mechanism_tags: [dependence, covariance]
+  summary: The pattern of pairwise dependencies; clustering, hedging and diversification all lean on it.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Crash phobia
+  mechanism_tags: [preferences, behavioral]
+  summary: Aversion to rare crashes inflates the price of protection and depresses demand for skewed assets.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Crash risk
+  mechanism_tags: [tail_risk, discontinuity]
+  summary: Exposure to sudden large repricing; the premium source for carry and short-volatility strategies.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Crossing quantiles
+  mechanism_tags: [quantile, estimation]
+  summary: Estimated quantile curves that intersect violate monotonicity and mark noisy or mis-fit models.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Dangling nodes
+  mechanism_tags: [networks, structure]
+  summary: Nodes with missing or one-way links; how they are treated changes rankings and centralities.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Deal break
+  mechanism_tags: [merger_arb, events]
+  summary: An announced deal fails on antitrust, financing or votes; the spread violently re-widens, the tail risk of merger arb.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Deal completion
+  mechanism_tags: [merger_arb, events]
+  summary: Announced mergers close at terms with high but imperfect probability; the spread prices that completion risk.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Degeneracy
+  mechanism_tags: [networks, optimization]
+  summary: Many distinct near-optimal partitions or solutions of equal quality; the chosen one is arbitrary.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Detectable violations
+  mechanism_tags: [testing, monitoring]
+  summary: Violations large enough for tests to flag at the available sample size; undetected is not absent.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Discrete states
+  mechanism_tags: [state_space, regimes]
+  summary: The latent state takes finitely many values; filtering becomes classification among discrete labels.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Donor pool contamination
+  mechanism_tags: [synthetic_control, causal]
+  summary: Donors touched by the treatment themselves break the synthetic-control counterfactual.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Donor pool quality
+  mechanism_tags: [synthetic_control, causal]
+  summary: Donors must reproduce the treated unit's pre-treatment path; poor donors invalidate the counterfactual.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Drawdowns
+  mechanism_tags: [risk, path_dependence]
+  summary: Peak-to-trough wealth declines along the path; the risk measure investors actually live.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Drift detection
+  mechanism_tags: [monitoring, change_point]
+  summary: Timely flagging of distribution drift; slow detection leaves stale models trading wrong signals.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Dynamic panel bias
+  mechanism_tags: [panel, econometrics]
+  summary: Lagged dependent variables correlate with unit fixed effects, biasing standard panel estimators (Nickell bias).
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Earnings persistence
+  mechanism_tags: [earnings, accounting]
+  summary: Reported earnings contain a slowly decaying persistent component; drift strategies monetize underreaction to it.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Edge estimate accuracy
+  mechanism_tags: [kelly, estimation]
+  summary: Kelly sizing is only as good as the estimated edge; overestimated odds make the growth rate negative.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Endpoint effects
+  mechanism_tags: [emd, boundaries]
+  summary: Spline-based decomposition is unstable at the series ends; end IMFs are unreliable.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Equilibrium prior
+  mechanism_tags: [black_litterman, priors]
+  summary: Market-capitalization weights imply an equilibrium expected return used as the prior mean around which views are blended.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Estimation accuracy
+  mechanism_tags: [statistics, estimation]
+  summary: How close estimates land to the truth; accuracy limits bound every downstream decision.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Exclusion violation
+  mechanism_tags: [iv, causal]
+  summary: The instrument affects the outcome through a channel other than the treatment, violating the exclusion restriction.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Event uncertainty
+  mechanism_tags: [events, risk]
+  summary: Binary catalysts resolve two-valued; the market often misprices their probabilities.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Extrapolation
+  mechanism_tags: [prediction, support]
+  summary: Predicting outside the observed input support, where functional form is unearned and errors explode.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Factor instability
+  mechanism_tags: [factor_models, regimes]
+  summary: Loadings and premia drift over time; one-window estimates misprice the next window.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Factor model misspecification
+  mechanism_tags: [factor_models, specification]
+  summary: Omitted or mismeasured factors load on the apparent signal, inflating backtest Sharpe.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Factor model validity
+  mechanism_tags: [factor_models, specification]
+  summary: A factor model must price the cross-section; invalid models leave residual structure masquerading as alpha.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Factor structure
+  mechanism_tags: [factor_models, covariance]
+  summary: A small number of common factors drive return covariance; the remainder is near-idiosyncratic.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Faithfulness
+  mechanism_tags: [causal_discovery, graphs]
+  summary: The graph entails exactly the observed conditional independences; the assumption that lets tests read off structure.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Faithfulness violation
+  mechanism_tags: [causal_discovery, graphs]
+  summary: Independences the graph does not entail, or dependence it fails to entail, mislead constraint-based structure learners.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: False alarms
+  mechanism_tags: [monitoring, testing]
+  summary: Spurious change flags that trigger needless re-estimation and churn; controlled at a chosen alarm rate.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: False breakout
+  mechanism_tags: [technical, whipsaw]
+  summary: Price breaches a threshold and reverts without continuation, whipsawing breakout followers.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Finite energy
+  mechanism_tags: [signal_processing, spectra]
+  summary: Signals carry finite total power, so spectra are integrable and transforms well-defined.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Finite sample errors
+  mechanism_tags: [statistics, inference]
+  summary: Estimation and test errors at finite sample size; they compound through multi-step procedures.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Financing costs
+  mechanism_tags: [leverage, funding]
+  summary: Borrowing and margin funding vary with conditions and erode levered strategy returns.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Front running
+  mechanism_tags: [microstructure, flow]
+  summary: Trading ahead of known large orders extracts value from that flow; predictable own trades invite it.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Gaussian approximation
+  mechanism_tags: [filtering, approximation]
+  summary: Propagating only mean and covariance approximates non-Gaussian beliefs; error grows with nonlinearity.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Gaussian noise
+  mechanism_tags: [noise, assumptions]
+  summary: Independent normal disturbances; many estimators are optimal under it and merely adequate otherwise.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Gaussian sources
+  mechanism_tags: [ica, identification]
+  summary: Independent Gaussian sources cannot be separated by ICA; identifiability dies exactly there.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Graph misspecification
+  mechanism_tags: [networks, specification]
+  summary: Wrong edges, missing or spurious, break the smoothness and diffusion assumptions graph methods rely on.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Grouping effect
+  mechanism_tags: [regression, correlated_predictors]
+  summary: Correlated predictors receive similar coefficients; useful for grouping, misleading for selection.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Hedging error
+  mechanism_tags: [options, replication]
+  summary: Discrete rebalancing and costs make realized hedges deviate from the theoretical replicating portfolio.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Hedging pressure
+  mechanism_tags: [futures, positioning]
+  summary: Net hedging demand moves futures risk premia; speculators earn compensation for absorbing it.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Heterogeneous effects
+  mechanism_tags: [causal, treatment_effects]
+  summary: Treatment effects vary across units and strata; averages hide who gains and who loses.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Hidden confounding
+  mechanism_tags: [causal_discovery, confounding]
+  summary: Unmeasured common causes make the same dependence pattern compatible with many different graphs.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: High dimensions
+  mechanism_tags: [statistics, scaling]
+  summary: Many variables relative to observations; distances concentrate, covariance estimates degrade, naive methods fail.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Implied vol undervaluation
+  mechanism_tags: [options, mispricing]
+  summary: Option-implied volatility can sit below subsequently realized volatility, a systematic buying opportunity.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Independent sources
+  mechanism_tags: [ica, decomposition]
+  summary: Latent components are mutually independent, not merely uncorrelated; the assumption that separates them.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Information flow
+  mechanism_tags: [networks, causality]
+  summary: Directed statistical dependence between connected nodes; the currency of network prediction.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Instrument exogeneity
+  mechanism_tags: [iv, identification]
+  summary: The instrument is uncorrelated with the error; violation reintroduces the confounding it was meant to remove.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Instrument relevance
+  mechanism_tags: [iv, identification]
+  summary: The instrument must move the treatment; weak relevance leaves estimates biased toward confounded OLS.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Instability
+  mechanism_tags: [estimation, sensitivity]
+  summary: Small input changes, in data or hyperparameters, swing outputs; unstable estimates cannot anchor decisions.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Interest rate sensitivity
+  mechanism_tags: [rates, macro]
+  summary: Values and strategy P&L respond to rate level and term-structure moves.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Intraday patterns
+  mechanism_tags: [microstructure, seasonality]
+  summary: Returns, volume and spreads follow systematic intraday seasonals, exploitable only net of costs.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Intrinsic mode functions
+  mechanism_tags: [emd, decomposition]
+  summary: The mono-component oscillatory pieces EMD extracts; the basis is data-defined rather than fixed.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Irrepresentability
+  mechanism_tags: [sparsity, lasso]
+  summary: No unselected variable may be well predicted by the selected ones; failure yields the wrong support.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Jump risk
+  mechanism_tags: [tail_risk, discontinuity]
+  summary: Prices can move discontinuously, breaking continuous-path models and punishing short-volatility positions.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Jumps
+  mechanism_tags: [price_process, discontinuity]
+  summary: Discontinuous moves in the return process; they break normality and continuity assumptions together.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Known model
+  mechanism_tags: [filtering, state_space]
+  summary: The state-space form is known exactly; a filter built on the wrong model tracks noise, not signal.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Known odds
+  mechanism_tags: [kelly, information]
+  summary: The bettor knows the true win probabilities; Kelly sizing is optimal only under known odds.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Lag
+  mechanism_tags: [timing, dynamics]
+  summary: Cause precedes effect with a delay; mis-measuring the lag misaligns signal and outcome.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Lag misspecification
+  mechanism_tags: [time_series, specification]
+  summary: Wrong lag length biases dynamics and corrupts forecasts and causality tests.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Lag structure
+  mechanism_tags: [time_series, dynamics]
+  summary: Which past values matter and with what delay; the core object of time-series specification.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Leakage
+  mechanism_tags: [spectral, estimation]
+  summary: Windowed spectra smear power across neighboring bins; unwindowed periodograms blur true peaks.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Leverage effect
+  mechanism_tags: [volatility, asymmetry]
+  summary: Down-moves raise volatility more than equal up-moves; the asymmetric volatility response.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Leverage points
+  mechanism_tags: [regression, outliers]
+  summary: Extreme predictor values dominate fitted coefficients; single observations can swing estimates.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Limited competition
+  mechanism_tags: [arbitrage, market_structure]
+  summary: Few arbitrageurs can hold a structural trade, letting its premium persist.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Liquidity premium
+  mechanism_tags: [liquidity, asset_pricing]
+  summary: Less liquid assets earn higher expected returns as compensation for trading frictions.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Local optima
+  mechanism_tags: [optimization, nonconvex]
+  summary: Non-convex objectives carry many suboptimal stationary points; optimizers may settle far from the global best.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Local time scales
+  mechanism_tags: [emd, multi_scale]
+  summary: Each oscillatory component carries its own instantaneous timescale; mixing scales inside one component breaks the method.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Low power
+  mechanism_tags: [statistics, inference]
+  summary: A test rarely rejects false nulls; insignificant results carry little evidence.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Manager timing
+  mechanism_tags: [fund_flows, behavioral]
+  summary: Managers time their own issuance and positioning; that timing is informative about future returns.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Manipulation
+  mechanism_tags: [rdd, validity]
+  summary: Agents sorting precisely around the cutoff breaks regression-discontinuity identification.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Matching bias
+  mechanism_tags: [matching, causal]
+  summary: Imperfect matches leave covariate imbalance; the comparison inherits the remaining bias.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Mediation misspecification
+  mechanism_tags: [mediation, causal]
+  summary: Wrongly specified mediator paths, with unmeasured mediators or confounded paths, corrupt the decomposition.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Mediation validity
+  mechanism_tags: [mediation, causal]
+  summary: The proposed mediator genuinely lies on the causal path; mediation analysis assumes correct path structure.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Metric property
+  mechanism_tags: [geometry, distance]
+  summary: Distances must be symmetric and satisfy the triangle inequality; violations break metric-space methods.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Misspecification
+  mechanism_tags: [specification, econometrics]
+  summary: The functional form omits relevant structure, biasing every inference drawn from it.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Mixing linearity
+  mechanism_tags: [ica, model]
+  summary: Observations are a linear mixture of sources; nonlinear mixing needs different separation tools.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Mode mixing
+  mechanism_tags: [emd, decomposition]
+  summary: One physical timescale splits across IMFs, or several merge into one, corrupting the decomposition.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Model misspecification
+  mechanism_tags: [state_space, filtering]
+  summary: Wrong dynamics or observation equations make the filter confidently estimate the wrong state.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Moment validity
+  mechanism_tags: [gmm, statistics]
+  summary: Population moments must exist; heavy tails break moment-based estimators and inference.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Monotonicity
+  mechanism_tags: [identification, causal]
+  summary: The effect runs in one direction, whether a monotone quantile link or treatment monotone in the instrument; enables ordered and IV identification.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Multi scale structure
+  mechanism_tags: [wavelets, decomposition]
+  summary: Phenomena organize across scales; separating scales exposes structure invisible in aggregates.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Multiple cointegrating vectors
+  mechanism_tags: [cointegration, multivariate]
+  summary: Several independent long-run relations bind the system; misjudged rank mis-specifies every spread.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Near unit root
+  mechanism_tags: [time_series, persistence]
+  summary: High persistence mimics a random walk over finite samples, breaking standard inference.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: No anticipation
+  mechanism_tags: [diff_in_diff, causal]
+  summary: Units do not react before treatment starts; anticipation contaminates the pre-period counterfactual.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: No interference
+  mechanism_tags: [causal, identification]
+  summary: One unit's treatment does not affect others' outcomes; violated by spillovers and market-wide effects.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: No unmeasured confounding
+  mechanism_tags: [causal, identification]
+  summary: All confounders are observed and adjustable; the selection-on-observables assumption.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Non Gaussianity
+  mechanism_tags: [ica, distributions]
+  summary: Independent components are recoverable only through non-Gaussianity; Gaussian sources do not separate.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Nonconvergence
+  mechanism_tags: [optimization, numerics]
+  summary: The optimizer never settles on a stable solution, making outputs seed-dependent noise.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Normal returns
+  mechanism_tags: [assumptions, distributions]
+  summary: Returns are approximately Gaussian; the working assumption of mean-variance and many closed-form allocations.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Optimization convergence
+  mechanism_tags: [optimization, numerics]
+  summary: Iterative optimizers must reach the intended optimum; loose tolerance or ill conditioning silently degrades the solution.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Outliers
+  mechanism_tags: [robust_statistics, data_quality]
+  summary: Extreme observations from contamination or error; they dominate unrobust estimates.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Overbetting
+  mechanism_tags: [kelly, sizing]
+  summary: Betting beyond the Kelly fraction slows or destroys growth; fractional Kelly hedges estimation error.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Overlapping windows
+  mechanism_tags: [spectral, estimation]
+  summary: Overlapping segments add dependent information; treating them as independent understates variance.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Parallel trends
+  mechanism_tags: [diff_in_diff, causal]
+  summary: Treated and control would have followed the same trend absent treatment; the diff-in-diff assumption.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Parameter instability
+  mechanism_tags: [regimes, estimation]
+  summary: True parameters shift within the sample; single-regime estimates predict neither regime.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Parameter proliferation
+  mechanism_tags: [overfitting, dimensionality]
+  summary: Each added parameter fits noise harder; past data support, out-of-sample skill collapses.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Passive flow predictability
+  mechanism_tags: [flow, indexing]
+  summary: Rebalances and creations or redemptions of passive funds move predictable baskets at predictable times.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Positivity
+  mechanism_tags: [causal, identification]
+  summary: Every covariate stratum has positive probability of each treatment level; without it counterfactuals are not estimable.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Positivity violation
+  mechanism_tags: [causal, identification]
+  summary: Some strata never receive one treatment level; extrapolating to them is unsupported and dangerous.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Predictability of regimes
+  mechanism_tags: [regimes, forecasting]
+  summary: Regime switches carry enough structure in duration and indicators to be partially forecast.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Prior sensitivity
+  mechanism_tags: [bayesian, robustness]
+  summary: Posterior conclusions move with prior choices; sensitivity to the prior marks fragile results.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Quasi diag errors
+  mechanism_tags: [hierarchical, estimation]
+  summary: Approximation error in quasi-diagonalization perturbs the covariance estimate and compounds down the tree.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Random matrix null
+  mechanism_tags: [random_matrix, noise]
+  summary: Under pure noise, eigenvalues follow the Marchenko-Pastur law; deviations indicate true factor structure.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Rate shocks
+  mechanism_tags: [rates, macro]
+  summary: Sudden policy or inflation surprises reprice duration and discount rates across assets.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Rational objective
+  mechanism_tags: [decision_theory, preferences]
+  summary: The agent maximizes a coherent, consistent preference ordering; the benchmark behavioral biases deviate from.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Redundancy
+  mechanism_tags: [signal_processing, representation]
+  summary: Overlapping information across components or scales; redundant representations waste degrees of freedom.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Regime classification error
+  mechanism_tags: [regimes, inference]
+  summary: The current regime is mis-identified; positions sized for the wrong regime lose on both sides.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Regime persistence
+  mechanism_tags: [regimes, duration]
+  summary: Regimes last long enough to identify and exploit; short-lived regimes defeat regime-switching strategies.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Regulatory risk
+  mechanism_tags: [policy, events]
+  summary: Rule changes or enforcement can invalidate a strategy's premise overnight.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Residual bias
+  mechanism_tags: [estimation, bias]
+  summary: Bias remaining after adjustment; its size bounds how much the estimate can be trusted.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Resolution limit
+  mechanism_tags: [networks, clustering]
+  summary: Modularity-based methods cannot resolve communities below a size the graph itself sets.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Retail flow
+  mechanism_tags: [flow, behavioral]
+  summary: Retail order flow is small and noisy yet contrarily predictable around attention events.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Rotation invariance
+  mechanism_tags: [random_matrix, symmetry]
+  summary: Noise eigenvalue laws are invariant to rotations of the return space; only departures from the null are informative.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Sampling
+  mechanism_tags: [signal_processing, data]
+  summary: Discrete observation of a continuous process; the sampling scheme determines which frequencies are representable.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Scale bias
+  mechanism_tags: [networks, estimation]
+  summary: Heterogeneous node scales bias aggregation and spectral estimates; normalization is required.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Scale sensitivity
+  mechanism_tags: [estimation, hyperparameters]
+  summary: Estimates swing with the units or scale of inputs; without normalization, comparisons are meaningless.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Sentiment driven demand
+  mechanism_tags: [sentiment, behavioral]
+  summary: Non-fundamental demand shifts prices from value until sentiment reverts.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Shrinkage target
+  mechanism_tags: [estimation, shrinkage]
+  summary: A structured estimator, such as constant correlation or a single-factor model, toward which noisy sample estimates are shrunk.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Sigma point scaling
+  mechanism_tags: [unscented, parameters]
+  summary: The spread of sigma points around the mean; mis-scaling misrepresents the transformed covariance.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Signal combination
+  mechanism_tags: [combination, forecasting]
+  summary: Combining imperfectly correlated signals can beat any single one; naive weighting inherits the worst of each.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Skewness preference
+  mechanism_tags: [preferences, behavioral]
+  summary: Investors pay up for positively skewed payoffs, depressing those assets' expected returns.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Slow detection
+  mechanism_tags: [monitoring, latency]
+  summary: Change points surface long after they occur; the strategy trades the wrong regime meanwhile.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Small sample
+  mechanism_tags: [statistics, inference]
+  summary: Few observations relative to noise; estimates turn unstable and classical approximations unreliable.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Smooth graph signals
+  mechanism_tags: [graph_signal, networks]
+  summary: Signal varies slowly across graph edges; smoothness priors enable interpolation and denoising on networks.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Smooth nonlinearity
+  mechanism_tags: [filters, dynamics]
+  summary: Mildly nonlinear dynamics that local Gaussian approximations capture; the regime where unscented and extended filters work.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Source order ambiguity
+  mechanism_tags: [ica, identification]
+  summary: ICA identifies components only up to permutation and scale; labels must be fixed post-hoc.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Spectral density
+  mechanism_tags: [spectral, frequency]
+  summary: How signal power distributes over frequencies; the frequency-domain fingerprint of a process.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Spectral leakage
+  mechanism_tags: [spectral, estimation]
+  summary: Finite windows smear power across frequencies, contaminating neighboring spectral estimates.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: State misspecification
+  mechanism_tags: [state_space, regimes]
+  summary: Wrong number or nature of latent states; hidden Markov inference partitions noise into phantom regimes.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Stationarity between changes
+  mechanism_tags: [change_point, regimes]
+  summary: Within a segment between change points the process is stationary; detection rests on that contrast.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Stationarity differences
+  mechanism_tags: [time_series, integration]
+  summary: First differences are stationary even when levels are not; the series is integrated rather than deterministically trending.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Stationarity residuals
+  mechanism_tags: [cointegration, regression]
+  summary: Regression residuals are stationary, validating the long-run relation; non-stationary residuals mean spurious regression.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Stationarity spread
+  mechanism_tags: [cointegration, mean_reversion]
+  summary: The spread between cointegrated legs is itself stationary, making the pair tradable as mean-reverting.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Stationarity variance
+  mechanism_tags: [time_series, heteroskedasticity]
+  summary: Constant variance across time; its absence breaks least-squares efficiency and risk estimates.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Stochastic volatility
+  mechanism_tags: [volatility, dynamics]
+  summary: Volatility is itself a random mean-reverting process; models ignoring it misprice options and risk.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Stopping criteria
+  mechanism_tags: [emd, numerics]
+  summary: When the sifting process stops; loose criteria mix scales, strict criteria waste components.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Strict exogeneity
+  mechanism_tags: [panel, econometrics]
+  summary: Regressors are uncorrelated with past, present and future errors; required for unbiased fixed-effects estimates.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Symmetric errors
+  mechanism_tags: [regression, assumptions]
+  summary: Positive and negative residuals are mirror-distributed; asymmetric errors break the classical tradeoffs of least squares and robust estimators.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Sufficient data
+  mechanism_tags: [statistics, data]
+  summary: Enough observations relative to model complexity; without it, flexible models memorize noise.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Sufficient time series
+  mechanism_tags: [time_series, data]
+  summary: A long enough history to identify dynamics; short series cannot separate persistence from noise.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Term premium
+  mechanism_tags: [rates, asset_pricing]
+  summary: Long bonds earn expected excess returns as compensation for duration risk beyond expected short rates.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Threshold dynamics
+  mechanism_tags: [nonlinear, regimes]
+  summary: The process switches behavior when a variable crosses a threshold, producing state-dependent moves.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Threshold effect
+  mechanism_tags: [nonlinear, causal]
+  summary: A discontinuous or kinked effect at a known cutoff; the identifying variation in regression-discontinuity designs.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Threshold misspecification
+  mechanism_tags: [nonlinear, specification]
+  summary: Wrongly located or shaped thresholds split states incorrectly, blending distinct dynamics.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Threshold selection
+  mechanism_tags: [denoising, estimation]
+  summary: Which detail coefficients count as signal rather than noise; too low keeps noise, too high kills signal.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Threshold tuning
+  mechanism_tags: [change_point, hyperparameters]
+  summary: Detection thresholds trade false alarms against detection delay; tuning picks the operating point.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Timing risk
+  mechanism_tags: [events, execution]
+  summary: The catalyst calendar is uncertain; positions taken too early bleed carry until the event lands.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Tree structure
+  mechanism_tags: [hierarchical, covariance]
+  summary: Dependencies organize as a tree over clusters; hierarchical models cut the estimation dimension.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Trending markets
+  mechanism_tags: [market_regime, momentum]
+  summary: Regimes in which prices persistently continue; trend strategies earn their premium there and bleed elsewhere.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Tuning constant
+  mechanism_tags: [robust_statistics, hyperparameters]
+  summary: The constant scaling robust down-weighting of outliers; wrong values trade bias against breakdown.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Tuning instability
+  mechanism_tags: [cross_validation, hyperparameters]
+  summary: Chosen hyperparameters swing with the validation split; unstable tuning invalidates the selected model.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Unobserved confounding
+  mechanism_tags: [causal, confounding]
+  summary: A hidden variable drives both treatment and outcome; no adjustment on observed data removes it.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Uncovered interest parity failure
+  mechanism_tags: [fx, carry]
+  summary: Exchange rates fail to offset rate differentials; high-yield currencies depreciate less than parity implies, funding carry.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Uninformative controls
+  mechanism_tags: [variable_selection, causal]
+  summary: Controls that add no identifying variation, only noise or bias amplification; including them hurts.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Unmeasured confounding
+  mechanism_tags: [causal, identification]
+  summary: Some confounders are unobserved; adjusted estimates keep bias of unknown size.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Unmeasured mediator confounding
+  mechanism_tags: [mediation, causal]
+  summary: Confounding between mediator and outcome biases the indirect-effect estimate.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Value traps
+  mechanism_tags: [value, behavioral]
+  summary: Cheap securities are cheap because fundamentals deteriorate; low multiples alone do not imply mispricing.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Variance premium
+  mechanism_tags: [volatility, options]
+  summary: Implied variance exceeds realized variance on average; selling it earns a premium with crash exposure.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: View confidence
+  mechanism_tags: [black_litterman, priors]
+  summary: How firmly each view is held; overconfident views overweight idiosyncratic opinion.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: View specification
+  mechanism_tags: [black_litterman, priors]
+  summary: Views must name assets, directions and magnitudes correctly; mis-specified views inject wrong information.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Vol crush
+  mechanism_tags: [options, events]
+  summary: Implied volatility collapses right after a scheduled event, punishing premium bought into it.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Volatility surface dynamics
+  mechanism_tags: [options, implied_vol]
+  summary: Implied vol varies by strike and maturity and evolves over time; static-surface models miss its term structure.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Wavelet choice
+  mechanism_tags: [wavelets, hyperparameters]
+  summary: The analyzing wavelet shapes what structure is visible; the wrong basis hides or invents features.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Weak identification
+  mechanism_tags: [gmm, identification]
+  summary: Moments carry too little information about parameters; estimates turn imprecise and standard inference misleads.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Weak instruments
+  mechanism_tags: [iv, identification]
+  summary: Relevant but weakly correlated instruments produce biased estimates and distorted standard errors.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Window choice
+  mechanism_tags: [spectral, estimation]
+  summary: The analysis window trades resolution against variance; wrong windows hide or smear structure.
+  source: spark-curated
+  license: CC0-1.0
+
+- name: Windowing
+  mechanism_tags: [spectral, signal_processing]
+  summary: Segmenting the series for local analysis; each window's content depends on length and placement.
   source: spark-curated
   license: CC0-1.0

@@ -6,7 +6,7 @@ from spark_mcp.storage import open_db
 def test_migrate_creates_meta_and_version(tmp_path):
     db = open_db(tmp_path / "spark.db")
     version = db.conn.execute("PRAGMA user_version").fetchone()[0]
-    assert version == 4
+    assert version == 5
     name = db.conn.execute(
         "SELECT value FROM spark_meta WHERE key='schema_name'"
     ).fetchone()[0]
@@ -19,8 +19,17 @@ def test_migrations_are_idempotent(tmp_path):
     db = open_db(path)
     db.close()
     db2 = open_db(path)  # second open: no pending migrations, no error
-    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == 4
+    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == 5
     db2.close()
+
+
+def test_migration_v5_attributes_spend_to_runs(tmp_path):
+    """v5 (N8): spend_ledger gains run_id so per-episode and per-consolidation
+    caps (§14) can be enforced from the ledger."""
+    db = open_db(tmp_path / "spark.db")
+    cols = {r[1] for r in db.conn.execute("PRAGMA table_info(spend_ledger)")}
+    assert "run_id" in cols
+    db.close()
 
 
 def test_phase1_tables_exist(tmp_path):

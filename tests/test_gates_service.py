@@ -213,6 +213,40 @@ def test_provider_failure_fails_trial_and_leaves_episode(db, cfg, episode, embed
     assert g.M_family(db, FAMILY) == 1  # failed trials count toward M
 
 
+def test_failed_trial_retry_returns_existing_row_without_dispatch(db, cfg, episode, embedder):
+    """N5: an idempotent retry of a FAILED trial returns the existing failed
+    row without a new dispatch; a genuinely new attempt (new seed) creates a
+    new trial."""
+    ep_id, hyp_id = episode
+    spec = make_spec(hyp_id, 11)
+
+    class NeverProvider:
+        """The retry must replay the failed winner, never re-dispatch."""
+
+        name = "never"
+
+        def backtest(self, spec):
+            raise AssertionError("retry must not dispatch")
+
+    with pytest.raises(ToolError, match="backtest failed"):
+        g.backtest_run(db, cfg, FailingProvider(), ep_id, spec, embedder=embedder)
+    t1 = db.conn.execute("SELECT * FROM trials WHERE episode_id = ?", (ep_id,)).fetchone()
+    assert t1["status"] == "failed"
+
+    r2 = g.backtest_run(db, cfg, NeverProvider(), ep_id, spec, embedder=embedder)
+    assert r2["reused"] is True
+    assert r2["status"] == "failed"
+    assert r2["trial_id"] == t1["trial_id"]
+    assert g.M_family(db, FAMILY) == 1
+    assert db.conn.execute("SELECT COUNT(*) AS n FROM trials").fetchone()["n"] == 1
+
+    # a genuinely new attempt (new seed) is a new trial, even with a failing provider
+    with pytest.raises(ToolError, match="backtest failed"):
+        g.backtest_run(db, cfg, FailingProvider(), ep_id, make_spec(hyp_id, 12), embedder=embedder)
+    assert g.M_family(db, FAMILY) == 2
+    assert db.conn.execute("SELECT COUNT(*) AS n FROM trials").fetchone()["n"] == 2
+
+
 # ---------------------------------------------------------------------------
 # §12.2 tombstone pre-check
 
@@ -332,6 +366,20 @@ def test_review_band_llm_adjudication(db, cfg, episode, embedder, monkeypatch):
             make_spec(ep2_hyp["hypothesis_id"], 13), embedder=embedder, llm=block,
         )
 
+    # N10: "DISALLOW" contains "ALLOW" — a substring match would wrongly admit
+    # it; the exact-match verdict treats it as a block.
+    ep3_hyp = ledger.propose_hypothesis(db, cfg, **{**PROPOSE, "idea": "v4"})
+    reg3 = ledger.register_hypothesis(db, cfg, ep3_hyp["hypothesis_id"], {"signal": "mom"}, 5)
+    disallow = FakeLLM({"Tombstone pre-check adjudication": "DISALLOW"})
+    with pytest.raises(ToolError, match="adjudication blocked"):
+        g.backtest_run(
+            db, cfg, sim(cfg), reg3["episode_id"],
+            make_spec(ep3_hyp["hypothesis_id"], 14), embedder=embedder, llm=disallow,
+        )
+    ep3 = ledger.get_episode(db, reg3["episode_id"])
+    assert ep3["tombstone_check"]["status"] == "hit"
+    assert ep3["tombstone_check"]["adjudicated"] is True
+
 
 def test_tombstone_candidates_embedding_cosine(db, embedder):
     """The real (unmocked) candidate path: identical text -> cosine 1.0,
@@ -371,18 +419,16 @@ def test_tombstone_candidates_lexical_fallback_without_embedder(db):
 
 
 def test_kill_rule_fires_at_k_and_creates_tombstone(db, cfg, episode, embedder, monkeypatch):
+    """N6: only genuine evaluation failures tick — three failed
+    significance_gate verdicts trigger the kill rule at K."""
     cfg.research.kill_rule_failures = 3
     monkeypatch.setattr(g, "tombstone_candidates", lambda db_, e, t: [])
-    ep_id, hyp_id = episode
-    failing = FailingProvider()
     for i in range(3):
         hyp = ledger.propose_hypothesis(db, cfg, **{**PROPOSE, "idea": f"kill{i}"})
         reg = ledger.register_hypothesis(db, cfg, hyp["hypothesis_id"], {"signal": "mom"}, 100 + i)
-        with pytest.raises(ToolError):
-            g.backtest_run(
-                db, cfg, failing, reg["episode_id"],
-                make_spec(hyp["hypothesis_id"], 100 + i), embedder=embedder,
-            )
+        ep = reg["episode_id"]
+        _set_metrics(db, ep, sr=0.0, T=500)  # gate verdict: fail (sr <= 0 never passes, §9.1)
+        g.significance_gate(db, cfg, ep)
         state = db.conn.execute(
             "SELECT * FROM exploration_state WHERE family = ?", (FAMILY,)
         ).fetchone()
@@ -404,15 +450,16 @@ def test_kill_rule_fires_at_k_and_creates_tombstone(db, cfg, episode, embedder, 
 def test_success_resets_consecutive_failures(db, cfg, episode, embedder, monkeypatch):
     cfg.research.kill_rule_failures = 3
     monkeypatch.setattr(g, "tombstone_candidates", lambda db_, e, t: [])
-    failing = FailingProvider()
     for i in range(2):
         hyp = ledger.propose_hypothesis(db, cfg, **{**PROPOSE, "idea": f"reset{i}"})
         reg = ledger.register_hypothesis(db, cfg, hyp["hypothesis_id"], {"signal": "mom"}, 200 + i)
-        with pytest.raises(ToolError):
-            g.backtest_run(
-                db, cfg, failing, reg["episode_id"],
-                make_spec(hyp["hypothesis_id"], 200 + i), embedder=embedder,
-            )
+        ledger.log_outcome(
+            db, cfg, reg["episode_id"], "failure", failure_reason=f"deflated {i}"
+        )
+    state = db.conn.execute(
+        "SELECT consecutive_failures FROM exploration_state WHERE family = ?", (FAMILY,)
+    ).fetchone()
+    assert state["consecutive_failures"] == 2
     # a success on a FRESH attempt (new episode + seed, else the retry returns
     # the existing failed trial untouched) resets the counter
     hyp = ledger.propose_hypothesis(db, cfg, **{**PROPOSE, "idea": "reset-winner"})
@@ -428,6 +475,46 @@ def test_success_resets_consecutive_failures(db, cfg, episode, embedder, monkeyp
     assert db.conn.execute(
         "SELECT COUNT(*) AS n FROM tombstones WHERE summary LIKE '%kill-rule%'"
     ).fetchone()["n"] == 0
+
+
+def test_provider_errors_do_not_tick_kill_rule(db, cfg, episode, embedder):
+    """N6: provider exceptions and unsupported providers are infra/config
+    problems, not deflated hypotheses. The trial still fails (§9.2), but the
+    kill rule must not tick and no kill-rule tombstone may appear."""
+    cfg.research.kill_rule_failures = 2
+
+    class NoBacktestProvider:
+        name = "nobacktest"
+
+        def backtest(self, spec):
+            raise NotImplementedError
+
+    for i in range(3):  # would fire the kill rule twice over if errors ticked
+        hyp = ledger.propose_hypothesis(db, cfg, **{**PROPOSE, "idea": f"infra{i}"})
+        reg = ledger.register_hypothesis(db, cfg, hyp["hypothesis_id"], {"signal": "mom"}, 300 + i)
+        with pytest.raises(ToolError, match="backtest failed"):
+            g.backtest_run(
+                db, cfg, FailingProvider(), reg["episode_id"],
+                make_spec(hyp["hypothesis_id"], 300 + i), embedder=embedder,
+            )
+    hyp = ledger.propose_hypothesis(db, cfg, **{**PROPOSE, "idea": "unsupported"})
+    reg = ledger.register_hypothesis(db, cfg, hyp["hypothesis_id"], {"signal": "mom"}, 399)
+    with pytest.raises(ToolError, match="does not support backtest"):
+        g.backtest_run(
+            db, cfg, NoBacktestProvider(), reg["episode_id"],
+            make_spec(hyp["hypothesis_id"], 399), embedder=embedder,
+        )
+    # no genuine outcome ever fed the counters: the row does not even exist
+    row = db.conn.execute(
+        "SELECT * FROM exploration_state WHERE family = ?", (FAMILY,)
+    ).fetchone()
+    assert row is None
+    # ...but the failed trials still count toward M (§9.2)
+    assert g.M_family(db, FAMILY) == 4
+    n = db.conn.execute(
+        "SELECT COUNT(*) AS n FROM tombstones WHERE summary LIKE '%kill-rule%'"
+    ).fetchone()["n"]
+    assert n == 0
 
 
 # ---------------------------------------------------------------------------
@@ -733,6 +820,88 @@ def test_spend_summary_shape(db, cfg, episode):
 
     summary = spend_summary(db)
     assert summary == {"today_usd": 1.5, "total_usd": 1.5}
+
+
+def test_episode_budget_warn_policy_logs_and_proceeds(db, cfg, episode, monkeypatch):
+    from spark_mcp import budgets
+
+    cfg.budgets.per_episode_usd = 0.5
+    ep_id, hyp_id = episode
+    budgets.record_spend(db, cfg, family=FAMILY, source="manual", usd=1.0, run_id=ep_id)
+    monkeypatch.setattr(g, "tombstone_candidates", lambda db_, e, t: [])
+    result = g.backtest_run(db, cfg, sim(cfg), ep_id, make_spec(hyp_id, 11), embedder=None)
+    assert result["status"] == "testing"  # warn proceeds
+    event = db.conn.execute(
+        "SELECT payload FROM trajectory_events WHERE kind = 'observation' ORDER BY seq DESC LIMIT 1"
+    ).fetchone()
+    payload = json.loads(event["payload"])
+    assert payload["kind"] == "budget_warning"
+    assert "episode budget exceeded" in payload["message"]
+
+
+def test_episode_budget_fail_closed_blocks_before_dispatch(db, cfg, episode, monkeypatch):
+    """Mirror of the daily-cap rollback test: no trial, no dispatch, and the
+    blocked run's own spend row rolls back with the same transaction."""
+    from spark_mcp import budgets
+
+    cfg.budgets.per_episode_usd = 0.5
+    cfg.budgets.policy = "fail_closed"
+    ep_id, hyp_id = episode
+    budgets.record_spend(db, cfg, family=FAMILY, source="manual", usd=1.0, run_id=ep_id)
+    monkeypatch.setattr(g, "tombstone_candidates", lambda db_, e, t: [])
+    spy = SpyProvider(sim(cfg), db)
+    spy.episode_id = ep_id
+    with pytest.raises(ToolError, match="episode budget exceeded"):
+        g.backtest_run(db, cfg, spy, ep_id, make_spec(hyp_id, 11), embedder=None)
+    assert spy.calls == 0  # no dispatch
+    assert db.conn.execute("SELECT COUNT(*) AS n FROM trials").fetchone()["n"] == 0  # no trial row
+    rows = db.conn.execute("SELECT source FROM spend_ledger").fetchall()
+    assert [r["source"] for r in rows] == ["manual"]  # the blocked run's spend rolled back
+
+
+def test_episode_budget_fail_closed_refuses_log_outcome_atomically(db, cfg, episode):
+    """Under fail_closed an over-cap log_outcome is refused whole: episode
+    update, reconciled-trial backfill, and spend row roll back together."""
+    from spark_mcp import budgets
+
+    cfg.budgets.per_episode_usd = 0.5
+    cfg.budgets.policy = "fail_closed"
+    ep_id, _ = episode
+    budgets.record_spend(db, cfg, family=FAMILY, source="manual", usd=1.0, run_id=ep_id)
+    with pytest.raises(ToolError, match="episode budget exceeded"):
+        ledger.log_outcome(
+            db, cfg, ep_id, "success",
+            metrics={"sr": 1.0, "T": 500}, costs={"usd": 0.1, "tokens": 10},
+        )
+    ep = ledger.get_episode(db, ep_id)
+    assert ep["outcome"] is None and ep["status"] == "registered"  # episode write rolled back
+    assert g.M_family(db, FAMILY) == 0  # no reconciled trial backfill
+    rows = db.conn.execute("SELECT source FROM spend_ledger").fetchall()
+    assert [r["source"] for r in rows] == ["manual"]  # spend rolled back with it
+
+
+def test_consolidation_budget_enforced_both_policies(db, cfg):
+    """per_consolidation_usd is a per-RUN cap (plan §13). Phase 7's
+    consolidate passes its run id; the enforcement is live and tested now."""
+    from spark_mcp import budgets
+
+    cfg.budgets.per_consolidation_usd = 3.0
+    run_id = "consolidation_run_1"
+    budgets.record_spend(db, cfg, family=None, source="consolidation", usd=2.0, run_id=run_id)
+    ok = budgets.enforce_consolidation_budget(db, cfg, run_id=run_id, source="consolidation")
+    assert ok == []
+    budgets.record_spend(db, cfg, family=None, source="consolidation", usd=2.0, run_id=run_id)
+    # warn (default policy): over-cap logs a trajectory event, proceeds
+    warnings = budgets.enforce_consolidation_budget(db, cfg, run_id=run_id, source="consolidation")
+    assert any("consolidation budget exceeded" in w for w in warnings)
+    # each run has its own allowance
+    budgets.record_spend(db, cfg, family=None, source="consolidation", usd=2.0, run_id="run_2")
+    ok2 = budgets.enforce_consolidation_budget(db, cfg, run_id="run_2", source="consolidation")
+    assert ok2 == []
+    # fail_closed: over-cap raises
+    cfg.budgets.policy = "fail_closed"
+    with pytest.raises(ToolError, match="consolidation budget exceeded"):
+        budgets.enforce_consolidation_budget(db, cfg, run_id=run_id, source="consolidation")
 
 
 # ---------------------------------------------------------------------------
