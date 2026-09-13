@@ -880,7 +880,7 @@ def suggest_next(
     a0, b0 = (list(research.bandit_prior) + [1.0, 1.0])[:2]
 
     qd_archive = archive.Archive(db, cfg)
-    stored = archive.family_posteriors(db)
+    stored = archive.family_posteriors(db, as_of)  # PIT: past view -> prior
     rng = np.random.default_rng(seed)
     utilities = np.zeros(len(fams), dtype=np.float64)
     emptiness: dict[str, float] = {}
@@ -888,7 +888,7 @@ def suggest_next(
         post = stored.get(fam)
         a, b = (post["alpha"], post["beta"]) if post else (a0, b0)
         theta = float(rng.beta(a, b))  # Thompson draw from the family posterior
-        e = qd_archive.cell_emptiness(fam)
+        e = qd_archive.cell_emptiness(fam, as_of)  # PIT occupancy
         emptiness[fam] = e
         utilities[i] = e * theta
     logits = utilities - utilities.max()
@@ -902,7 +902,7 @@ def suggest_next(
         fam = fams[int(pick)]
         post = stored.get(fam)
         a, b = (post["alpha"], post["beta"]) if post else (a0, b0)
-        cell = qd_archive.emptiest_cell(fam)
+        cell = qd_archive.emptiest_cell(fam, as_of)
         methods = [
             {
                 "method_id": r["node_id"],

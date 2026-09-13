@@ -211,7 +211,8 @@ def _cell_emptiness_term(
         try:
             # families_tried stays the episode-derived count (field meaning
             # unchanged across modes); the basis flags which term fed N.
-            return archive.cell_emptiness(family), tried, "qd_archive"
+            # PIT: occupancy read at the SAME as_of as the approximation.
+            return archive.cell_emptiness(family, as_of), tried, "qd_archive"
         except ToolError:
             pass  # family outside the bin vocabulary: degraded approximation
     return approx, tried, "family_count_approximation"

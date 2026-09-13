@@ -332,13 +332,13 @@ def test_cell_emptiness_archive_mode_slice_formula(db, cfg, embedder):
     assert arch.cell_emptiness("quant") == pytest.approx(0.0)
     assert arch.cell_emptiness("econometrics") == 1.0  # empty slice
     out = novelty.check_novelty(
-        db, cfg, "anything", family="quant", as_of=AS_OF, embedder=embedder,
-        archive=arch,
+        db, cfg, "anything", family="quant", embedder=embedder,
+        archive=arch,  # occupancy stamped now -> read at the current view
     )
     assert out["cell_emptiness"] == pytest.approx(0.0)
     assert out["cell_emptiness_basis"] == "qd_archive"
     out2 = novelty.check_novelty(
-        db, cfg, "anything", family="econometrics", as_of=AS_OF, embedder=embedder,
+        db, cfg, "anything", family="econometrics", embedder=embedder,
         archive=arch,
     )
     assert out2["cell_emptiness"] == 1.0
@@ -444,10 +444,17 @@ def test_suggest_next_seeding_reproducible_and_trajectory(db, cfg, seeded):
 
 
 def test_suggest_next_prefers_emptiest_cells(db, cfg):
-    arch = archive.Archive(db, cfg)
-    # occupy the (quant, 1d, low) cell so the family's suggestion moves elsewhere
-    arch.insert("hyp_q", {"family": "quant", "horizon": "1d", "turnover": "low"},
-                FULL_METRICS, "predictive")
+    # occupy the (quant, 1d, low) cell so the family's suggestion moves
+    # elsewhere; the occupancy is stamped at AS_OF so the PIT read at AS_OF
+    # sees it (nit-1 fix: archive reads are as_of-filtered).
+    db.execute(
+        "INSERT INTO qd_cells (cell_key, descriptors, descriptor_spec_version,"
+        " elite_hypothesis_id, dsr, oos_ic, family, trials, reward_type,"
+        " updated_at) VALUES ('0:0:0', ?, 1, 'hyp_q', 0.9, 0.5, 'quant', 1,"
+        " 'predictive', ?)",
+        ('{"family": "quant", "horizon": "1d", "turnover": "low",'
+         ' "elite_score": 0.9}', AS_OF),
+    )
     out = suggest_next(db, cfg, n=8, as_of=AS_OF, seed=7)
     quant_suggestions = [s for s in out["suggestions"] if s["family"] == "quant"]
     assert quant_suggestions  # n=8 covers all 8 bin families
@@ -523,3 +530,67 @@ def test_non_replacing_insert_reports_incumbent_score(db, cfg):
     )
     assert stronger["elite_replaced"] is True
     assert stronger["incumbent_elite_score"] is None
+
+
+# ---------------------------------------------------------------------------
+# PIT as_of threading (Phase-5 review nit 1): future-dated archive/posterior
+# state must never leak into past reads (plan hard rule 3).
+
+PAST = "2020-01-01T00:00:00Z"
+FUTURE = "2999-01-01T00:00:00Z"
+
+
+def _future_cell(db, cfg):
+    """Write a qd_cells row directly with a future updated_at."""
+    db.execute(
+        "INSERT INTO qd_cells (cell_key, descriptors, descriptor_spec_version,"
+        " elite_hypothesis_id, dsr, oos_ic, family, trials, reward_type,"
+        " updated_at) VALUES (?, ?, 1, 'hyp_future', 0.9, 0.5, 'quant', 7,"
+        " 'predictive', ?)",
+        ("0:0:0", '{"family": "quant", "horizon": "1d", "turnover": "low",'
+        ' "elite_score": 0.9}', FUTURE),
+    )
+
+
+def test_future_cell_hidden_from_past_archive_reads(db, cfg):
+    arch = archive.Archive(db, cfg)
+    assert arch.coverage()["occupied_cells"] == 0
+    assert arch.coverage(PAST)["occupied_cells"] == 0
+    _future_cell(db, cfg)
+    arch2 = archive.Archive(db, cfg)
+    assert arch2.coverage()["occupied_cells"] == 1          # now sees it
+    assert arch2.coverage(PAST)["occupied_cells"] == 0      # past does not
+    assert arch2.elites(5, PAST) == []
+    assert arch2.cell_emptiness("quant", PAST) == 1.0       # slice empty then
+    assert arch2.cell_emptiness("quant") < 1.0              # occupied now
+    assert arch2.emptiest_cell("quant", PAST)["trials"] == 0
+
+
+def test_future_posterior_hidden_from_past_reads(db, cfg):
+    # row stamped between PAST and now: a 2020 read must not see it, the
+    # current read must.
+    db.execute(
+        "INSERT INTO exploration_state (family, posterior, trials, successes,"
+        " updated_at) VALUES ('quant', '{\"alpha\": 9, \"beta\": 2}', 11, 9,"
+        " '2021-01-01T00:00:00Z')",
+    )
+    assert "quant" in archive.family_posteriors(db)
+    assert "quant" not in archive.family_posteriors(db, PAST)
+    past_status = archive.status(db, cfg, PAST)
+    assert "quant" not in past_status["family_posteriors"]
+    now_status = archive.status(db, cfg)
+    assert now_status["family_posteriors"]["quant"]["mean"] > 0.8
+
+
+def test_suggest_next_past_view_uses_prior_not_future_posterior(db, cfg):
+    from spark_mcp import explore
+
+    db.execute(
+        "INSERT INTO exploration_state (family, posterior, trials, successes,"
+        " updated_at) VALUES ('quant', '{\"alpha\": 30, \"beta\": 2}', 32, 30, ?)",
+        (FUTURE,),
+    )
+    out = explore.suggest_next(db, cfg, n=3, as_of=PAST, seed=11)
+    assert out["as_of"] == PAST
+    # every suggestion carries selection_probability + resolved descriptors
+    assert all(0.0 < s["selection_probability"] <= 1.0 for s in out["suggestions"])

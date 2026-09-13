@@ -366,21 +366,34 @@ class Archive:
             total *= g
         return total
 
-    def coverage(self) -> dict:
-        """occupied/total cells + per-family occupied counts."""
+    def _visible(self, as_of: str | None) -> dict[tuple[int, int, int], dict]:
+        """PIT cell view: rows with updated_at <= as_of (all rows when as_of
+        is None). Tradeoff (Phase-5 review nit 1): single-row upserts
+        overwrite history, so a past as_of shows a rewritten cell as empty
+        rather than revealing the superseded elite — a full snapshot would
+        need a history table; hide-by-updated_at is the documented v1
+        behavior."""
+        if as_of is None:
+            return self._cells
+        return {idx: c for idx, c in self._cells.items() if c["updated_at"] <= as_of}
+
+    def coverage(self, as_of: str | None = None) -> dict:
+        """occupied/total cells + per-family occupied counts (PIT at as_of)."""
+        cells = self._visible(as_of)
         per_family = {b: 0 for b in self._bins[0]}
-        for idx in self._cells:
+        for idx in cells:
             per_family[self._bins[0][idx[0]]] += 1
         return {
-            "occupied_cells": len(self._cells),
+            "occupied_cells": len(cells),
             "total_cells": self.total_cells(),
             "per_family": per_family,
+            "as_of_basis": as_of or "all",
         }
 
-    def elites(self, top_n: int) -> list[dict]:
-        """Top-N cells by elite score (desc; cell_key asc on ties)."""
+    def elites(self, top_n: int, as_of: str | None = None) -> list[dict]:
+        """Top-N cells by elite score (desc; cell_key asc on ties), PIT."""
         rows = sorted(
-            self._cells.values(),
+            self._visible(as_of).values(),
             key=lambda r: (-float(r["descriptors"].get("elite_score") or 0.0), r["cell_key"]),
         )
         out = []
@@ -401,15 +414,16 @@ class Archive:
             )
         return out
 
-    def cell_emptiness(self, family: str) -> float:
-        """§7 archive-mode cell emptiness for a candidate family:
-        1.0 when the family's slice has zero trials, else
+    def cell_emptiness(self, family: str, as_of: str | None = None) -> float:
+        """§7 archive-mode cell emptiness for a candidate family (PIT at
+        as_of): 1.0 when the family's slice has zero trials, else
         1 − slice_trials / max_slice_trials over the grid, in [0,1].
         Unknown families are refused (named ToolError) — novelty falls back
         to the degraded approximation for those."""
         fam_idx = self._bin_index(0, family)
+        cells = self._visible(as_of)
         slice_trials = [0] * self._grid[0]
-        for idx, cell in self._cells.items():
+        for idx, cell in cells.items():
             slice_trials[idx[0]] += cell["trials"]
         own = slice_trials[fam_idx]
         if own == 0:
@@ -419,23 +433,24 @@ class Archive:
             return 1.0
         return max(0.0, min(1.0, 1.0 - own / top))
 
-    def emptiest_cell(self, family: str) -> dict:
-        """The family's least-tried cell (empty first; ties -> lowest
-        horizon/turnover index), for underexplored-region suggestions."""
+    def emptiest_cell(self, family: str, as_of: str | None = None) -> dict:
+        """The family's least-tried cell at as_of (empty first; ties ->
+        lowest horizon/turnover index), for underexplored suggestions."""
         fam_idx = self._bin_index(0, family)
+        cells = self._visible(as_of)
         best: tuple[int, int, int] | None = None
         for h in range(self._grid[1]):
             for t in range(self._grid[2]):
                 idx = (fam_idx, h, t)
-                if idx not in self._cells:
+                if idx not in cells:
                     best = idx
                     break
-                if best is None or self._cells[idx]["trials"] < self._cells[best]["trials"]:
+                if best is None or cells[idx]["trials"] < cells[best]["trials"]:
                     best = idx
-            if best is not None and best not in self._cells:
+            if best is not None and best not in cells:
                 break
         assert best is not None
-        cell = self._cells.get(best)
+        cell = cells.get(best)
         return {
             "cell_key": self.cell_key(best),
             "descriptors": self.descriptor_names(best),
@@ -447,12 +462,18 @@ class Archive:
 # archive_status (plan §6.3 tool 19)
 
 
-def family_posteriors(db: Database) -> dict[str, dict]:
-    """Stored Beta(a,b) per family from exploration_state (§5.1, §8.3)."""
-    rows = db.conn.execute(
+def family_posteriors(db: Database, as_of: str | None = None) -> dict[str, dict]:
+    """Stored Beta(a,b) per family from exploration_state (§5.1, §8.3),
+    PIT at as_of (rows updated after as_of are hidden — a past view shows
+    the prior, not the future)."""
+    sql = (
         "SELECT family, posterior, trials, successes FROM exploration_state"
+        " WHERE updated_at <= ? ORDER BY family"
+        if as_of is not None
+        else "SELECT family, posterior, trials, successes FROM exploration_state"
         " ORDER BY family"
-    ).fetchall()
+    )
+    rows = db.conn.execute(sql, (as_of,) if as_of is not None else ()).fetchall()
     out = {}
     for r in rows:
         try:
@@ -470,13 +491,22 @@ def family_posteriors(db: Database) -> dict[str, dict]:
     return out
 
 
-def family_M(db: Database) -> dict[str, int]:
+def family_M(db: Database, as_of: str | None = None) -> dict[str, int]:
     """M_family per §9.2 from the trials table (counted unit semantics:
-    status IN ('completed','failed'), all families present in the ledger)."""
-    rows = db.conn.execute(
-        "SELECT family, COUNT(*) AS n FROM trials"
-        " WHERE status IN ('completed','failed') GROUP BY family ORDER BY family"
-    ).fetchall()
+    status IN ('completed','failed'), all families present in the ledger),
+    PIT at as_of via created_at."""
+    if as_of is not None:
+        rows = db.conn.execute(
+            "SELECT family, COUNT(*) AS n FROM trials"
+            " WHERE status IN ('completed','failed') AND created_at <= ?"
+            " GROUP BY family ORDER BY family",
+            (as_of,),
+        ).fetchall()
+    else:
+        rows = db.conn.execute(
+            "SELECT family, COUNT(*) AS n FROM trials"
+            " WHERE status IN ('completed','failed') GROUP BY family ORDER BY family"
+        ).fetchall()
     return {r["family"]: int(r["n"]) for r in rows}
 
 
@@ -515,17 +545,18 @@ def predictor_error_map(db: Database, as_of: str) -> dict[str, float]:
 def status(db: Database, cfg: Config, as_of: str | None = None) -> dict:
     """archive_status tool payload (plan §6.3 tool 19): coverage, elites,
     family_M, spend (§14 spend_summary), family posteriors, and the
-    predictor error map."""
+    predictor error map — all PIT at as_of (default now)."""
     from .budgets import spend_summary
 
     arch = Archive(db, cfg)
+    as_of = as_of or now_iso()
     return {
-        "as_of": as_of or now_iso(),
+        "as_of": as_of,
         "descriptor_spec_version": DESCRIPTOR_SPEC_VERSION,
-        "coverage": arch.coverage(),
-        "elites": arch.elites(cfg.research.qd_archive_status_top_n),
-        "family_M": family_M(db),
+        "coverage": arch.coverage(as_of),
+        "elites": arch.elites(cfg.research.qd_archive_status_top_n, as_of),
+        "family_M": family_M(db, as_of),
         "spend": spend_summary(db),
-        "family_posteriors": family_posteriors(db),
-        "predictor_error_map": predictor_error_map(db, as_of or now_iso()),
+        "family_posteriors": family_posteriors(db, as_of),
+        "predictor_error_map": predictor_error_map(db, as_of),
     }
