@@ -1,0 +1,1142 @@
+{
+  "predict cross-sectional equity returns for the next month": {
+    "candidates": [
+      {
+        "method_id": "node_001a09b8bb65501a0e72367a31f8a82",
+        "label": "Composite mispricing score",
+        "family": "quant",
+        "score": 0.8089285714285714,
+        "selection_probability": 0.03787940146102973
+      },
+      {
+        "method_id": "node_001a09b8bb659350c28a39e03fa34ad",
+        "label": "Fama-MacBeth cross-sectional regression",
+        "family": "econometrics",
+        "score": 0.8011363636363636,
+        "selection_probability": 0.03746007659965263
+      },
+      {
+        "method_id": "node_001a09b8bb6503e8f92775bb55461b9",
+        "label": "Residual momentum",
+        "family": "quant",
+        "score": 0.7990172413793103,
+        "selection_probability": 0.03734684453501737
+      },
+      {
+        "method_id": "node_001a09b8bb64e43a1311596c0f1c175",
+        "label": "Net share issuance anomaly",
+        "family": "quant",
+        "score": 0.7987903225806452,
+        "selection_probability": 0.03733473978126948
+      },
+      {
+        "method_id": "node_001a09b8bb64b6af85b3459be6f8f6b",
+        "label": "Cross-sectional momentum",
+        "family": "quant",
+        "score": 0.7865,
+        "selection_probability": 0.03668495226467879
+      },
+      {
+        "method_id": "node_001a09b8bb6540272e1cbc0f11be3ef",
+        "label": "Cross-sectional z-score stat arb",
+        "family": "quant",
+        "score": 0.7850689655172414,
+        "selection_probability": 0.0366100325402935
+      },
+      {
+        "method_id": "node_001a09b8bb6513e7595a0d68542070d",
+        "label": "Information discreteness momentum",
+        "family": "quant",
+        "score": 0.7837142857142858,
+        "selection_probability": 0.03653925123571872
+      },
+      {
+        "method_id": "node_001a09b8bb651ef14958fd352379f36",
+        "label": "52-week high momentum",
+        "family": "quant",
+        "score": 0.7837142857142858,
+        "selection_probability": 0.03653925123571872
+      },
+      {
+        "method_id": "node_001a09b8bb650bbfd6c5a0fc88fe37a",
+        "label": "Idiosyncratic volatility anomaly",
+        "family": "quant",
+        "score": 0.7756481481481481,
+        "selection_probability": 0.03612062404672602
+      },
+      {
+        "method_id": "node_001a09b8bb650ca8a4b914dc72bdff4",
+        "label": "MAX lottery effect",
+        "family": "quant",
+        "score": 0.7756481481481481,
+        "selection_probability": 0.03612062404672602
+      },
+      {
+        "method_id": "node_001a09b8bb64d9da94742ef3572f584",
+        "label": "Standardized unexpected earnings",
+        "family": "quant",
+        "score": 0.7673333333333333,
+        "selection_probability": 0.03569411033491297
+      },
+      {
+        "method_id": "node_001a09b8bb651c142f3457263cf0f50",
+        "label": "Overnight returns anomaly",
+        "family": "quant",
+        "score": 0.7660689655172414,
+        "selection_probability": 0.03562969640545145
+      },
+      {
+        "method_id": "node_001a09b8bb64ea650b97b9f0c5354f9",
+        "label": "Asset growth anomaly",
+        "family": "quant",
+        "score": 0.7526666666666667,
+        "selection_probability": 0.034954014200618444
+      },
+      {
+        "method_id": "node_001a09b8bb6528dc07c6eb26843a041",
+        "label": "Liquidity-adjusted momentum",
+        "family": "quant",
+        "score": 0.7464782608695653,
+        "selection_probability": 0.03464636236590216
+      },
+      {
+        "method_id": "node_001a09b8bb64f24cdc9645395cfc86c",
+        "label": "Earnings yield value",
+        "family": "quant",
+        "score": 0.7401923076923077,
+        "selection_probability": 0.03433663310471982
+      },
+      {
+        "method_id": "node_001a09b8bb65301ce68f1260133e5c7",
+        "label": "Amihud illiquidity premium",
+        "family": "quant",
+        "score": 0.7392142857142857,
+        "selection_probability": 0.03428869234356333
+      },
+      {
+        "method_id": "node_001a09b8bb64fb4a172f038ddc8afab",
+        "label": "Book-to-market value",
+        "family": "quant",
+        "score": 0.7360714285714286,
+        "selection_probability": 0.034135088196302454
+      },
+      {
+        "method_id": "node_001a09b8bb64c0a7a75d2adef211a16",
+        "label": "Post-earnings-announcement drift",
+        "family": "quant",
+        "score": 0.7358333333333333,
+        "selection_probability": 0.034123479596449624
+      },
+      {
+        "method_id": "node_001a09b8bb64dc6c40dafb88fb0fc5d",
+        "label": "Gross profitability factor",
+        "family": "quant",
+        "score": 0.7291666666666666,
+        "selection_probability": 0.0338000367253961
+      },
+      {
+        "method_id": "node_001a09b8bb64f6963666c414f9e01a0",
+        "label": "Low volatility anomaly",
+        "family": "quant",
+        "score": 0.727037037037037,
+        "selection_probability": 0.03369736218983832
+      },
+      {
+        "method_id": "node_001a09b8bb64fec3a88ce854fc7c2f0",
+        "label": "Betting against beta",
+        "family": "quant",
+        "score": 0.727037037037037,
+        "selection_probability": 0.03369736218983832
+      },
+      {
+        "method_id": "node_001a09b8bb650f45a9711c4d4c31d5c",
+        "label": "Skewness preference anomaly",
+        "family": "quant",
+        "score": 0.7225,
+        "selection_probability": 0.03347965964048375
+      },
+      {
+        "method_id": "node_001a09b8bb64d964dcead662b763095",
+        "label": "Accruals anomaly",
+        "family": "quant",
+        "score": 0.7140384615384615,
+        "selection_probability": 0.03307739661618434
+      },
+      {
+        "method_id": "node_001a09b8bb666e9fba3291c0d2f368c",
+        "label": "Lead-lag network inference",
+        "family": "network_optimization",
+        "score": 0.6941935483870968,
+        "selection_probability": 0.032152824206166525
+      },
+      {
+        "method_id": "node_001a09b8bb64e771db4cab345edacfe",
+        "label": "Dividend yield premium",
+        "family": "quant",
+        "score": 0.6785714285714286,
+        "selection_probability": 0.03144320735525081
+      },
+      {
+        "method_id": "node_001a09b8bb65c7d597f6a8d33817e73",
+        "label": "Quantile regression",
+        "family": "econometrics",
+        "score": 0.6424193548387096,
+        "selection_probability": 0.029860518545639887
+      },
+      {
+        "method_id": "node_001a09b8bb65756dc675d6136c6aee9",
+        "label": "Delta-hedged option returns",
+        "family": "quant",
+        "score": 0.5217307692307692,
+        "selection_probability": 0.025131571708148344
+      },
+      {
+        "method_id": "node_001a09b8bb667ae9aa141c15079b979",
+        "label": "Black-Litterman allocation",
+        "family": "network_optimization",
+        "score": 0.4875,
+        "selection_probability": 0.02393217514154271
+      },
+      {
+        "method_id": "node_001a09b8bb65b6d4cd2f4cd47a4dbef",
+        "label": "Granger causality test",
+        "family": "econometrics",
+        "score": 0.446875,
+        "selection_probability": 0.022582789271774296
+      },
+      {
+        "method_id": "node_001a09b8bb651a3040353d0e6c1f930",
+        "label": "Intraday momentum",
+        "family": "quant",
+        "score": 0.3859782608695652,
+        "selection_probability": 0.020701222114985467
+      }
+    ],
+    "suggestion_ids": [
+      "node_001a09b8bb64e43a1311596c0f1c175",
+      "node_001a09b8bb64c0a7a75d2adef211a16",
+      "node_001a09b8bb64e771db4cab345edacfe",
+      "node_001a09b8bb651c142f3457263cf0f50",
+      "node_001a09b8bb64f6963666c414f9e01a0"
+    ],
+    "family_weights": {
+      "quant": 0.5980040172818769,
+      "econometrics": 1.0,
+      "causal": 0.0,
+      "signal_processing": 0.0,
+      "network_optimization": 0.7417999305964792
+    }
+  },
+  "estimate the causal effect of interest rate hikes on sector equity returns": {
+    "candidates": [
+      {
+        "method_id": "node_001a09b8bb65ed97ccdfc9b265b8f83",
+        "label": "Two-stage least squares instrumental variables",
+        "family": "econometrics",
+        "score": 0.7566666666666667,
+        "selection_probability": 0.05129142741788775
+      },
+      {
+        "method_id": "node_001a09b8bb66023bc90cd2c6f6c6018",
+        "label": "Doubly robust estimation",
+        "family": "causal",
+        "score": 0.6965714285714285,
+        "selection_probability": 0.047071762136085715
+      },
+      {
+        "method_id": "node_001a09b8bb65f410822d33e1160ee0a",
+        "label": "Front-door criterion",
+        "family": "causal",
+        "score": 0.6202272727272726,
+        "selection_probability": 0.042208018356292974
+      },
+      {
+        "method_id": "node_001a09b8bb661aa75067af80675ec85",
+        "label": "Negative controls and placebo testing",
+        "family": "causal",
+        "score": 0.6083333333333334,
+        "selection_probability": 0.0414969059669596
+      },
+      {
+        "method_id": "node_001a09b8bb661aa389c61c95f26b64a",
+        "label": "PCMCI time-series causal discovery",
+        "family": "causal",
+        "score": 0.6006756756756757,
+        "selection_probability": 0.041045424108048414
+      },
+      {
+        "method_id": "node_001a09b8bb65e00e04aaea0d2e1a6bb",
+        "label": "Backdoor adjustment",
+        "family": "causal",
+        "score": 0.5780172413793103,
+        "selection_probability": 0.03973808972540212
+      },
+      {
+        "method_id": "node_001a09b8bb659b484b34a7dde5d6de8",
+        "label": "Panel fixed effects estimator",
+        "family": "econometrics",
+        "score": 0.5625,
+        "selection_probability": 0.03886688796320603
+      },
+      {
+        "method_id": "node_001a09b8bb66092368d1b8669af3f79",
+        "label": "Difference-in-differences",
+        "family": "causal",
+        "score": 0.5,
+        "selection_probability": 0.03554704266281163
+      },
+      {
+        "method_id": "node_001a09b8bb6601367ac9ef4dcd51191",
+        "label": "PC algorithm causal discovery",
+        "family": "causal",
+        "score": 0.49817567567567567,
+        "selection_probability": 0.03545452137208426
+      },
+      {
+        "method_id": "node_001a09b8bb66089934f9a28c9646490",
+        "label": "Synthetic control method",
+        "family": "causal",
+        "score": 0.49557692307692314,
+        "selection_probability": 0.035323140357016995
+      },
+      {
+        "method_id": "node_001a09b8bb65d10120055ec094faedb",
+        "label": "Elastic net regularization",
+        "family": "econometrics",
+        "score": 0.442962962962963,
+        "selection_probability": 0.03276547872339143
+      },
+      {
+        "method_id": "node_001a09b8bb65b6d4cd2f4cd47a4dbef",
+        "label": "Granger causality test",
+        "family": "econometrics",
+        "score": 0.439375,
+        "selection_probability": 0.03259796365415581
+      },
+      {
+        "method_id": "node_001a09b8bb65fbe7e7b5a8914a3d1a4",
+        "label": "Regression discontinuity design",
+        "family": "causal",
+        "score": 0.41817567567567565,
+        "selection_probability": 0.031625541606253325
+      },
+      {
+        "method_id": "node_001a09b8bb64c0a7a75d2adef211a16",
+        "label": "Post-earnings-announcement drift",
+        "family": "quant",
+        "score": 0.41083333333333333,
+        "selection_probability": 0.03129555304777162
+      },
+      {
+        "method_id": "node_001a09b8bb656e74f78a89131f334ea",
+        "label": "Currency carry",
+        "family": "quant",
+        "score": 0.39916666666666667,
+        "selection_probability": 0.030778283054043502
+      },
+      {
+        "method_id": "node_001a09b8bb651c142f3457263cf0f50",
+        "label": "Overnight returns anomaly",
+        "family": "quant",
+        "score": 0.38706896551724135,
+        "selection_probability": 0.030250929625353033
+      },
+      {
+        "method_id": "node_001a09b8bb657080ce675a21f9718c5",
+        "label": "Term structure carry",
+        "family": "quant",
+        "score": 0.385241935483871,
+        "selection_probability": 0.03017207635109932
+      },
+      {
+        "method_id": "node_001a09b8bb664731f6bb48b46d836fa",
+        "label": "Empirical mode decomposition",
+        "family": "signal_processing",
+        "score": 0.3843421052631579,
+        "selection_probability": 0.030133315917554394
+      },
+      {
+        "method_id": "node_001a09b8bb65f47c85c026da8b40dd1",
+        "label": "Propensity score matching",
+        "family": "causal",
+        "score": 0.3805172413793103,
+        "selection_probability": 0.029969113745700018
+      },
+      {
+        "method_id": "node_001a09b8bb667ae9aa141c15079b979",
+        "label": "Black-Litterman allocation",
+        "family": "network_optimization",
+        "score": 0.3775,
+        "selection_probability": 0.029840214530879768
+      },
+      {
+        "method_id": "node_001a09b8bb65cdce86021478db2e409",
+        "label": "EGARCH asymmetric volatility",
+        "family": "econometrics",
+        "score": 0.3722727272727273,
+        "selection_probability": 0.02961821169835912
+      },
+      {
+        "method_id": "node_001a09b8bb66284d7bed29b6ae8840f",
+        "label": "Discrete wavelet transform denoising",
+        "family": "signal_processing",
+        "score": 0.3496969696969697,
+        "selection_probability": 0.02867823148031231
+      },
+      {
+        "method_id": "node_001a09b8bb65756dc675d6136c6aee9",
+        "label": "Delta-hedged option returns",
+        "family": "quant",
+        "score": 0.34923076923076923,
+        "selection_probability": 0.028659138117848506
+      },
+      {
+        "method_id": "node_001a09b8bb650ca8a4b914dc72bdff4",
+        "label": "MAX lottery effect",
+        "family": "quant",
+        "score": 0.34564814814814815,
+        "selection_probability": 0.028512834498329222
+      },
+      {
+        "method_id": "node_001a09b8bb64c14c7541623e2954e56",
+        "label": "Long-term reversal",
+        "family": "quant",
+        "score": 0.3407058823529412,
+        "selection_probability": 0.028312232058252177
+      },
+      {
+        "method_id": "node_001a09b8bb64f6963666c414f9e01a0",
+        "label": "Low volatility anomaly",
+        "family": "quant",
+        "score": 0.334537037037037,
+        "selection_probability": 0.028063822835808702
+      },
+      {
+        "method_id": "node_001a09b8bb64b6af85b3459be6f8f6b",
+        "label": "Cross-sectional momentum",
+        "family": "quant",
+        "score": 0.3325,
+        "selection_probability": 0.02798227433926681
+      },
+      {
+        "method_id": "node_001a09b8bb6670a6e98b313a1eca16f",
+        "label": "Kelly criterion sizing",
+        "family": "network_optimization",
+        "score": 0.32583333333333336,
+        "selection_probability": 0.02771704150668542
+      },
+      {
+        "method_id": "node_001a09b8bb65c278ab27e01828a68cd",
+        "label": "GJR-GARCH threshold volatility",
+        "family": "econometrics",
+        "score": 0.32477272727272727,
+        "selection_probability": 0.027675077787974987
+      },
+      {
+        "method_id": "node_001a09b8bb64c54ea53ecb446dcf4c4",
+        "label": "Short-term reversal",
+        "family": "quant",
+        "score": 0.315462962962963,
+        "selection_probability": 0.02730944535516482
+      }
+    ],
+    "suggestion_ids": [
+      "node_001a09b8bb661aa75067af80675ec85",
+      "node_001a09b8bb65b6d4cd2f4cd47a4dbef",
+      "node_001a09b8bb664731f6bb48b46d836fa",
+      "node_001a09b8bb667ae9aa141c15079b979",
+      "node_001a09b8bb66284d7bed29b6ae8840f"
+    ],
+    "family_weights": {
+      "quant": 0.6494835706579285,
+      "econometrics": 0.4588524293496903,
+      "causal": 0.9130247988298377,
+      "signal_processing": 0.24012765422287508,
+      "network_optimization": 1.0
+    }
+  },
+  "detect regime shifts in market volatility before they fully materialize": {
+    "candidates": [
+      {
+        "method_id": "node_001a09b8bb6557073b394a6fd2242e9",
+        "label": "Factor timing regime switching",
+        "family": "quant",
+        "score": 0.7301923076923077,
+        "selection_probability": 0.04829461733993722
+      },
+      {
+        "method_id": "node_001a09b8bb6576dca90f6414b6960e3",
+        "label": "Variance risk premium",
+        "family": "quant",
+        "score": 0.7226666666666666,
+        "selection_probability": 0.04777818700139282
+      },
+      {
+        "method_id": "node_001a09b8bb6582fe3db0e70bdd5bb3e",
+        "label": "Option-implied skew trading",
+        "family": "quant",
+        "score": 0.6366666666666666,
+        "selection_probability": 0.042254550561585
+      },
+      {
+        "method_id": "node_001a09b8bb65756dc675d6136c6aee9",
+        "label": "Delta-hedged option returns",
+        "family": "quant",
+        "score": 0.6317307692307692,
+        "selection_probability": 0.041957649803291204
+      },
+      {
+        "method_id": "node_001a09b8bb65b4c04b729b86ca7b727",
+        "label": "GARCH volatility model",
+        "family": "econometrics",
+        "score": 0.6270689655172413,
+        "selection_probability": 0.041679152008847
+      },
+      {
+        "method_id": "node_001a09b8bb653e5912afd9244095511",
+        "label": "Donchian channel breakout",
+        "family": "quant",
+        "score": 0.5684677419354839,
+        "selection_probability": 0.03833199853538105
+      },
+      {
+        "method_id": "node_001a09b8bb65c278ab27e01828a68cd",
+        "label": "GJR-GARCH threshold volatility",
+        "family": "econometrics",
+        "score": 0.5597727272727273,
+        "selection_probability": 0.03785880451264552
+      },
+      {
+        "method_id": "node_001a09b8bb65cdce86021478db2e409",
+        "label": "EGARCH asymmetric volatility",
+        "family": "econometrics",
+        "score": 0.5147727272727273,
+        "selection_probability": 0.03550160314475079
+      },
+      {
+        "method_id": "node_001a09b8bb650ed59c8f5337ee76ba6",
+        "label": "Momentum crashes timing",
+        "family": "quant",
+        "score": 0.5001923076923077,
+        "selection_probability": 0.0347697822577242
+      },
+      {
+        "method_id": "node_001a09b8bb651c142f3457263cf0f50",
+        "label": "Overnight returns anomaly",
+        "family": "quant",
+        "score": 0.4870689655172413,
+        "selection_probability": 0.03412400351185498
+      },
+      {
+        "method_id": "node_001a09b8bb6528dc07c6eb26843a041",
+        "label": "Liquidity-adjusted momentum",
+        "family": "quant",
+        "score": 0.4584782608695652,
+        "selection_probability": 0.03275832696310755
+      },
+      {
+        "method_id": "node_001a09b8bb65301ce68f1260133e5c7",
+        "label": "Amihud illiquidity premium",
+        "family": "quant",
+        "score": 0.44821428571428573,
+        "selection_probability": 0.03228150180145477
+      },
+      {
+        "method_id": "node_001a09b8bb64cda0c1237d407896e0b",
+        "label": "Time-series momentum",
+        "family": "quant",
+        "score": 0.4320689655172414,
+        "selection_probability": 0.0315454582123313
+      },
+      {
+        "method_id": "node_001a09b8bb651a3040353d0e6c1f930",
+        "label": "Intraday momentum",
+        "family": "quant",
+        "score": 0.42347826086956525,
+        "selection_probability": 0.031160684504723018
+      },
+      {
+        "method_id": "node_001a09b8bb652b8415d6dd454aeb235",
+        "label": "Volatility-managed momentum",
+        "family": "quant",
+        "score": 0.4225,
+        "selection_probability": 0.031117167379277964
+      },
+      {
+        "method_id": "node_001a09b8bb658f68a4927b74ef30ae9",
+        "label": "Earnings announcement straddle",
+        "family": "quant",
+        "score": 0.41602941176470587,
+        "selection_probability": 0.030830855028680316
+      },
+      {
+        "method_id": "node_001a09b8bb64e771db4cab345edacfe",
+        "label": "Dividend yield premium",
+        "family": "quant",
+        "score": 0.4135714285714286,
+        "selection_probability": 0.03072278527304543
+      },
+      {
+        "method_id": "node_001a09b8bb64c54ea53ecb446dcf4c4",
+        "label": "Short-term reversal",
+        "family": "quant",
+        "score": 0.40796296296296297,
+        "selection_probability": 0.030477614913382835
+      },
+      {
+        "method_id": "node_001a09b8bb64f6963666c414f9e01a0",
+        "label": "Low volatility anomaly",
+        "family": "quant",
+        "score": 0.40703703703703703,
+        "selection_probability": 0.03043732725909003
+      },
+      {
+        "method_id": "node_001a09b8bb64e43a1311596c0f1c175",
+        "label": "Net share issuance anomaly",
+        "family": "quant",
+        "score": 0.4037903225806452,
+        "selection_probability": 0.03029648084532695
+      },
+      {
+        "method_id": "node_001a09b8bb658f8639620f2f86aab16",
+        "label": "Index reconstitution arbitrage",
+        "family": "quant",
+        "score": 0.39274193548387093,
+        "selection_probability": 0.029822052956301658
+      },
+      {
+        "method_id": "node_001a09b8bb6541e303efb6c4b77cc1a",
+        "label": "Bollinger band mean reversion",
+        "family": "quant",
+        "score": 0.3925,
+        "selection_probability": 0.029811747576127902
+      },
+      {
+        "method_id": "node_001a09b8bb650bbfd6c5a0fc88fe37a",
+        "label": "Idiosyncratic volatility anomaly",
+        "family": "quant",
+        "score": 0.39064814814814813,
+        "selection_probability": 0.02973298474861881
+      },
+      {
+        "method_id": "node_001a09b8bb64b6af85b3459be6f8f6b",
+        "label": "Cross-sectional momentum",
+        "family": "quant",
+        "score": 0.3875,
+        "selection_probability": 0.029599565218282973
+      },
+      {
+        "method_id": "node_001a09b8bb64c14c7541623e2954e56",
+        "label": "Long-term reversal",
+        "family": "quant",
+        "score": 0.36220588235294116,
+        "selection_probability": 0.028549094487360486
+      },
+      {
+        "method_id": "node_001a09b8bb64c0a7a75d2adef211a16",
+        "label": "Post-earnings-announcement drift",
+        "family": "quant",
+        "score": 0.36083333333333334,
+        "selection_probability": 0.028493170715862957
+      },
+      {
+        "method_id": "node_001a09b8bb654df5bb3dc74cd3d9a02",
+        "label": "RSI mean reversion",
+        "family": "quant",
+        "score": 0.34750000000000003,
+        "selection_probability": 0.0279555798214829
+      },
+      {
+        "method_id": "node_001a09b8bb64d9da94742ef3572f584",
+        "label": "Standardized unexpected earnings",
+        "family": "quant",
+        "score": 0.3433333333333333,
+        "selection_probability": 0.027789671824296567
+      },
+      {
+        "method_id": "node_001a09b8bb64d964dcead662b763095",
+        "label": "Accruals anomaly",
+        "family": "quant",
+        "score": 0.34153846153846157,
+        "selection_probability": 0.027718507530779916
+      },
+      {
+        "method_id": "node_001a09b8bb64fb4a172f038ddc8afab",
+        "label": "Book-to-market value",
+        "family": "quant",
+        "score": 0.3060714285714286,
+        "selection_probability": 0.026349074263055862
+      }
+    ],
+    "suggestion_ids": [
+      "node_001a09b8bb65756dc675d6136c6aee9",
+      "node_001a09b8bb65301ce68f1260133e5c7",
+      "node_001a09b8bb64c54ea53ecb446dcf4c4",
+      "node_001a09b8bb64e43a1311596c0f1c175",
+      "node_001a09b8bb6541e303efb6c4b77cc1a"
+    ],
+    "family_weights": {
+      "quant": 1.0,
+      "econometrics": 0.6791541460452142,
+      "causal": 0.4855158914578461,
+      "signal_processing": 0.49067185806001906,
+      "network_optimization": 0.43151019220561143
+    }
+  },
+  "build a diversified allocation robust to covariance estimation error": {
+    "candidates": [
+      {
+        "method_id": "node_001a09b8bb655c38f5cf1bff315ca6f",
+        "label": "Ledoit-Wolf covariance shrinkage",
+        "family": "quant",
+        "score": 0.8089285714285714,
+        "selection_probability": 0.05281673821363622
+      },
+      {
+        "method_id": "node_001a09b8bb6679764d5f8c40598a75a",
+        "label": "Hierarchical risk parity",
+        "family": "network_optimization",
+        "score": 0.7968333333333333,
+        "selection_probability": 0.05191196175193012
+      },
+      {
+        "method_id": "node_001a09b8bb655f69fc398819aad2f0f",
+        "label": "Marchenko-Pastur eigenvalue clipping",
+        "family": "quant",
+        "score": 0.768875,
+        "selection_probability": 0.04987943354247338
+      },
+      {
+        "method_id": "node_001a09b8bb667ae9aa141c15079b979",
+        "label": "Black-Litterman allocation",
+        "family": "network_optimization",
+        "score": 0.6599999999999999,
+        "selection_probability": 0.04269462568160347
+      },
+      {
+        "method_id": "node_001a09b8bb66554c8907b5456b6d7c5",
+        "label": "Minimum spanning tree asset clustering",
+        "family": "network_optimization",
+        "score": 0.5883333333333334,
+        "selection_probability": 0.038539824053298644
+      },
+      {
+        "method_id": "node_001a09b8bb65d10f2e625c2f676c963",
+        "label": "Huber robust regression",
+        "family": "econometrics",
+        "score": 0.5749193548387097,
+        "selection_probability": 0.037808323290381536
+      },
+      {
+        "method_id": "node_001a09b8bb66699f19d50e186706ddd",
+        "label": "Independent component analysis",
+        "family": "network_optimization",
+        "score": 0.566923076923077,
+        "selection_probability": 0.0373788866555712
+      },
+      {
+        "method_id": "node_001a09b8bb6670a6e98b313a1eca16f",
+        "label": "Kelly criterion sizing",
+        "family": "network_optimization",
+        "score": 0.5058333333333334,
+        "selection_probability": 0.0342550827383517
+      },
+      {
+        "method_id": "node_001a09b8bb6660790859c1a3423ebe0",
+        "label": "Markowitz mean-variance optimization",
+        "family": "network_optimization",
+        "score": 0.4966935483870968,
+        "selection_probability": 0.03381072700600094
+      },
+      {
+        "method_id": "node_001a09b8bb652b8415d6dd454aeb235",
+        "label": "Volatility-managed momentum",
+        "family": "quant",
+        "score": 0.47,
+        "selection_probability": 0.03254567471700735
+      },
+      {
+        "method_id": "node_001a09b8bb65cdce86021478db2e409",
+        "label": "EGARCH asymmetric volatility",
+        "family": "econometrics",
+        "score": 0.4697727272727273,
+        "selection_probability": 0.03253510965470216
+      },
+      {
+        "method_id": "node_001a09b8bb6599cf52cd07ba046b6b5",
+        "label": "Generalized method of moments",
+        "family": "econometrics",
+        "score": 0.45416666666666666,
+        "selection_probability": 0.031817785662744194
+      },
+      {
+        "method_id": "node_001a09b8bb6624033453d7147516aae",
+        "label": "Spectral entropy measure",
+        "family": "signal_processing",
+        "score": 0.451875,
+        "selection_probability": 0.0317137906158858
+      },
+      {
+        "method_id": "node_001a09b8bb65756dc675d6136c6aee9",
+        "label": "Delta-hedged option returns",
+        "family": "quant",
+        "score": 0.4492307692307692,
+        "selection_probability": 0.03159421862523115
+      },
+      {
+        "method_id": "node_001a09b8bb666e9fba3291c0d2f368c",
+        "label": "Lead-lag network inference",
+        "family": "network_optimization",
+        "score": 0.4441935483870968,
+        "selection_probability": 0.03136768174785027
+      },
+      {
+        "method_id": "node_001a09b8bb65c278ab27e01828a68cd",
+        "label": "GJR-GARCH threshold volatility",
+        "family": "econometrics",
+        "score": 0.43227272727272725,
+        "selection_probability": 0.030838020938450752
+      },
+      {
+        "method_id": "node_001a09b8bb6557073b394a6fd2242e9",
+        "label": "Factor timing regime switching",
+        "family": "quant",
+        "score": 0.4276923076923077,
+        "selection_probability": 0.030636892443975185
+      },
+      {
+        "method_id": "node_001a09b8bb65b8e1a187f442f6a3d63",
+        "label": "Vector error correction model",
+        "family": "econometrics",
+        "score": 0.4221969696969697,
+        "selection_probability": 0.030397319656686954
+      },
+      {
+        "method_id": "node_001a09b8bb65c7d597f6a8d33817e73",
+        "label": "Quantile regression",
+        "family": "econometrics",
+        "score": 0.40241935483870966,
+        "selection_probability": 0.029550501053256215
+      },
+      {
+        "method_id": "node_001a09b8bb6601367ac9ef4dcd51191",
+        "label": "PC algorithm causal discovery",
+        "family": "causal",
+        "score": 0.40067567567567564,
+        "selection_probability": 0.02947698323812407
+      },
+      {
+        "method_id": "node_001a09b8bb6535ebb193e642925dd98",
+        "label": "Pastor-Stambaugh liquidity beta",
+        "family": "quant",
+        "score": 0.3983333333333333,
+        "selection_probability": 0.029378512102281193
+      },
+      {
+        "method_id": "node_001a09b8bb652d8e73bce42e94f813d",
+        "label": "Momentum with crowding adjustment",
+        "family": "quant",
+        "score": 0.39375757575757575,
+        "selection_probability": 0.029187097048337603
+      },
+      {
+        "method_id": "node_001a09b8bb6638e2d3290653eb6536e",
+        "label": "Welch periodogram estimation",
+        "family": "signal_processing",
+        "score": 0.36924193548387096,
+        "selection_probability": 0.028182589297089135
+      },
+      {
+        "method_id": "node_001a09b8bb6582fe3db0e70bdd5bb3e",
+        "label": "Option-implied skew trading",
+        "family": "quant",
+        "score": 0.36416666666666664,
+        "selection_probability": 0.02797899366701514
+      },
+      {
+        "method_id": "node_001a09b8bb659b484b34a7dde5d6de8",
+        "label": "Panel fixed effects estimator",
+        "family": "econometrics",
+        "score": 0.362,
+        "selection_probability": 0.027892525908134895
+      },
+      {
+        "method_id": "node_001a09b8bb659350c28a39e03fa34ad",
+        "label": "Fama-MacBeth cross-sectional regression",
+        "family": "econometrics",
+        "score": 0.36113636363636364,
+        "selection_probability": 0.027858134271477524
+      },
+      {
+        "method_id": "node_001a09b8bb65afea78a93c0a2ee1b27",
+        "label": "Engle-Granger cointegration test",
+        "family": "econometrics",
+        "score": 0.3502702702702703,
+        "selection_probability": 0.02742903181037025
+      },
+      {
+        "method_id": "node_001a09b8bb66023bc90cd2c6f6c6018",
+        "label": "Doubly robust estimation",
+        "family": "causal",
+        "score": 0.3385714285714286,
+        "selection_probability": 0.026974429901326254
+      },
+      {
+        "method_id": "node_001a09b8bb6513e7595a0d68542070d",
+        "label": "Information discreteness momentum",
+        "family": "quant",
+        "score": 0.33671428571428574,
+        "selection_probability": 0.02690295993632027
+      },
+      {
+        "method_id": "node_001a09b8bb650f45a9711c4d4c31d5c",
+        "label": "Skewness preference anomaly",
+        "family": "quant",
+        "score": 0.33,
+        "selection_probability": 0.026646144770486463
+      }
+    ],
+    "suggestion_ids": [
+      "node_001a09b8bb655f69fc398819aad2f0f",
+      "node_001a09b8bb6599cf52cd07ba046b6b5",
+      "node_001a09b8bb65b8e1a187f442f6a3d63",
+      "node_001a09b8bb6601367ac9ef4dcd51191",
+      "node_001a09b8bb652d8e73bce42e94f813d"
+    ],
+    "family_weights": {
+      "quant": 0.42175174173603375,
+      "econometrics": 0.8291561975888501,
+      "causal": 0.39184493105949986,
+      "signal_processing": 0.4840708666750993,
+      "network_optimization": 1.0
+    }
+  },
+  "remove microstructure noise from an intraday alpha signal": {
+    "candidates": [
+      {
+        "method_id": "node_001a09b8bb663928339a233806c35df",
+        "label": "Kalman filter state estimation",
+        "family": "signal_processing",
+        "score": 0.7300757575757576,
+        "selection_probability": 0.05221447974577507
+      },
+      {
+        "method_id": "node_001a09b8bb64c54ea53ecb446dcf4c4",
+        "label": "Short-term reversal",
+        "family": "quant",
+        "score": 0.710962962962963,
+        "selection_probability": 0.050808103210678586
+      },
+      {
+        "method_id": "node_001a09b8bb656f28b45c02630f5536d",
+        "label": "Variational autoencoder alpha",
+        "family": "quant",
+        "score": 0.6704878048780487,
+        "selection_probability": 0.04795361547751954
+      },
+      {
+        "method_id": "node_001a09b8bb66699f19d50e186706ddd",
+        "label": "Independent component analysis",
+        "family": "network_optimization",
+        "score": 0.6219230769230769,
+        "selection_probability": 0.04473946583546888
+      },
+      {
+        "method_id": "node_001a09b8bb66444e64a92ca8247e0f5",
+        "label": "Graph Laplacian regularization",
+        "family": "network_optimization",
+        "score": 0.5825,
+        "selection_probability": 0.04228943686512183
+      },
+      {
+        "method_id": "node_001a09b8bb653d9fd78acae9d497e7d",
+        "label": "Moving average trend filter",
+        "family": "quant",
+        "score": 0.5770689655172414,
+        "selection_probability": 0.04196259871146957
+      },
+      {
+        "method_id": "node_001a09b8bb6528dc07c6eb26843a041",
+        "label": "Liquidity-adjusted momentum",
+        "family": "quant",
+        "score": 0.4509782608695652,
+        "selection_probability": 0.035045567265964875
+      },
+      {
+        "method_id": "node_001a09b8bb65501a0e72367a31f8a82",
+        "label": "Composite mispricing score",
+        "family": "quant",
+        "score": 0.44142857142857145,
+        "selection_probability": 0.034570707627072414
+      },
+      {
+        "method_id": "node_001a09b8bb658f8639620f2f86aab16",
+        "label": "Index reconstitution arbitrage",
+        "family": "quant",
+        "score": 0.42024193548387095,
+        "selection_probability": 0.03354004507605814
+      },
+      {
+        "method_id": "node_001a09b8bb651c142f3457263cf0f50",
+        "label": "Overnight returns anomaly",
+        "family": "quant",
+        "score": 0.4145689655172414,
+        "selection_probability": 0.03326932687165308
+      },
+      {
+        "method_id": "node_001a09b8bb6503e8f92775bb55461b9",
+        "label": "Residual momentum",
+        "family": "quant",
+        "score": 0.41051724137931034,
+        "selection_probability": 0.03307731434510101
+      },
+      {
+        "method_id": "node_001a09b8bb65301ce68f1260133e5c7",
+        "label": "Amihud illiquidity premium",
+        "family": "quant",
+        "score": 0.3757142857142857,
+        "selection_probability": 0.03147297282885768
+      },
+      {
+        "method_id": "node_001a09b8bb64cda0c1237d407896e0b",
+        "label": "Time-series momentum",
+        "family": "quant",
+        "score": 0.3595689655172414,
+        "selection_probability": 0.030755364335181785
+      },
+      {
+        "method_id": "node_001a09b8bb650bbfd6c5a0fc88fe37a",
+        "label": "Idiosyncratic volatility anomaly",
+        "family": "quant",
+        "score": 0.34564814814814815,
+        "selection_probability": 0.030149777609399533
+      },
+      {
+        "method_id": "node_001a09b8bb651a3040353d0e6c1f930",
+        "label": "Intraday momentum",
+        "family": "quant",
+        "score": 0.34097826086956523,
+        "selection_probability": 0.02994930980733901
+      },
+      {
+        "method_id": "node_001a09b8bb64c14c7541623e2954e56",
+        "label": "Long-term reversal",
+        "family": "quant",
+        "score": 0.3347058823529412,
+        "selection_probability": 0.029682146547940286
+      },
+      {
+        "method_id": "node_001a09b8bb64c0a7a75d2adef211a16",
+        "label": "Post-earnings-announcement drift",
+        "family": "quant",
+        "score": 0.3283333333333333,
+        "selection_probability": 0.029413157177233504
+      },
+      {
+        "method_id": "node_001a09b8bb64b6af85b3459be6f8f6b",
+        "label": "Cross-sectional momentum",
+        "family": "quant",
+        "score": 0.325,
+        "selection_probability": 0.029273427477808516
+      },
+      {
+        "method_id": "node_001a09b8bb64d02f43a0779465c7835",
+        "label": "Quality minus junk",
+        "family": "quant",
+        "score": 0.320241935483871,
+        "selection_probability": 0.0290751238330597
+      },
+      {
+        "method_id": "node_001a09b8bb64d964dcead662b763095",
+        "label": "Accruals anomaly",
+        "family": "quant",
+        "score": 0.32003846153846155,
+        "selection_probability": 0.02906667358960864
+      },
+      {
+        "method_id": "node_001a09b8bb64d9da94742ef3572f584",
+        "label": "Standardized unexpected earnings",
+        "family": "quant",
+        "score": 0.31583333333333335,
+        "selection_probability": 0.02889258403530542
+      },
+      {
+        "method_id": "node_001a09b8bb64e43a1311596c0f1c175",
+        "label": "Net share issuance anomaly",
+        "family": "quant",
+        "score": 0.31379032258064515,
+        "selection_probability": 0.02880838145726068
+      },
+      {
+        "method_id": "node_001a09b8bb64dc6c40dafb88fb0fc5d",
+        "label": "Gross profitability factor",
+        "family": "quant",
+        "score": 0.30916666666666665,
+        "selection_probability": 0.028618722739709217
+      },
+      {
+        "method_id": "node_001a09b8bb650ca8a4b914dc72bdff4",
+        "label": "MAX lottery effect",
+        "family": "quant",
+        "score": 0.30064814814814816,
+        "selection_probability": 0.028272563103092015
+      },
+      {
+        "method_id": "node_001a09b8bb64ea650b97b9f0c5354f9",
+        "label": "Asset growth anomaly",
+        "family": "quant",
+        "score": 0.29466666666666663,
+        "selection_probability": 0.028032004048437878
+      },
+      {
+        "method_id": "node_001a09b8bb64f24cdc9645395cfc86c",
+        "label": "Earnings yield value",
+        "family": "quant",
+        "score": 0.2936923076923077,
+        "selection_probability": 0.027993012285123985
+      },
+      {
+        "method_id": "node_001a09b8bb64e771db4cab345edacfe",
+        "label": "Dividend yield premium",
+        "family": "quant",
+        "score": 0.2895714285714286,
+        "selection_probability": 0.02782870237506015
+      },
+      {
+        "method_id": "node_001a09b8bb64f6963666c414f9e01a0",
+        "label": "Low volatility anomaly",
+        "family": "quant",
+        "score": 0.28953703703703704,
+        "selection_probability": 0.027827335163253926
+      },
+      {
+        "method_id": "node_001a09b8bb64fb4a172f038ddc8afab",
+        "label": "Book-to-market value",
+        "family": "quant",
+        "score": 0.2875714285714286,
+        "selection_probability": 0.027749305275285564
+      },
+      {
+        "method_id": "node_001a09b8bb64fec3a88ce854fc7c2f0",
+        "label": "Betting against beta",
+        "family": "quant",
+        "score": 0.28553703703703703,
+        "selection_probability": 0.027668775279159407
+      }
+    ],
+    "suggestion_ids": [
+      "node_001a09b8bb656f28b45c02630f5536d",
+      "node_001a09b8bb6503e8f92775bb55461b9",
+      "node_001a09b8bb64d964dcead662b763095",
+      "node_001a09b8bb64e43a1311596c0f1c175",
+      "node_001a09b8bb64b6af85b3459be6f8f6b"
+    ],
+    "family_weights": {
+      "quant": 1.0,
+      "econometrics": 0.0,
+      "causal": 0.0,
+      "signal_processing": 0.9519893169342647,
+      "network_optimization": 0.27427823185394123
+    }
+  }
+}

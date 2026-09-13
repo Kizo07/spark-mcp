@@ -12,78 +12,92 @@ PASS-WITH-NITS without blockers (AGENTS.md rule 5).
 | 1 — Ledger & Memory | `bc511a3` | reviews/2026-09-12_phase-1.md | **PASS-WITH-NITS** | PIT-before-ranking, exact-once trials, reconciliation independently reproduced |
 | 2 — Method Graph & Novelty | `1344d89` | reviews/2026-09-13_phase-2.md | **PASS-WITH-NITS** | RRF retrieval, bounded N/S bit-identical cross-process; post-review scorer change at `1473f38` (see G1) |
 | 3 — Gates & Backtest Seam | `a85c21a` | reviews/2026-09-13_phase-3.md | **PASS-WITH-NITS** | Golden pins re-derived by third machinery (~1e-12); G2 reproduced 0.44s |
-| G1 hardening delta | `39543dc..HEAD` (`e16980e`) | reviews/2026-09-13_delta-hardening.md | **pending** | LLM wiring + nit fixes + selection repair; verdict filled when the review lands |
+| G1 hardening delta | `39543dc..d608dab` | reviews/2026-09-13_delta-hardening.md | **PASS-WITH-NITS** | LLM wiring + nit fixes + selection repair + full-field scoring; reviewer's corrections folded in below |
 
 ## Program gates — final
 
 | Gate | Status | Evidence |
 |---|---|---|
-| **G1** (end Phase 2) | **OVERLAP GREEN / JUDGE RED (corpus-bound)** | **Overlap half: GREEN.** Round 3 (LLM scorer, `8e81e8c`): mean 0.204 over 5 problems × 5 repeats, all problems ≤0.28 (SLO 0.30). Round 4 (`e16980e`, champion eligible): mean 0.26; 12-seed Monte Carlo of the same code path puts true per-problem rates at 0.20–0.21 (the 5-call gate sample is high-variance; two problems landed at 0.32). **Judge half: RED** after two measured LLM-scorer cycles (same rubric/judge all rounds): count≥3/5 per problem — r1 [4,1,1,1,0], r2 [4,1,0,0,2], r3 [5,0,1,1,0], r4 [5,0,1,1,0] (reviews/2026-09-13_g1-judge-round{1..4}.md). Criterion ≥2/problem ≥3/5 on all 5: met only on P1 (5/5) and unmet on P2/P3/P5. **Diagnosis (see below): corpus coverage, not mechanism.** |
+| **G1** (end Phase 2) | **OVERLAP GREEN / JUDGE RED** | **Overlap half: GREEN.** Round 5 (full-field scorer, `d608dab`): mean **0.212**, per-problem [0.22, 0.18, 0.20, 0.16, 0.30] — all at/under the 0.30 SLO (rounds 3-4 on the mean basis: 0.204 / 0.26; 12-seed Monte Carlo of the same code path: true per-problem rates ≈0.20–0.21; the 5-call gate sample is high-variance). **Judge half: RED** after the LLM path came live: count≥3/5 per problem — r1 [4,1,1,1,0], r2 [4,1,0,0,2], r3 [5,0,1,1,0], r4 [5,0,1,1,0], **r5 [5,1,1,1,1]** (reviews/2026-09-13_g1-judge-round{1..5}.md; ranked candidate lists saved for rounds 3 & 5: reviews/2026-09-13_g1-round{3,5}-candidates.json). Criterion (≥2 suggestions/problem ≥3/5 on ALL 5, §18.0): met on P1 (5/5 in every LLM round) and unmet elsewhere. **Diagnosis: depth-per-problem shortfall relative to draw entropy, plus thin corpus shelves — not "mechanism vs corpus", both matter** (see below). |
 | **G2** (end Phase 3) | **GREEN (standalone)** | loop 0.44s vs 900s SLO; (counted+reconciled)/attested = 17/17 = 1.0 exactly incl. 3 retries + 2 out-of-band; 100% counted; C6 enforced at entry and gate; SR always paired with DSR. Live-peer half: peer exists (`../alpha_engine`) but its tools do not speak plan §15.2 contract; RecordedProvider cassettes cover the seam per plan §17.4. **Post-goal follow-up: live integration once the peer exposes §15.2 tools.** |
 
-## G1 judge half: why it stays red (and why we stopped)
+## G1 judge half: honest diagnosis (corrected per the delta review)
 
-With the LLM scorer live, relevance *ranking* is no longer the binding
-constraint — for P2 the scored candidate list is exactly right (2SLS 0.757,
-doubly-robust 0.697, front-door 0.620, negative-controls 0.608, PCMCI 0.601,
-backdoor 0.578, DiD 0.500, PC 0.498, synthetic control 0.496). The judge
-half is **corpus-bound**:
+The delta review (reviews/2026-09-13_delta-hardening.md §2) rejected the first
+pass diagnosis "corpus-bound, not mechanism" — correctly:
 
-- **P5 (microstructure denoising):** the corpus holds ~1 method the judge
-  would rate ≥3 (Kalman filter; the judge's own ICA rationale says "Kalman/
-  wavelets dominate this"). Criterion needs 2. No scorer can rank methods
-  that do not exist.
-- **P3 (vol-regime early detection):** vol-timing coverage tops out at the
-  GARCH trio (judge: ≤2, backward-looking) + option-implied skew (3). Max
-  achievable ≈ 1–2.
-- **P2 (macro causal identification):** ~12 causal cards exist; the strict
-  judge rates identification-fit for rate→sector questions at 1–2 for all
-  but the canonical estimators (which cap at 3).
+1. **Recall coverage WAS a mechanism gap** (fixed in `d608dab`): lexical
+   recall+padding demonstrably buried on-target cards — Hamilton regime
+   switching and CUSUM never entered a 30-candidate set for a
+   regime-detection problem; DWT/UKF never entered the microstructure set.
+   Full-field LLM scoring (all 101 techniques ranked per problem,
+   score_cache one-time cost, threaded pass) fixed it: round-5 draws
+   surface the right shelves (P2: doubly-robust/panel-FE/synthetic-control;
+   P3: GARCH/PCMCI/VAR; P5: FFT spectral rated 3).
+2. **What remains is depth-per-problem relative to a deliberately flat
+   draw.** With overlap at 0.21 the balanced draw spreads across ~24
+   eligibles; the 2nd/3rd plausible cards (HMM/Hamilton/VRP for P3;
+   Ledoit-Wolf/HRP for P4; Kalman for P5) are ranked but rarely co-draw.
+   Concentrating the draw to force co-draws would be tuning against the
+   blind draw — the overfitting pattern this project exists to prevent —
+   and would push overlap back over SLO. The strict judge also rates most
+   surfaced near-misses 2 with specific reasons (synthetic control: "no
+   untreated donor when all sectors treated"; GARCH: "lags breaks").
+3. **Corpus saturation is the remaining lever and it is plan-scoped**:
+   P1 passes 5/5 in every LLM round on a 51-card shelf while thin shelves
+   cap out at 1–2 plausible picks per draw. Phase-4 ingestion (§16.1 seeds
+   are v0) is the remedy; growing seeds to target this judge would be
+   gaming the eval.
 
-The remedy is plan-scoped **Phase-4 corpus ingestion** (§16.1 seeds are v0;
-ingestion pipelines are later-phase work). Growing the seed corpus to target
-this judge would be gaming the eval. Selection knobs were iterated exactly
-once on principle (champion-exclusion reversal, flagged for reassessment by
-the Phase-2 review) and not tuned against the blind draw.
+Stopping rule applied: five blind rounds, two mechanism repairs, one
+principled reversal (champion exclusion — flagged for reassessment by the
+Phase-2 review); no threshold tuned against the judge.
 
-### G1 mechanism history (all rounds, same 5 problems / rubric / judge)
+### G1 mechanism history (same 5 problems / rubric / judge all rounds)
 
-1. Rounds 1–2 (deterministic lexical scorer): overlap GREEN 0.14; judge
-   RED. Diagnosis then: lexical relevance ceiling → plan remedy is the
-   LLM-scored path (§8.1/M4), which needed an endpoint.
+1. **Rounds 1–2** (deterministic lexical scorer): overlap GREEN 0.14;
+   judge RED. Plan remedy: LLM-scored relevance (§8.1/M4), needs an endpoint.
 2. User provided a z.ai coding-plan key (OpenAI-compatible,
-   `https://api.z.ai/api/coding/paas/v4`, chat models only — no embeddings
-   route on this key). `OpenAICompatibleLLM` wired (`19ba51d`): temperature
-   0, retry on transient 429/5xx, tolerant JSON parsing (fences/prose) so a
-   chatty scorer cannot silently fall back.
-3. Round 3: overlap RED 0.54 (sharper LLM scores concentrated the pool
-   draw; thin recall sets of 7–20 made some pools a trivial 6-of-6). Two
-   mechanism repairs, both §8.2 design space (`8e81e8c`): recall floor
-   `selection_recall_pad_to=30` (pad with best-remaining techniques by
-   deterministic relevance; padding only orders, the scorer still ranks)
-   and `selection_pool_temp_multiplier` 3→6 (12-seed Monte Carlo
-   calibration: 0.54→0.20, suggestion quality unchanged). Round 3 rerun:
-   overlap GREEN 0.204.
-4. Round 3 judge [5,0,1,1,0] with the excluded-champion pattern visible
-   (judge named the excluded champion as the right answer). Reversed
-   `selection_obvious_drop` 1→0 (`e16980e`): the exclusion's overlap
-   rationale died with the recall floor (simulated 0.202→0.198 with the
-   champion included) and hiding the best-scoring candidate removed the
-   pick most likely to be plausible. Round 4: overlap mean 0.26; judge
-   [5,0,1,1,0] — corpus-bound, stop per the goal's stop rule.
+   `api.z.ai/api/coding/paas/v4`, chat models only — no embeddings route).
+   `OpenAICompatibleLLM` wired (`19ba51d`): temperature 0, retry on
+   transient 429/5xx, tolerant balanced-brace JSON parsing, per-candidate
+   fallback tally (`llm_fallback_count`) — scoring_mode alone could hide a
+   partial fallback.
+3. **Round 3** (`8e81e8c`): overlap RED 0.54 — sharper LLM scores
+   concentrated the draw, and thin recall sets (7–20) made some pools a
+   trivial 6-of-6. Two §8.2 repairs: recall floor
+   `selection_recall_pad_to=30` (pad only orders; the scorer still ranks)
+   and `selection_pool_temp_multiplier` 3→6 (12-seed Monte Carlo:
+   0.54→0.20, quality unchanged). Rerun: overlap GREEN 0.204.
+4. **Round 3 judge [5,0,1,1,0]** exposed the excluded-champion pattern (the
+   judge named the excluded champion as the right answer). Reversed
+   `selection_obvious_drop` 1→0 (`e16980e`): its overlap rationale died
+   with the recall floor (sim: 0.202→0.198 including the champion) and the
+   plan never mandated the exclusion. **Round 4**: overlap mean 0.26;
+   judge [5,0,1,1,0].
+5. **Delta review** (`reviews/2026-09-13_delta-hardening.md`):
+   PASS-WITH-NITS; found the recall-coverage gap the orchestrator missed;
+   corrected three overclaims; nits folded into `d608dab` (full-field
+   scoring, threaded pass with locked cache reads, fallback tally, parser
+   brace-scan, rankings logged for rounds 3 & 5).
+6. **Round 5** (`d608dab`, full field): overlap mean **0.212** (max 0.30);
+   judge **[5,1,1,1,1]** — every problem now has a plausible (≥3) pick in
+   the draw; depth short of the ≥2 criterion on P2–P5.
 
 ## Carried nits / follow-ups
 
-Post-review nit-fix pass (commits `84bd915`, `e16980e`): **N5, N6, N7, N8,
+Post-review nit-fix pass (commits `84bd915`…`d608dab`): **N5, N6, N7, N8,
 N10 fixed; Phase-2 unresolved-refs nit fixed; pool-size nit already
-satisfied** (the flagged literal moved to `selection_pool_extra` config in
-the Phase-2 selection redesign). Still open:
+satisfied** (flagged literal moved to `selection_pool_extra` in the Phase-2
+selection redesign); champion-exclusion flag resolved (`e16980e` reversal);
+delta-review nits 1–6 resolved or recorded here. Still open:
 
 - **Live alpha_engine integration**: needs peer-side §15.2 tools (out of
   this goal's scope: no alpha_engine changes permitted).
-- **Corpus growth (P2/P3/P5 coverage)** — the G1 judge-half remedy; scoped
-  to Phase 4+ ingestion (docling pipeline, peer harvest). Do NOT grow seeds
-  to target the judge.
+- **Corpus saturation for thin shelves** (early-warning vol regime,
+  microstructure denoising, macro-causal identification) — the G1
+  judge-half remedy; scoped to Phase 4+ ingestion. Do NOT grow seeds to
+  target the judge.
 - **G4 go/no-go** (≥50 logged outcomes with non-degenerate family
   posteriors) already gates Phase 6.
 - Phase 2 deferred-by-design: structural-overlap term degenerate in tool
@@ -99,17 +113,21 @@ the Phase-2 selection redesign). Still open:
 
 ## Environment record
 
-- LLM: z.ai coding plan via zcode config (`api.z.ai/api/coding/paas/v4`),
-  scorer `glm-5.3` (temperature 0). `spark doctor` reports "full (llm key
-  present)" when `llm.base_url` + key env are configured.
+- LLM: z.ai coding plan (from zcode config), OpenAI-compatible
+  `api.z.ai/api/coding/paas/v4`, scorer `glm-5.3` (temperature 0).
+  `spark doctor` reports "full (llm key present)" when `llm.base_url` +
+  key env are configured. Score cache keys include model_id; a model swap
+  re-scores cleanly.
 - pyribs absent from this machine's package index → `[qd]` extra; Phase 5
   must ship a native MAP-Elites fallback.
 - venv: Python 3.12 (see README).
-- Test counts: 15 → 44 → 82 → 160 → 166 → 180 (hardening pass: +14). All
-  green at HEAD; ruff clean.
+- Test counts: 15 → 44 → 82 → 160 → 166 → 182 (hardening pass: +16). All
+  green at HEAD (`d608dab`); ruff clean.
 
-*Goal 1 ended at `39543dc` per its stop rule; the 2026-09-13 hardening pass
-(user-provided key) wired the LLM path, fixed all code-level nits, and took
-G1 through four blind rounds: overlap half green, judge half red with a
-diagnosed, plan-scoped remedy. Final commit records this file and all review
-artifacts.*
+*Goal 1 ended at `39543dc` per its stop rule. The 2026-09-13 hardening pass
+(user-provided key) wired the LLM path, fixed every code-level nit, and took
+G1 through five blind rounds with two mechanism repairs and one independent
+delta review: overlap half green (0.212, all problems ≤0.30), judge half red
+([5,1,1,1,1]) with a corrected diagnosis — depth-per-problem vs draw entropy
+plus thin corpus shelves — and a plan-scoped remedy (Phase-4 ingestion).
+Final commit records this file and all review artifacts.*

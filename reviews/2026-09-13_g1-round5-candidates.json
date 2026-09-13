@@ -1,0 +1,3087 @@
+{
+  "predict cross-sectional equity returns for the next month": {
+    "ranked_candidates": [
+      {
+        "rank": 1,
+        "method": "Composite mispricing score",
+        "family": "quant",
+        "score": 0.8089285714285714
+      },
+      {
+        "rank": 2,
+        "method": "Fama-MacBeth cross-sectional regression",
+        "family": "econometrics",
+        "score": 0.8011363636363636
+      },
+      {
+        "rank": 3,
+        "method": "Residual momentum",
+        "family": "quant",
+        "score": 0.7990172413793103
+      },
+      {
+        "rank": 4,
+        "method": "Net share issuance anomaly",
+        "family": "quant",
+        "score": 0.7987903225806452
+      },
+      {
+        "rank": 5,
+        "method": "Cross-sectional momentum",
+        "family": "quant",
+        "score": 0.7865
+      },
+      {
+        "rank": 6,
+        "method": "Momentum with crowding adjustment",
+        "family": "quant",
+        "score": 0.7857575757575758
+      },
+      {
+        "rank": 7,
+        "method": "Cross-sectional z-score stat arb",
+        "family": "quant",
+        "score": 0.7850689655172414
+      },
+      {
+        "rank": 8,
+        "method": "Information discreteness momentum",
+        "family": "quant",
+        "score": 0.7837142857142858
+      },
+      {
+        "rank": 9,
+        "method": "52-week high momentum",
+        "family": "quant",
+        "score": 0.7837142857142858
+      },
+      {
+        "rank": 10,
+        "method": "Quality minus junk",
+        "family": "quant",
+        "score": 0.7777419354838709
+      },
+      {
+        "rank": 11,
+        "method": "Idiosyncratic volatility anomaly",
+        "family": "quant",
+        "score": 0.7756481481481481
+      },
+      {
+        "rank": 12,
+        "method": "MAX lottery effect",
+        "family": "quant",
+        "score": 0.7756481481481481
+      },
+      {
+        "rank": 13,
+        "method": "Standardized unexpected earnings",
+        "family": "quant",
+        "score": 0.7673333333333333
+      },
+      {
+        "rank": 14,
+        "method": "Overnight returns anomaly",
+        "family": "quant",
+        "score": 0.7660689655172414
+      },
+      {
+        "rank": 15,
+        "method": "Asset growth anomaly",
+        "family": "quant",
+        "score": 0.7526666666666667
+      },
+      {
+        "rank": 16,
+        "method": "Liquidity-adjusted momentum",
+        "family": "quant",
+        "score": 0.7464782608695653
+      },
+      {
+        "rank": 17,
+        "method": "Ridge regression",
+        "family": "econometrics",
+        "score": 0.7439285714285715
+      },
+      {
+        "rank": 18,
+        "method": "Earnings yield value",
+        "family": "quant",
+        "score": 0.7401923076923077
+      },
+      {
+        "rank": 19,
+        "method": "Amihud illiquidity premium",
+        "family": "quant",
+        "score": 0.7392142857142857
+      },
+      {
+        "rank": 20,
+        "method": "Momentum crashes timing",
+        "family": "quant",
+        "score": 0.7361923076923077
+      },
+      {
+        "rank": 21,
+        "method": "Book-to-market value",
+        "family": "quant",
+        "score": 0.7360714285714286
+      },
+      {
+        "rank": 22,
+        "method": "Post-earnings-announcement drift",
+        "family": "quant",
+        "score": 0.7358333333333333
+      },
+      {
+        "rank": 23,
+        "method": "Gross profitability factor",
+        "family": "quant",
+        "score": 0.7291666666666666
+      },
+      {
+        "rank": 24,
+        "method": "Low volatility anomaly",
+        "family": "quant",
+        "score": 0.727037037037037
+      },
+      {
+        "rank": 25,
+        "method": "Betting against beta",
+        "family": "quant",
+        "score": 0.727037037037037
+      },
+      {
+        "rank": 26,
+        "method": "Short-term reversal",
+        "family": "quant",
+        "score": 0.725462962962963
+      },
+      {
+        "rank": 27,
+        "method": "Elastic net regularization",
+        "family": "econometrics",
+        "score": 0.725462962962963
+      },
+      {
+        "rank": 28,
+        "method": "Skewness preference anomaly",
+        "family": "quant",
+        "score": 0.7225
+      },
+      {
+        "rank": 29,
+        "method": "Huber robust regression",
+        "family": "econometrics",
+        "score": 0.7224193548387097
+      },
+      {
+        "rank": 30,
+        "method": "Option-implied skew trading",
+        "family": "quant",
+        "score": 0.7216666666666667
+      },
+      {
+        "rank": 31,
+        "method": "Accruals anomaly",
+        "family": "quant",
+        "score": 0.7140384615384615
+      },
+      {
+        "rank": 32,
+        "method": "Pastor-Stambaugh liquidity beta",
+        "family": "quant",
+        "score": 0.6983333333333333
+      },
+      {
+        "rank": 33,
+        "method": "Volatility-managed momentum",
+        "family": "quant",
+        "score": 0.6975
+      },
+      {
+        "rank": 34,
+        "method": "Lead-lag network inference",
+        "family": "network_optimization",
+        "score": 0.6941935483870968
+      },
+      {
+        "rank": 35,
+        "method": "Long-term reversal",
+        "family": "quant",
+        "score": 0.6797058823529412
+      },
+      {
+        "rank": 36,
+        "method": "Dividend yield premium",
+        "family": "quant",
+        "score": 0.6785714285714286
+      },
+      {
+        "rank": 37,
+        "method": "Quantile regression",
+        "family": "econometrics",
+        "score": 0.6424193548387096
+      },
+      {
+        "rank": 38,
+        "method": "Graph Laplacian regularization",
+        "family": "network_optimization",
+        "score": 0.6125
+      },
+      {
+        "rank": 39,
+        "method": "Panel fixed effects estimator",
+        "family": "econometrics",
+        "score": 0.5825
+      },
+      {
+        "rank": 40,
+        "method": "RSI mean reversion",
+        "family": "quant",
+        "score": 0.5750000000000001
+      },
+      {
+        "rank": 41,
+        "method": "Factor timing regime switching",
+        "family": "quant",
+        "score": 0.5726923076923077
+      },
+      {
+        "rank": 42,
+        "method": "Variance risk premium",
+        "family": "quant",
+        "score": 0.5566666666666666
+      },
+      {
+        "rank": 43,
+        "method": "Time-series momentum",
+        "family": "quant",
+        "score": 0.5245689655172414
+      },
+      {
+        "rank": 44,
+        "method": "Delta-hedged option returns",
+        "family": "quant",
+        "score": 0.5217307692307692
+      },
+      {
+        "rank": 45,
+        "method": "Factor model risk decomposition",
+        "family": "quant",
+        "score": 0.5019230769230769
+      },
+      {
+        "rank": 46,
+        "method": "Negative controls and placebo testing",
+        "family": "causal",
+        "score": 0.49083333333333334
+      },
+      {
+        "rank": 47,
+        "method": "Black-Litterman allocation",
+        "family": "network_optimization",
+        "score": 0.4875
+      },
+      {
+        "rank": 48,
+        "method": "Ledoit-Wolf covariance shrinkage",
+        "family": "quant",
+        "score": 0.4689285714285715
+      },
+      {
+        "rank": 49,
+        "method": "Merger arbitrage",
+        "family": "quant",
+        "score": 0.44916666666666666
+      },
+      {
+        "rank": 50,
+        "method": "Granger causality test",
+        "family": "econometrics",
+        "score": 0.446875
+      },
+      {
+        "rank": 51,
+        "method": "Generalized method of moments",
+        "family": "econometrics",
+        "score": 0.44666666666666666
+      },
+      {
+        "rank": 52,
+        "method": "Continuous wavelet transform scalogram",
+        "family": "signal_processing",
+        "score": 0.4436969696969697
+      },
+      {
+        "rank": 53,
+        "method": "Minimum spanning tree asset clustering",
+        "family": "network_optimization",
+        "score": 0.44333333333333336
+      },
+      {
+        "rank": 54,
+        "method": "Pairs trading cointegration",
+        "family": "quant",
+        "score": 0.4376470588235294
+      },
+      {
+        "rank": 55,
+        "method": "Hamilton regime switching model",
+        "family": "econometrics",
+        "score": 0.4328571428571429
+      },
+      {
+        "rank": 56,
+        "method": "Moving average trend filter",
+        "family": "quant",
+        "score": 0.4320689655172414
+      },
+      {
+        "rank": 57,
+        "method": "PC algorithm causal discovery",
+        "family": "causal",
+        "score": 0.42817567567567566
+      },
+      {
+        "rank": 58,
+        "method": "Earnings announcement straddle",
+        "family": "quant",
+        "score": 0.41602941176470587
+      },
+      {
+        "rank": 59,
+        "method": "Engle-Granger cointegration test",
+        "family": "econometrics",
+        "score": 0.41277027027027025
+      },
+      {
+        "rank": 60,
+        "method": "Vector autoregression",
+        "family": "econometrics",
+        "score": 0.411875
+      },
+      {
+        "rank": 61,
+        "method": "Empirical mode decomposition",
+        "family": "signal_processing",
+        "score": 0.4118421052631579
+      },
+      {
+        "rank": 62,
+        "method": "Kelly criterion sizing",
+        "family": "network_optimization",
+        "score": 0.4083333333333333
+      },
+      {
+        "rank": 63,
+        "method": "Commodity roll yield carry",
+        "family": "quant",
+        "score": 0.40719696969696967
+      },
+      {
+        "rank": 64,
+        "method": "Louvain community detection",
+        "family": "network_optimization",
+        "score": 0.4068181818181818
+      },
+      {
+        "rank": 65,
+        "method": "CUSUM change point detection",
+        "family": "signal_processing",
+        "score": 0.39386206896551723
+      },
+      {
+        "rank": 66,
+        "method": "Currency carry",
+        "family": "quant",
+        "score": 0.39166666666666666
+      },
+      {
+        "rank": 67,
+        "method": "GARCH volatility model",
+        "family": "econometrics",
+        "score": 0.38706896551724135
+      },
+      {
+        "rank": 68,
+        "method": "Intraday momentum",
+        "family": "quant",
+        "score": 0.3859782608695652
+      },
+      {
+        "rank": 69,
+        "method": "Backdoor adjustment",
+        "family": "causal",
+        "score": 0.3805172413793103
+      },
+      {
+        "rank": 70,
+        "method": "Hausman specification test",
+        "family": "econometrics",
+        "score": 0.379551282051282
+      },
+      {
+        "rank": 71,
+        "method": "Discrete wavelet transform denoising",
+        "family": "signal_processing",
+        "score": 0.3671969696969697
+      },
+      {
+        "rank": 72,
+        "method": "Unscented Kalman filter",
+        "family": "signal_processing",
+        "score": 0.3590757575757576
+      },
+      {
+        "rank": 73,
+        "method": "Two-stage least squares instrumental variables",
+        "family": "econometrics",
+        "score": 0.35666666666666663
+      },
+      {
+        "rank": 74,
+        "method": "Front-door criterion",
+        "family": "causal",
+        "score": 0.3527272727272727
+      },
+      {
+        "rank": 75,
+        "method": "Doubly robust estimation",
+        "family": "causal",
+        "score": 0.3485714285714286
+      },
+      {
+        "rank": 76,
+        "method": "Welch periodogram estimation",
+        "family": "signal_processing",
+        "score": 0.34774193548387095
+      },
+      {
+        "rank": 77,
+        "method": "Difference-in-differences",
+        "family": "causal",
+        "score": 0.34500000000000003
+      },
+      {
+        "rank": 78,
+        "method": "Hierarchical risk parity",
+        "family": "network_optimization",
+        "score": 0.3433333333333333
+      },
+      {
+        "rank": 79,
+        "method": "Synthetic control method",
+        "family": "causal",
+        "score": 0.3355769230769231
+      },
+      {
+        "rank": 80,
+        "method": "Augmented Dickey-Fuller test",
+        "family": "econometrics",
+        "score": 0.32472222222222225
+      },
+      {
+        "rank": 81,
+        "method": "Term structure carry",
+        "family": "quant",
+        "score": 0.320241935483871
+      },
+      {
+        "rank": 82,
+        "method": "OLS with Newey-West HAC standard errors",
+        "family": "econometrics",
+        "score": 0.31641901834442304
+      },
+      {
+        "rank": 83,
+        "method": "Variational autoencoder alpha",
+        "family": "quant",
+        "score": 0.3147952162816927
+      },
+      {
+        "rank": 84,
+        "method": "Donchian channel breakout",
+        "family": "quant",
+        "score": 0.31009910977319605
+      },
+      {
+        "rank": 85,
+        "method": "Markowitz mean-variance optimization",
+        "family": "network_optimization",
+        "score": 0.30958679579844156
+      },
+      {
+        "rank": 86,
+        "method": "Independent component analysis",
+        "family": "network_optimization",
+        "score": 0.30539803864158066
+      },
+      {
+        "rank": 87,
+        "method": "PageRank centrality ranking",
+        "family": "network_optimization",
+        "score": 0.30494554995379786
+      },
+      {
+        "rank": 88,
+        "method": "Regression discontinuity design",
+        "family": "causal",
+        "score": 0.30157010286667557
+      },
+      {
+        "rank": 89,
+        "method": "PCMCI time-series causal discovery",
+        "family": "causal",
+        "score": 0.3013333427278815
+      },
+      {
+        "rank": 90,
+        "method": "Marchenko-Pastur eigenvalue clipping",
+        "family": "quant",
+        "score": 0.30025030329329283
+      },
+      {
+        "rank": 91,
+        "method": "Index reconstitution arbitrage",
+        "family": "quant",
+        "score": 0.2977599993777715
+      },
+      {
+        "rank": 92,
+        "method": "Spectral entropy measure",
+        "family": "signal_processing",
+        "score": 0.2976735957062499
+      },
+      {
+        "rank": 93,
+        "method": "Vector error correction model",
+        "family": "econometrics",
+        "score": 0.2976381461675579
+      },
+      {
+        "rank": 94,
+        "method": "LASSO variable selection",
+        "family": "econometrics",
+        "score": 0.2939057039301346
+      },
+      {
+        "rank": 95,
+        "method": "Fast Fourier transform spectral analysis",
+        "family": "signal_processing",
+        "score": 0.2933462781804925
+      },
+      {
+        "rank": 96,
+        "method": "Propensity score matching",
+        "family": "causal",
+        "score": 0.29117490843151617
+      },
+      {
+        "rank": 97,
+        "method": "Hidden Markov model regimes",
+        "family": "signal_processing",
+        "score": 0.28834324459138194
+      },
+      {
+        "rank": 98,
+        "method": "Kalman filter state estimation",
+        "family": "signal_processing",
+        "score": 0.28313477457013253
+      },
+      {
+        "rank": 99,
+        "method": "Bollinger band mean reversion",
+        "family": "quant",
+        "score": 0.2811947157400124
+      },
+      {
+        "rank": 100,
+        "method": "EGARCH asymmetric volatility",
+        "family": "econometrics",
+        "score": 0.263125777990888
+      },
+      {
+        "rank": 101,
+        "method": "GJR-GARCH threshold volatility",
+        "family": "econometrics",
+        "score": 0.26268473214477894
+      }
+    ],
+    "suggestions_seed42": [
+      "Net share issuance anomaly",
+      "Option-implied skew trading",
+      "Lead-lag network inference",
+      "Asset growth anomaly",
+      "Elastic net regularization"
+    ]
+  },
+  "estimate the causal effect of interest rate hikes on sector equity returns": {
+    "ranked_candidates": [
+      {
+        "rank": 1,
+        "method": "Two-stage least squares instrumental variables",
+        "family": "econometrics",
+        "score": 0.7566666666666667
+      },
+      {
+        "rank": 2,
+        "method": "Vector autoregression",
+        "family": "econometrics",
+        "score": 0.7418750000000001
+      },
+      {
+        "rank": 3,
+        "method": "Doubly robust estimation",
+        "family": "causal",
+        "score": 0.6965714285714285
+      },
+      {
+        "rank": 4,
+        "method": "Vector error correction model",
+        "family": "econometrics",
+        "score": 0.6696969696969697
+      },
+      {
+        "rank": 5,
+        "method": "Quantile regression",
+        "family": "econometrics",
+        "score": 0.6224193548387097
+      },
+      {
+        "rank": 6,
+        "method": "Front-door criterion",
+        "family": "causal",
+        "score": 0.6202272727272726
+      },
+      {
+        "rank": 7,
+        "method": "Negative controls and placebo testing",
+        "family": "causal",
+        "score": 0.6083333333333334
+      },
+      {
+        "rank": 8,
+        "method": "OLS with Newey-West HAC standard errors",
+        "family": "econometrics",
+        "score": 0.6059677419354839
+      },
+      {
+        "rank": 9,
+        "method": "PCMCI time-series causal discovery",
+        "family": "causal",
+        "score": 0.6006756756756757
+      },
+      {
+        "rank": 10,
+        "method": "Backdoor adjustment",
+        "family": "causal",
+        "score": 0.5780172413793103
+      },
+      {
+        "rank": 11,
+        "method": "Panel fixed effects estimator",
+        "family": "econometrics",
+        "score": 0.5625
+      },
+      {
+        "rank": 12,
+        "method": "Hamilton regime switching model",
+        "family": "econometrics",
+        "score": 0.5128571428571429
+      },
+      {
+        "rank": 13,
+        "method": "Hausman specification test",
+        "family": "econometrics",
+        "score": 0.5095512820512821
+      },
+      {
+        "rank": 14,
+        "method": "Difference-in-differences",
+        "family": "causal",
+        "score": 0.5
+      },
+      {
+        "rank": 15,
+        "method": "Factor model risk decomposition",
+        "family": "quant",
+        "score": 0.49942307692307697
+      },
+      {
+        "rank": 16,
+        "method": "PC algorithm causal discovery",
+        "family": "causal",
+        "score": 0.49817567567567567
+      },
+      {
+        "rank": 17,
+        "method": "Synthetic control method",
+        "family": "causal",
+        "score": 0.49557692307692314
+      },
+      {
+        "rank": 18,
+        "method": "Lead-lag network inference",
+        "family": "network_optimization",
+        "score": 0.47919354838709677
+      },
+      {
+        "rank": 19,
+        "method": "Fama-MacBeth cross-sectional regression",
+        "family": "econometrics",
+        "score": 0.47113636363636363
+      },
+      {
+        "rank": 20,
+        "method": "Elastic net regularization",
+        "family": "econometrics",
+        "score": 0.442962962962963
+      },
+      {
+        "rank": 21,
+        "method": "Hidden Markov model regimes",
+        "family": "signal_processing",
+        "score": 0.44285714285714284
+      },
+      {
+        "rank": 22,
+        "method": "Granger causality test",
+        "family": "econometrics",
+        "score": 0.439375
+      },
+      {
+        "rank": 23,
+        "method": "Independent component analysis",
+        "family": "network_optimization",
+        "score": 0.4194230769230769
+      },
+      {
+        "rank": 24,
+        "method": "Regression discontinuity design",
+        "family": "causal",
+        "score": 0.41817567567567565
+      },
+      {
+        "rank": 25,
+        "method": "Augmented Dickey-Fuller test",
+        "family": "econometrics",
+        "score": 0.4147222222222222
+      },
+      {
+        "rank": 26,
+        "method": "Post-earnings-announcement drift",
+        "family": "quant",
+        "score": 0.41083333333333333
+      },
+      {
+        "rank": 27,
+        "method": "Engle-Granger cointegration test",
+        "family": "econometrics",
+        "score": 0.4052702702702703
+      },
+      {
+        "rank": 28,
+        "method": "Book-to-market value",
+        "family": "quant",
+        "score": 0.4020714285714286
+      },
+      {
+        "rank": 29,
+        "method": "Currency carry",
+        "family": "quant",
+        "score": 0.39916666666666667
+      },
+      {
+        "rank": 30,
+        "method": "Continuous wavelet transform scalogram",
+        "family": "signal_processing",
+        "score": 0.39469696969696966
+      },
+      {
+        "rank": 31,
+        "method": "Overnight returns anomaly",
+        "family": "quant",
+        "score": 0.38706896551724135
+      },
+      {
+        "rank": 32,
+        "method": "Ledoit-Wolf covariance shrinkage",
+        "family": "quant",
+        "score": 0.38642857142857145
+      },
+      {
+        "rank": 33,
+        "method": "Information discreteness momentum",
+        "family": "quant",
+        "score": 0.38571428571428573
+      },
+      {
+        "rank": 34,
+        "method": "Amihud illiquidity premium",
+        "family": "quant",
+        "score": 0.38571428571428573
+      },
+      {
+        "rank": 35,
+        "method": "Term structure carry",
+        "family": "quant",
+        "score": 0.385241935483871
+      },
+      {
+        "rank": 36,
+        "method": "Empirical mode decomposition",
+        "family": "signal_processing",
+        "score": 0.3843421052631579
+      },
+      {
+        "rank": 37,
+        "method": "Standardized unexpected earnings",
+        "family": "quant",
+        "score": 0.3833333333333333
+      },
+      {
+        "rank": 38,
+        "method": "Propensity score matching",
+        "family": "causal",
+        "score": 0.3805172413793103
+      },
+      {
+        "rank": 39,
+        "method": "Black-Litterman allocation",
+        "family": "network_optimization",
+        "score": 0.3775
+      },
+      {
+        "rank": 40,
+        "method": "Earnings yield value",
+        "family": "quant",
+        "score": 0.37269230769230766
+      },
+      {
+        "rank": 41,
+        "method": "EGARCH asymmetric volatility",
+        "family": "econometrics",
+        "score": 0.3722727272727273
+      },
+      {
+        "rank": 42,
+        "method": "Time-series momentum",
+        "family": "quant",
+        "score": 0.3595689655172414
+      },
+      {
+        "rank": 43,
+        "method": "GARCH volatility model",
+        "family": "econometrics",
+        "score": 0.3595689655172414
+      },
+      {
+        "rank": 44,
+        "method": "Net share issuance anomaly",
+        "family": "quant",
+        "score": 0.35879032258064514
+      },
+      {
+        "rank": 45,
+        "method": "Quality minus junk",
+        "family": "quant",
+        "score": 0.35774193548387095
+      },
+      {
+        "rank": 46,
+        "method": "Skewness preference anomaly",
+        "family": "quant",
+        "score": 0.35500000000000004
+      },
+      {
+        "rank": 47,
+        "method": "Asset growth anomaly",
+        "family": "quant",
+        "score": 0.35416666666666663
+      },
+      {
+        "rank": 48,
+        "method": "Earnings announcement straddle",
+        "family": "quant",
+        "score": 0.3535294117647059
+      },
+      {
+        "rank": 49,
+        "method": "Cross-sectional z-score stat arb",
+        "family": "quant",
+        "score": 0.3520689655172414
+      },
+      {
+        "rank": 50,
+        "method": "Discrete wavelet transform denoising",
+        "family": "signal_processing",
+        "score": 0.3496969696969697
+      },
+      {
+        "rank": 51,
+        "method": "Delta-hedged option returns",
+        "family": "quant",
+        "score": 0.34923076923076923
+      },
+      {
+        "rank": 52,
+        "method": "MAX lottery effect",
+        "family": "quant",
+        "score": 0.34564814814814815
+      },
+      {
+        "rank": 53,
+        "method": "52-week high momentum",
+        "family": "quant",
+        "score": 0.34371428571428575
+      },
+      {
+        "rank": 54,
+        "method": "Volatility-managed momentum",
+        "family": "quant",
+        "score": 0.3425
+      },
+      {
+        "rank": 55,
+        "method": "Spectral entropy measure",
+        "family": "signal_processing",
+        "score": 0.341875
+      },
+      {
+        "rank": 56,
+        "method": "Donchian channel breakout",
+        "family": "quant",
+        "score": 0.34096774193548385
+      },
+      {
+        "rank": 57,
+        "method": "Long-term reversal",
+        "family": "quant",
+        "score": 0.3407058823529412
+      },
+      {
+        "rank": 58,
+        "method": "Unscented Kalman filter",
+        "family": "signal_processing",
+        "score": 0.3405757575757576
+      },
+      {
+        "rank": 59,
+        "method": "PageRank centrality ranking",
+        "family": "network_optimization",
+        "score": 0.33947058823529414
+      },
+      {
+        "rank": 60,
+        "method": "Moving average trend filter",
+        "family": "quant",
+        "score": 0.33806896551724136
+      },
+      {
+        "rank": 61,
+        "method": "Residual momentum",
+        "family": "quant",
+        "score": 0.33801724137931033
+      },
+      {
+        "rank": 62,
+        "method": "Gross profitability factor",
+        "family": "quant",
+        "score": 0.33666666666666667
+      },
+      {
+        "rank": 63,
+        "method": "Low volatility anomaly",
+        "family": "quant",
+        "score": 0.334537037037037
+      },
+      {
+        "rank": 64,
+        "method": "Louvain community detection",
+        "family": "network_optimization",
+        "score": 0.3343181818181818
+      },
+      {
+        "rank": 65,
+        "method": "Momentum crashes timing",
+        "family": "quant",
+        "score": 0.3336923076923077
+      },
+      {
+        "rank": 66,
+        "method": "Cross-sectional momentum",
+        "family": "quant",
+        "score": 0.3325
+      },
+      {
+        "rank": 67,
+        "method": "Pairs trading cointegration",
+        "family": "quant",
+        "score": 0.3306470588235294
+      },
+      {
+        "rank": 68,
+        "method": "Markowitz mean-variance optimization",
+        "family": "network_optimization",
+        "score": 0.3266935483870968
+      },
+      {
+        "rank": 69,
+        "method": "Kelly criterion sizing",
+        "family": "network_optimization",
+        "score": 0.32583333333333336
+      },
+      {
+        "rank": 70,
+        "method": "GJR-GARCH threshold volatility",
+        "family": "econometrics",
+        "score": 0.32477272727272727
+      },
+      {
+        "rank": 71,
+        "method": "Marchenko-Pastur eigenvalue clipping",
+        "family": "quant",
+        "score": 0.324375
+      },
+      {
+        "rank": 72,
+        "method": "Intraday momentum",
+        "family": "quant",
+        "score": 0.32347826086956527
+      },
+      {
+        "rank": 73,
+        "method": "Commodity roll yield carry",
+        "family": "quant",
+        "score": 0.3221969696969697
+      },
+      {
+        "rank": 74,
+        "method": "Index reconstitution arbitrage",
+        "family": "quant",
+        "score": 0.320241935483871
+      },
+      {
+        "rank": 75,
+        "method": "Liquidity-adjusted momentum",
+        "family": "quant",
+        "score": 0.31947826086956527
+      },
+      {
+        "rank": 76,
+        "method": "Betting against beta",
+        "family": "quant",
+        "score": 0.31703703703703706
+      },
+      {
+        "rank": 77,
+        "method": "Hierarchical risk parity",
+        "family": "network_optimization",
+        "score": 0.31583333333333335
+      },
+      {
+        "rank": 78,
+        "method": "Short-term reversal",
+        "family": "quant",
+        "score": 0.315462962962963
+      },
+      {
+        "rank": 79,
+        "method": "Accruals anomaly",
+        "family": "quant",
+        "score": 0.31403846153846154
+      },
+      {
+        "rank": 80,
+        "method": "Merger arbitrage",
+        "family": "quant",
+        "score": 0.31266666666666665
+      },
+      {
+        "rank": 81,
+        "method": "Variational autoencoder alpha",
+        "family": "quant",
+        "score": 0.30812234174767694
+      },
+      {
+        "rank": 82,
+        "method": "Momentum with crowding adjustment",
+        "family": "quant",
+        "score": 0.3066458788557395
+      },
+      {
+        "rank": 83,
+        "method": "Pastor-Stambaugh liquidity beta",
+        "family": "quant",
+        "score": 0.30582753727645084
+      },
+      {
+        "rank": 84,
+        "method": "Huber robust regression",
+        "family": "econometrics",
+        "score": 0.3054441153628126
+      },
+      {
+        "rank": 85,
+        "method": "CUSUM change point detection",
+        "family": "signal_processing",
+        "score": 0.3048938400349658
+      },
+      {
+        "rank": 86,
+        "method": "Graph Laplacian regularization",
+        "family": "network_optimization",
+        "score": 0.3044299715607936
+      },
+      {
+        "rank": 87,
+        "method": "Ridge regression",
+        "family": "econometrics",
+        "score": 0.3028667279382356
+      },
+      {
+        "rank": 88,
+        "method": "Bollinger band mean reversion",
+        "family": "quant",
+        "score": 0.30250000000000005
+      },
+      {
+        "rank": 89,
+        "method": "Option-implied skew trading",
+        "family": "quant",
+        "score": 0.3023030940481271
+      },
+      {
+        "rank": 90,
+        "method": "Variance risk premium",
+        "family": "quant",
+        "score": 0.3015034129234701
+      },
+      {
+        "rank": 91,
+        "method": "Idiosyncratic volatility anomaly",
+        "family": "quant",
+        "score": 0.30064814814814816
+      },
+      {
+        "rank": 92,
+        "method": "Composite mispricing score",
+        "family": "quant",
+        "score": 0.2979991607162344
+      },
+      {
+        "rank": 93,
+        "method": "Fast Fourier transform spectral analysis",
+        "family": "signal_processing",
+        "score": 0.2973812102807577
+      },
+      {
+        "rank": 94,
+        "method": "Generalized method of moments",
+        "family": "econometrics",
+        "score": 0.29693668768979725
+      },
+      {
+        "rank": 95,
+        "method": "Welch periodogram estimation",
+        "family": "signal_processing",
+        "score": 0.29462540706524765
+      },
+      {
+        "rank": 96,
+        "method": "LASSO variable selection",
+        "family": "econometrics",
+        "score": 0.293154579721133
+      },
+      {
+        "rank": 97,
+        "method": "Minimum spanning tree asset clustering",
+        "family": "network_optimization",
+        "score": 0.2919068209227357
+      },
+      {
+        "rank": 98,
+        "method": "Kalman filter state estimation",
+        "family": "signal_processing",
+        "score": 0.28597705471135504
+      },
+      {
+        "rank": 99,
+        "method": "Factor timing regime switching",
+        "family": "quant",
+        "score": 0.28561003854438644
+      },
+      {
+        "rank": 100,
+        "method": "Dividend yield premium",
+        "family": "quant",
+        "score": 0.28228373052408645
+      },
+      {
+        "rank": 101,
+        "method": "RSI mean reversion",
+        "family": "quant",
+        "score": 0.27791680867708835
+      }
+    ],
+    "suggestions_seed42": [
+      "Doubly robust estimation",
+      "Panel fixed effects estimator",
+      "Synthetic control method",
+      "Fama-MacBeth cross-sectional regression",
+      "Hidden Markov model regimes"
+    ]
+  },
+  "detect regime shifts in market volatility before they fully materialize": {
+    "ranked_candidates": [
+      {
+        "rank": 1,
+        "method": "Hidden Markov model regimes",
+        "family": "signal_processing",
+        "score": 0.7428571428571429
+      },
+      {
+        "rank": 2,
+        "method": "Hamilton regime switching model",
+        "family": "econometrics",
+        "score": 0.7328571428571429
+      },
+      {
+        "rank": 3,
+        "method": "Factor timing regime switching",
+        "family": "quant",
+        "score": 0.7301923076923077
+      },
+      {
+        "rank": 4,
+        "method": "Variance risk premium",
+        "family": "quant",
+        "score": 0.7226666666666666
+      },
+      {
+        "rank": 5,
+        "method": "Continuous wavelet transform scalogram",
+        "family": "signal_processing",
+        "score": 0.6671969696969696
+      },
+      {
+        "rank": 6,
+        "method": "Spectral entropy measure",
+        "family": "signal_processing",
+        "score": 0.651875
+      },
+      {
+        "rank": 7,
+        "method": "Currency carry",
+        "family": "quant",
+        "score": 0.6438401149602242
+      },
+      {
+        "rank": 8,
+        "method": "Quantile regression",
+        "family": "econometrics",
+        "score": 0.6399193548387097
+      },
+      {
+        "rank": 9,
+        "method": "Option-implied skew trading",
+        "family": "quant",
+        "score": 0.6366666666666666
+      },
+      {
+        "rank": 10,
+        "method": "Delta-hedged option returns",
+        "family": "quant",
+        "score": 0.6317307692307692
+      },
+      {
+        "rank": 11,
+        "method": "GARCH volatility model",
+        "family": "econometrics",
+        "score": 0.6270689655172413
+      },
+      {
+        "rank": 12,
+        "method": "52-week high momentum",
+        "family": "quant",
+        "score": 0.6225226299031642
+      },
+      {
+        "rank": 13,
+        "method": "Factor model risk decomposition",
+        "family": "quant",
+        "score": 0.6194092895098675
+      },
+      {
+        "rank": 14,
+        "method": "Empirical mode decomposition",
+        "family": "signal_processing",
+        "score": 0.5843421052631579
+      },
+      {
+        "rank": 15,
+        "method": "Minimum spanning tree asset clustering",
+        "family": "network_optimization",
+        "score": 0.5708333333333333
+      },
+      {
+        "rank": 16,
+        "method": "Donchian channel breakout",
+        "family": "quant",
+        "score": 0.5684677419354839
+      },
+      {
+        "rank": 17,
+        "method": "GJR-GARCH threshold volatility",
+        "family": "econometrics",
+        "score": 0.5597727272727273
+      },
+      {
+        "rank": 18,
+        "method": "Graph Laplacian regularization",
+        "family": "network_optimization",
+        "score": 0.5275
+      },
+      {
+        "rank": 19,
+        "method": "Variational autoencoder alpha",
+        "family": "quant",
+        "score": 0.5269878048780487
+      },
+      {
+        "rank": 20,
+        "method": "Discrete wavelet transform denoising",
+        "family": "signal_processing",
+        "score": 0.5221969696969697
+      },
+      {
+        "rank": 21,
+        "method": "PCMCI time-series causal discovery",
+        "family": "causal",
+        "score": 0.5181756756756757
+      },
+      {
+        "rank": 22,
+        "method": "EGARCH asymmetric volatility",
+        "family": "econometrics",
+        "score": 0.5147727272727273
+      },
+      {
+        "rank": 23,
+        "method": "Marchenko-Pastur eigenvalue clipping",
+        "family": "quant",
+        "score": 0.509375
+      },
+      {
+        "rank": 24,
+        "method": "Vector autoregression",
+        "family": "econometrics",
+        "score": 0.509375
+      },
+      {
+        "rank": 25,
+        "method": "Moving average trend filter",
+        "family": "quant",
+        "score": 0.5045689655172414
+      },
+      {
+        "rank": 26,
+        "method": "Momentum crashes timing",
+        "family": "quant",
+        "score": 0.5001923076923077
+      },
+      {
+        "rank": 27,
+        "method": "Overnight returns anomaly",
+        "family": "quant",
+        "score": 0.4870689655172413
+      },
+      {
+        "rank": 28,
+        "method": "Independent component analysis",
+        "family": "network_optimization",
+        "score": 0.4844230769230769
+      },
+      {
+        "rank": 29,
+        "method": "Unscented Kalman filter",
+        "family": "signal_processing",
+        "score": 0.48257575757575755
+      },
+      {
+        "rank": 30,
+        "method": "Louvain community detection",
+        "family": "network_optimization",
+        "score": 0.4693181818181818
+      },
+      {
+        "rank": 31,
+        "method": "Pastor-Stambaugh liquidity beta",
+        "family": "quant",
+        "score": 0.4608333333333333
+      },
+      {
+        "rank": 32,
+        "method": "Liquidity-adjusted momentum",
+        "family": "quant",
+        "score": 0.4584782608695652
+      },
+      {
+        "rank": 33,
+        "method": "Granger causality test",
+        "family": "econometrics",
+        "score": 0.45687500000000003
+      },
+      {
+        "rank": 34,
+        "method": "Lead-lag network inference",
+        "family": "network_optimization",
+        "score": 0.45323146733391184
+      },
+      {
+        "rank": 35,
+        "method": "Elastic net regularization",
+        "family": "econometrics",
+        "score": 0.45046296296296295
+      },
+      {
+        "rank": 36,
+        "method": "Amihud illiquidity premium",
+        "family": "quant",
+        "score": 0.44821428571428573
+      },
+      {
+        "rank": 37,
+        "method": "Momentum with crowding adjustment",
+        "family": "quant",
+        "score": 0.44529180047486366
+      },
+      {
+        "rank": 38,
+        "method": "Term structure carry",
+        "family": "quant",
+        "score": 0.43774193548387097
+      },
+      {
+        "rank": 39,
+        "method": "Negative controls and placebo testing",
+        "family": "causal",
+        "score": 0.43583333333333335
+      },
+      {
+        "rank": 40,
+        "method": "LASSO variable selection",
+        "family": "econometrics",
+        "score": 0.432962962962963
+      },
+      {
+        "rank": 41,
+        "method": "Time-series momentum",
+        "family": "quant",
+        "score": 0.4320689655172414
+      },
+      {
+        "rank": 42,
+        "method": "Information discreteness momentum",
+        "family": "quant",
+        "score": 0.4307142857142857
+      },
+      {
+        "rank": 43,
+        "method": "Huber robust regression",
+        "family": "econometrics",
+        "score": 0.4299193548387097
+      },
+      {
+        "rank": 44,
+        "method": "Cross-sectional z-score stat arb",
+        "family": "quant",
+        "score": 0.4280689655172414
+      },
+      {
+        "rank": 45,
+        "method": "Skewness preference anomaly",
+        "family": "quant",
+        "score": 0.4275
+      },
+      {
+        "rank": 46,
+        "method": "Intraday momentum",
+        "family": "quant",
+        "score": 0.42347826086956525
+      },
+      {
+        "rank": 47,
+        "method": "Volatility-managed momentum",
+        "family": "quant",
+        "score": 0.4225
+      },
+      {
+        "rank": 48,
+        "method": "CUSUM change point detection",
+        "family": "signal_processing",
+        "score": 0.4208259367935584
+      },
+      {
+        "rank": 49,
+        "method": "Generalized method of moments",
+        "family": "econometrics",
+        "score": 0.4191666666666667
+      },
+      {
+        "rank": 50,
+        "method": "Earnings announcement straddle",
+        "family": "quant",
+        "score": 0.41602941176470587
+      },
+      {
+        "rank": 51,
+        "method": "Dividend yield premium",
+        "family": "quant",
+        "score": 0.4135714285714286
+      },
+      {
+        "rank": 52,
+        "method": "Short-term reversal",
+        "family": "quant",
+        "score": 0.40796296296296297
+      },
+      {
+        "rank": 53,
+        "method": "Low volatility anomaly",
+        "family": "quant",
+        "score": 0.40703703703703703
+      },
+      {
+        "rank": 54,
+        "method": "Net share issuance anomaly",
+        "family": "quant",
+        "score": 0.4037903225806452
+      },
+      {
+        "rank": 55,
+        "method": "Ledoit-Wolf covariance shrinkage",
+        "family": "quant",
+        "score": 0.40242857142857147
+      },
+      {
+        "rank": 56,
+        "method": "Front-door criterion",
+        "family": "causal",
+        "score": 0.3977272727272727
+      },
+      {
+        "rank": 57,
+        "method": "Ridge regression",
+        "family": "econometrics",
+        "score": 0.39642857142857146
+      },
+      {
+        "rank": 58,
+        "method": "Commodity roll yield carry",
+        "family": "quant",
+        "score": 0.39469696969696966
+      },
+      {
+        "rank": 59,
+        "method": "Index reconstitution arbitrage",
+        "family": "quant",
+        "score": 0.39274193548387093
+      },
+      {
+        "rank": 60,
+        "method": "Bollinger band mean reversion",
+        "family": "quant",
+        "score": 0.3925
+      },
+      {
+        "rank": 61,
+        "method": "Idiosyncratic volatility anomaly",
+        "family": "quant",
+        "score": 0.39064814814814813
+      },
+      {
+        "rank": 62,
+        "method": "Cross-sectional momentum",
+        "family": "quant",
+        "score": 0.3875
+      },
+      {
+        "rank": 63,
+        "method": "Hausman specification test",
+        "family": "econometrics",
+        "score": 0.379051282051282
+      },
+      {
+        "rank": 64,
+        "method": "MAX lottery effect",
+        "family": "quant",
+        "score": 0.3731481481481481
+      },
+      {
+        "rank": 65,
+        "method": "Panel fixed effects estimator",
+        "family": "econometrics",
+        "score": 0.372
+      },
+      {
+        "rank": 66,
+        "method": "Doubly robust estimation",
+        "family": "causal",
+        "score": 0.36607142857142855
+      },
+      {
+        "rank": 67,
+        "method": "Backdoor adjustment",
+        "family": "causal",
+        "score": 0.36301724137931035
+      },
+      {
+        "rank": 68,
+        "method": "Long-term reversal",
+        "family": "quant",
+        "score": 0.36220588235294116
+      },
+      {
+        "rank": 69,
+        "method": "Post-earnings-announcement drift",
+        "family": "quant",
+        "score": 0.36083333333333334
+      },
+      {
+        "rank": 70,
+        "method": "Black-Litterman allocation",
+        "family": "network_optimization",
+        "score": 0.36
+      },
+      {
+        "rank": 71,
+        "method": "Pairs trading cointegration",
+        "family": "quant",
+        "score": 0.3516470588235294
+      },
+      {
+        "rank": 72,
+        "method": "Earnings yield value",
+        "family": "quant",
+        "score": 0.3511923076923077
+      },
+      {
+        "rank": 73,
+        "method": "RSI mean reversion",
+        "family": "quant",
+        "score": 0.34750000000000003
+      },
+      {
+        "rank": 74,
+        "method": "Standardized unexpected earnings",
+        "family": "quant",
+        "score": 0.3433333333333333
+      },
+      {
+        "rank": 75,
+        "method": "Accruals anomaly",
+        "family": "quant",
+        "score": 0.34153846153846157
+      },
+      {
+        "rank": 76,
+        "method": "Residual momentum",
+        "family": "quant",
+        "score": 0.34151724137931033
+      },
+      {
+        "rank": 77,
+        "method": "Asset growth anomaly",
+        "family": "quant",
+        "score": 0.33666666666666667
+      },
+      {
+        "rank": 78,
+        "method": "Hierarchical risk parity",
+        "family": "network_optimization",
+        "score": 0.3363333333333333
+      },
+      {
+        "rank": 79,
+        "method": "Betting against beta",
+        "family": "quant",
+        "score": 0.334537037037037
+      },
+      {
+        "rank": 80,
+        "method": "Merger arbitrage",
+        "family": "quant",
+        "score": 0.32770169930366144
+      },
+      {
+        "rank": 81,
+        "method": "Composite mispricing score",
+        "family": "quant",
+        "score": 0.32359019416015883
+      },
+      {
+        "rank": 82,
+        "method": "Quality minus junk",
+        "family": "quant",
+        "score": 0.320241935483871
+      },
+      {
+        "rank": 83,
+        "method": "Propensity score matching",
+        "family": "causal",
+        "score": 0.31801724137931037
+      },
+      {
+        "rank": 84,
+        "method": "Kelly criterion sizing",
+        "family": "network_optimization",
+        "score": 0.31536857737941476
+      },
+      {
+        "rank": 85,
+        "method": "PageRank centrality ranking",
+        "family": "network_optimization",
+        "score": 0.3134360368000487
+      },
+      {
+        "rank": 86,
+        "method": "Gross profitability factor",
+        "family": "quant",
+        "score": 0.30916666666666665
+      },
+      {
+        "rank": 87,
+        "method": "Difference-in-differences",
+        "family": "causal",
+        "score": 0.30812716952606795
+      },
+      {
+        "rank": 88,
+        "method": "Vector error correction model",
+        "family": "econometrics",
+        "score": 0.3078899610080832
+      },
+      {
+        "rank": 89,
+        "method": "Synthetic control method",
+        "family": "causal",
+        "score": 0.30658308145081575
+      },
+      {
+        "rank": 90,
+        "method": "Book-to-market value",
+        "family": "quant",
+        "score": 0.3060714285714286
+      },
+      {
+        "rank": 91,
+        "method": "PC algorithm causal discovery",
+        "family": "causal",
+        "score": 0.3038001895072594
+      },
+      {
+        "rank": 92,
+        "method": "Augmented Dickey-Fuller test",
+        "family": "econometrics",
+        "score": 0.3037178426254809
+      },
+      {
+        "rank": 93,
+        "method": "Regression discontinuity design",
+        "family": "causal",
+        "score": 0.3035357179044127
+      },
+      {
+        "rank": 94,
+        "method": "Kalman filter state estimation",
+        "family": "signal_processing",
+        "score": 0.303469556247692
+      },
+      {
+        "rank": 95,
+        "method": "Markowitz mean-variance optimization",
+        "family": "network_optimization",
+        "score": 0.3018460494415388
+      },
+      {
+        "rank": 96,
+        "method": "OLS with Newey-West HAC standard errors",
+        "family": "econometrics",
+        "score": 0.2998599969321013
+      },
+      {
+        "rank": 97,
+        "method": "Fama-MacBeth cross-sectional regression",
+        "family": "econometrics",
+        "score": 0.2977789551954398
+      },
+      {
+        "rank": 98,
+        "method": "Engle-Granger cointegration test",
+        "family": "econometrics",
+        "score": 0.2977225773521277
+      },
+      {
+        "rank": 99,
+        "method": "Welch periodogram estimation",
+        "family": "signal_processing",
+        "score": 0.2964550146326762
+      },
+      {
+        "rank": 100,
+        "method": "Fast Fourier transform spectral analysis",
+        "family": "signal_processing",
+        "score": 0.29555183321810197
+      },
+      {
+        "rank": 101,
+        "method": "Two-stage least squares instrumental variables",
+        "family": "econometrics",
+        "score": 0.2941189737485241
+      }
+    ],
+    "suggestions_seed42": [
+      "Factor timing regime switching",
+      "GARCH volatility model",
+      "Variational autoencoder alpha",
+      "PCMCI time-series causal discovery",
+      "Vector autoregression"
+    ]
+  },
+  "build a diversified allocation robust to covariance estimation error": {
+    "ranked_candidates": [
+      {
+        "rank": 1,
+        "method": "Ledoit-Wolf covariance shrinkage",
+        "family": "quant",
+        "score": 0.8089285714285714
+      },
+      {
+        "rank": 2,
+        "method": "Hierarchical risk parity",
+        "family": "network_optimization",
+        "score": 0.7968333333333333
+      },
+      {
+        "rank": 3,
+        "method": "Factor model risk decomposition",
+        "family": "quant",
+        "score": 0.7769230769230769
+      },
+      {
+        "rank": 4,
+        "method": "Marchenko-Pastur eigenvalue clipping",
+        "family": "quant",
+        "score": 0.768875
+      },
+      {
+        "rank": 5,
+        "method": "Graph Laplacian regularization",
+        "family": "network_optimization",
+        "score": 0.6880000000000001
+      },
+      {
+        "rank": 6,
+        "method": "Black-Litterman allocation",
+        "family": "network_optimization",
+        "score": 0.6599999999999999
+      },
+      {
+        "rank": 7,
+        "method": "Minimum spanning tree asset clustering",
+        "family": "network_optimization",
+        "score": 0.5883333333333334
+      },
+      {
+        "rank": 8,
+        "method": "Huber robust regression",
+        "family": "econometrics",
+        "score": 0.5749193548387097
+      },
+      {
+        "rank": 9,
+        "method": "Independent component analysis",
+        "family": "network_optimization",
+        "score": 0.566923076923077
+      },
+      {
+        "rank": 10,
+        "method": "Louvain community detection",
+        "family": "network_optimization",
+        "score": 0.5443181818181818
+      },
+      {
+        "rank": 11,
+        "method": "Kelly criterion sizing",
+        "family": "network_optimization",
+        "score": 0.5058333333333334
+      },
+      {
+        "rank": 12,
+        "method": "Markowitz mean-variance optimization",
+        "family": "network_optimization",
+        "score": 0.4966935483870968
+      },
+      {
+        "rank": 13,
+        "method": "Hamilton regime switching model",
+        "family": "econometrics",
+        "score": 0.4878571428571429
+      },
+      {
+        "rank": 14,
+        "method": "LASSO variable selection",
+        "family": "econometrics",
+        "score": 0.477962962962963
+      },
+      {
+        "rank": 15,
+        "method": "Volatility-managed momentum",
+        "family": "quant",
+        "score": 0.47
+      },
+      {
+        "rank": 16,
+        "method": "EGARCH asymmetric volatility",
+        "family": "econometrics",
+        "score": 0.4697727272727273
+      },
+      {
+        "rank": 17,
+        "method": "Variational autoencoder alpha",
+        "family": "quant",
+        "score": 0.46648780487804875
+      },
+      {
+        "rank": 18,
+        "method": "Vector autoregression",
+        "family": "econometrics",
+        "score": 0.459375
+      },
+      {
+        "rank": 19,
+        "method": "Kalman filter state estimation",
+        "family": "signal_processing",
+        "score": 0.4550757575757576
+      },
+      {
+        "rank": 20,
+        "method": "Generalized method of moments",
+        "family": "econometrics",
+        "score": 0.45416666666666666
+      },
+      {
+        "rank": 21,
+        "method": "Spectral entropy measure",
+        "family": "signal_processing",
+        "score": 0.451875
+      },
+      {
+        "rank": 22,
+        "method": "Delta-hedged option returns",
+        "family": "quant",
+        "score": 0.4492307692307692
+      },
+      {
+        "rank": 23,
+        "method": "Lead-lag network inference",
+        "family": "network_optimization",
+        "score": 0.4441935483870968
+      },
+      {
+        "rank": 24,
+        "method": "Hidden Markov model regimes",
+        "family": "signal_processing",
+        "score": 0.44285714285714284
+      },
+      {
+        "rank": 25,
+        "method": "Negative controls and placebo testing",
+        "family": "causal",
+        "score": 0.43583333333333335
+      },
+      {
+        "rank": 26,
+        "method": "GJR-GARCH threshold volatility",
+        "family": "econometrics",
+        "score": 0.43227272727272725
+      },
+      {
+        "rank": 27,
+        "method": "Factor timing regime switching",
+        "family": "quant",
+        "score": 0.4276923076923077
+      },
+      {
+        "rank": 28,
+        "method": "Betting against beta",
+        "family": "quant",
+        "score": 0.42703703703703705
+      },
+      {
+        "rank": 29,
+        "method": "Vector error correction model",
+        "family": "econometrics",
+        "score": 0.4221969696969697
+      },
+      {
+        "rank": 30,
+        "method": "CUSUM change point detection",
+        "family": "signal_processing",
+        "score": 0.4183620689655172
+      },
+      {
+        "rank": 31,
+        "method": "Quantile regression",
+        "family": "econometrics",
+        "score": 0.40241935483870966
+      },
+      {
+        "rank": 32,
+        "method": "PC algorithm causal discovery",
+        "family": "causal",
+        "score": 0.40067567567567564
+      },
+      {
+        "rank": 33,
+        "method": "Pastor-Stambaugh liquidity beta",
+        "family": "quant",
+        "score": 0.3983333333333333
+      },
+      {
+        "rank": 34,
+        "method": "Momentum with crowding adjustment",
+        "family": "quant",
+        "score": 0.39375757575757575
+      },
+      {
+        "rank": 35,
+        "method": "Term structure carry",
+        "family": "quant",
+        "score": 0.39274193548387093
+      },
+      {
+        "rank": 36,
+        "method": "Variance risk premium",
+        "family": "quant",
+        "score": 0.39166666666666666
+      },
+      {
+        "rank": 37,
+        "method": "Empirical mode decomposition",
+        "family": "signal_processing",
+        "score": 0.3883421052631579
+      },
+      {
+        "rank": 38,
+        "method": "Momentum crashes timing",
+        "family": "quant",
+        "score": 0.38269230769230766
+      },
+      {
+        "rank": 39,
+        "method": "Hausman specification test",
+        "family": "econometrics",
+        "score": 0.379551282051282
+      },
+      {
+        "rank": 40,
+        "method": "Book-to-market value",
+        "family": "quant",
+        "score": 0.37857142857142856
+      },
+      {
+        "rank": 41,
+        "method": "Synthetic control method",
+        "family": "causal",
+        "score": 0.3730769230769231
+      },
+      {
+        "rank": 42,
+        "method": "Welch periodogram estimation",
+        "family": "signal_processing",
+        "score": 0.36924193548387096
+      },
+      {
+        "rank": 43,
+        "method": "OLS with Newey-West HAC standard errors",
+        "family": "econometrics",
+        "score": 0.3684677419354839
+      },
+      {
+        "rank": 44,
+        "method": "Quality minus junk",
+        "family": "quant",
+        "score": 0.36524193548387096
+      },
+      {
+        "rank": 45,
+        "method": "Option-implied skew trading",
+        "family": "quant",
+        "score": 0.36416666666666664
+      },
+      {
+        "rank": 46,
+        "method": "Cross-sectional z-score stat arb",
+        "family": "quant",
+        "score": 0.3635689655172414
+      },
+      {
+        "rank": 47,
+        "method": "Panel fixed effects estimator",
+        "family": "econometrics",
+        "score": 0.362
+      },
+      {
+        "rank": 48,
+        "method": "Fama-MacBeth cross-sectional regression",
+        "family": "econometrics",
+        "score": 0.36113636363636364
+      },
+      {
+        "rank": 49,
+        "method": "Time-series momentum",
+        "family": "quant",
+        "score": 0.3595689655172414
+      },
+      {
+        "rank": 50,
+        "method": "Pairs trading cointegration",
+        "family": "quant",
+        "score": 0.3576470588235294
+      },
+      {
+        "rank": 51,
+        "method": "Unscented Kalman filter",
+        "family": "signal_processing",
+        "score": 0.3550757575757576
+      },
+      {
+        "rank": 52,
+        "method": "Augmented Dickey-Fuller test",
+        "family": "econometrics",
+        "score": 0.35222222222222227
+      },
+      {
+        "rank": 53,
+        "method": "Engle-Granger cointegration test",
+        "family": "econometrics",
+        "score": 0.3502702702702703
+      },
+      {
+        "rank": 54,
+        "method": "Commodity roll yield carry",
+        "family": "quant",
+        "score": 0.3496969696969697
+      },
+      {
+        "rank": 55,
+        "method": "Short-term reversal",
+        "family": "quant",
+        "score": 0.34296296296296297
+      },
+      {
+        "rank": 56,
+        "method": "Cross-sectional momentum",
+        "family": "quant",
+        "score": 0.3425
+      },
+      {
+        "rank": 57,
+        "method": "Moving average trend filter",
+        "family": "quant",
+        "score": 0.34206896551724136
+      },
+      {
+        "rank": 58,
+        "method": "Accruals anomaly",
+        "family": "quant",
+        "score": 0.34153846153846157
+      },
+      {
+        "rank": 59,
+        "method": "Long-term reversal",
+        "family": "quant",
+        "score": 0.3407058823529412
+      },
+      {
+        "rank": 60,
+        "method": "Doubly robust estimation",
+        "family": "causal",
+        "score": 0.3385714285714286
+      },
+      {
+        "rank": 61,
+        "method": "Earnings yield value",
+        "family": "quant",
+        "score": 0.3376923076923077
+      },
+      {
+        "rank": 62,
+        "method": "Information discreteness momentum",
+        "family": "quant",
+        "score": 0.33671428571428574
+      },
+      {
+        "rank": 63,
+        "method": "52-week high momentum",
+        "family": "quant",
+        "score": 0.33671428571428574
+      },
+      {
+        "rank": 64,
+        "method": "Overnight returns anomaly",
+        "family": "quant",
+        "score": 0.33506896551724136
+      },
+      {
+        "rank": 65,
+        "method": "Skewness preference anomaly",
+        "family": "quant",
+        "score": 0.33
+      },
+      {
+        "rank": 66,
+        "method": "MAX lottery effect",
+        "family": "quant",
+        "score": 0.32814814814814813
+      },
+      {
+        "rank": 67,
+        "method": "Asset growth anomaly",
+        "family": "quant",
+        "score": 0.32666666666666666
+      },
+      {
+        "rank": 68,
+        "method": "Dividend yield premium",
+        "family": "quant",
+        "score": 0.32357142857142857
+      },
+      {
+        "rank": 69,
+        "method": "Front-door criterion",
+        "family": "causal",
+        "score": 0.31822727272727275
+      },
+      {
+        "rank": 70,
+        "method": "Backdoor adjustment",
+        "family": "causal",
+        "score": 0.31801724137931037
+      },
+      {
+        "rank": 71,
+        "method": "PageRank centrality ranking",
+        "family": "network_optimization",
+        "score": 0.31698666365813344
+      },
+      {
+        "rank": 72,
+        "method": "Standardized unexpected earnings",
+        "family": "quant",
+        "score": 0.31583333333333335
+      },
+      {
+        "rank": 73,
+        "method": "Ridge regression",
+        "family": "econometrics",
+        "score": 0.31186678744338253
+      },
+      {
+        "rank": 74,
+        "method": "Post-earnings-announcement drift",
+        "family": "quant",
+        "score": 0.31183333333333335
+      },
+      {
+        "rank": 75,
+        "method": "Regression discontinuity design",
+        "family": "causal",
+        "score": 0.31167567567567567
+      },
+      {
+        "rank": 76,
+        "method": "Gross profitability factor",
+        "family": "quant",
+        "score": 0.30916666666666665
+      },
+      {
+        "rank": 77,
+        "method": "GARCH volatility model",
+        "family": "econometrics",
+        "score": 0.3090405773660898
+      },
+      {
+        "rank": 78,
+        "method": "PCMCI time-series causal discovery",
+        "family": "causal",
+        "score": 0.3074644670684688
+      },
+      {
+        "rank": 79,
+        "method": "Two-stage least squares instrumental variables",
+        "family": "econometrics",
+        "score": 0.30616666666666664
+      },
+      {
+        "rank": 80,
+        "method": "Merger arbitrage",
+        "family": "quant",
+        "score": 0.30435192763617924
+      },
+      {
+        "rank": 81,
+        "method": "Propensity score matching",
+        "family": "causal",
+        "score": 0.30351724137931035
+      },
+      {
+        "rank": 82,
+        "method": "Bollinger band mean reversion",
+        "family": "quant",
+        "score": 0.30250000000000005
+      },
+      {
+        "rank": 83,
+        "method": "Fast Fourier transform spectral analysis",
+        "family": "signal_processing",
+        "score": 0.3018251514610733
+      },
+      {
+        "rank": 84,
+        "method": "Continuous wavelet transform scalogram",
+        "family": "signal_processing",
+        "score": 0.30091815388175314
+      },
+      {
+        "rank": 85,
+        "method": "Earnings announcement straddle",
+        "family": "quant",
+        "score": 0.30069494480463543
+      },
+      {
+        "rank": 86,
+        "method": "Difference-in-differences",
+        "family": "causal",
+        "score": 0.30000000000000004
+      },
+      {
+        "rank": 87,
+        "method": "Donchian channel breakout",
+        "family": "quant",
+        "score": 0.29836529637254866
+      },
+      {
+        "rank": 88,
+        "method": "Composite mispricing score",
+        "family": "quant",
+        "score": 0.2977195622792987
+      },
+      {
+        "rank": 89,
+        "method": "Discrete wavelet transform denoising",
+        "family": "signal_processing",
+        "score": 0.2972471480704363
+      },
+      {
+        "rank": 90,
+        "method": "Currency carry",
+        "family": "quant",
+        "score": 0.29694950493390604
+      },
+      {
+        "rank": 91,
+        "method": "Index reconstitution arbitrage",
+        "family": "quant",
+        "score": 0.29579336840377163
+      },
+      {
+        "rank": 92,
+        "method": "Residual momentum",
+        "family": "quant",
+        "score": 0.2945542261760498
+      },
+      {
+        "rank": 93,
+        "method": "Elastic net regularization",
+        "family": "econometrics",
+        "score": 0.29439070240774406
+      },
+      {
+        "rank": 94,
+        "method": "Amihud illiquidity premium",
+        "family": "quant",
+        "score": 0.29320257272697536
+      },
+      {
+        "rank": 95,
+        "method": "Granger causality test",
+        "family": "econometrics",
+        "score": 0.29210102520768383
+      },
+      {
+        "rank": 96,
+        "method": "Net share issuance anomaly",
+        "family": "quant",
+        "score": 0.28897558355015773
+      },
+      {
+        "rank": 97,
+        "method": "RSI mean reversion",
+        "family": "quant",
+        "score": 0.2773975544370648
+      },
+      {
+        "rank": 98,
+        "method": "Idiosyncratic volatility anomaly",
+        "family": "quant",
+        "score": 0.2771851329448876
+      },
+      {
+        "rank": 99,
+        "method": "Intraday momentum",
+        "family": "quant",
+        "score": 0.2708758153066301
+      },
+      {
+        "rank": 100,
+        "method": "Liquidity-adjusted momentum",
+        "family": "quant",
+        "score": 0.2708758153066301
+      },
+      {
+        "rank": 101,
+        "method": "Low volatility anomaly",
+        "family": "quant",
+        "score": 0.26788589369005206
+      }
+    ],
+    "suggestions_seed42": [
+      "Factor model risk decomposition",
+      "Kelly criterion sizing",
+      "Variational autoencoder alpha",
+      "Kalman filter state estimation",
+      "Spectral entropy measure"
+    ]
+  },
+  "remove microstructure noise from an intraday alpha signal": {
+    "ranked_candidates": [
+      {
+        "rank": 1,
+        "method": "Kalman filter state estimation",
+        "family": "signal_processing",
+        "score": 0.7300757575757576
+      },
+      {
+        "rank": 2,
+        "method": "Short-term reversal",
+        "family": "quant",
+        "score": 0.710962962962963
+      },
+      {
+        "rank": 3,
+        "method": "Variational autoencoder alpha",
+        "family": "quant",
+        "score": 0.6704878048780487
+      },
+      {
+        "rank": 4,
+        "method": "Empirical mode decomposition",
+        "family": "signal_processing",
+        "score": 0.6318421052631579
+      },
+      {
+        "rank": 5,
+        "method": "Independent component analysis",
+        "family": "network_optimization",
+        "score": 0.6219230769230769
+      },
+      {
+        "rank": 6,
+        "method": "Graph Laplacian regularization",
+        "family": "network_optimization",
+        "score": 0.5825
+      },
+      {
+        "rank": 7,
+        "method": "Moving average trend filter",
+        "family": "quant",
+        "score": 0.5770689655172414
+      },
+      {
+        "rank": 8,
+        "method": "Continuous wavelet transform scalogram",
+        "family": "signal_processing",
+        "score": 0.5496969696969697
+      },
+      {
+        "rank": 9,
+        "method": "Ridge regression",
+        "family": "econometrics",
+        "score": 0.5239285714285714
+      },
+      {
+        "rank": 10,
+        "method": "Factor model risk decomposition",
+        "family": "quant",
+        "score": 0.5119230769230769
+      },
+      {
+        "rank": 11,
+        "method": "Fast Fourier transform spectral analysis",
+        "family": "signal_processing",
+        "score": 0.510241935483871
+      },
+      {
+        "rank": 12,
+        "method": "Generalized method of moments",
+        "family": "econometrics",
+        "score": 0.5016666666666666
+      },
+      {
+        "rank": 13,
+        "method": "Hidden Markov model regimes",
+        "family": "signal_processing",
+        "score": 0.49785714285714283
+      },
+      {
+        "rank": 14,
+        "method": "Marchenko-Pastur eigenvalue clipping",
+        "family": "quant",
+        "score": 0.479375
+      },
+      {
+        "rank": 15,
+        "method": "GARCH volatility model",
+        "family": "econometrics",
+        "score": 0.46956896551724137
+      },
+      {
+        "rank": 16,
+        "method": "Elastic net regularization",
+        "family": "econometrics",
+        "score": 0.46046296296296296
+      },
+      {
+        "rank": 17,
+        "method": "Liquidity-adjusted momentum",
+        "family": "quant",
+        "score": 0.4509782608695652
+      },
+      {
+        "rank": 18,
+        "method": "PCMCI time-series causal discovery",
+        "family": "causal",
+        "score": 0.4481756756756756
+      },
+      {
+        "rank": 19,
+        "method": "LASSO variable selection",
+        "family": "econometrics",
+        "score": 0.442962962962963
+      },
+      {
+        "rank": 20,
+        "method": "Composite mispricing score",
+        "family": "quant",
+        "score": 0.44142857142857145
+      },
+      {
+        "rank": 21,
+        "method": "Lead-lag network inference",
+        "family": "network_optimization",
+        "score": 0.4366935483870968
+      },
+      {
+        "rank": 22,
+        "method": "Vector autoregression",
+        "family": "econometrics",
+        "score": 0.429375
+      },
+      {
+        "rank": 23,
+        "method": "CUSUM change point detection",
+        "family": "signal_processing",
+        "score": 0.4283620689655172
+      },
+      {
+        "rank": 24,
+        "method": "Index reconstitution arbitrage",
+        "family": "quant",
+        "score": 0.42024193548387095
+      },
+      {
+        "rank": 25,
+        "method": "Momentum with crowding adjustment",
+        "family": "quant",
+        "score": 0.4182575757575757
+      },
+      {
+        "rank": 26,
+        "method": "Volatility-managed momentum",
+        "family": "quant",
+        "score": 0.4175
+      },
+      {
+        "rank": 27,
+        "method": "Overnight returns anomaly",
+        "family": "quant",
+        "score": 0.4145689655172414
+      },
+      {
+        "rank": 28,
+        "method": "Residual momentum",
+        "family": "quant",
+        "score": 0.41051724137931034
+      },
+      {
+        "rank": 29,
+        "method": "Donchian channel breakout",
+        "family": "quant",
+        "score": 0.40596774193548385
+      },
+      {
+        "rank": 30,
+        "method": "Pastor-Stambaugh liquidity beta",
+        "family": "quant",
+        "score": 0.4058333333333333
+      },
+      {
+        "rank": 31,
+        "method": "Panel fixed effects estimator",
+        "family": "econometrics",
+        "score": 0.4
+      },
+      {
+        "rank": 32,
+        "method": "Ledoit-Wolf covariance shrinkage",
+        "family": "quant",
+        "score": 0.39642857142857146
+      },
+      {
+        "rank": 33,
+        "method": "OLS with Newey-West HAC standard errors",
+        "family": "econometrics",
+        "score": 0.3884677419354839
+      },
+      {
+        "rank": 34,
+        "method": "Cross-sectional z-score stat arb",
+        "family": "quant",
+        "score": 0.38706896551724135
+      },
+      {
+        "rank": 35,
+        "method": "Factor timing regime switching",
+        "family": "quant",
+        "score": 0.38269230769230766
+      },
+      {
+        "rank": 36,
+        "method": "EGARCH asymmetric volatility",
+        "family": "econometrics",
+        "score": 0.37977272727272726
+      },
+      {
+        "rank": 37,
+        "method": "Information discreteness momentum",
+        "family": "quant",
+        "score": 0.3797142857142857
+      },
+      {
+        "rank": 38,
+        "method": "Granger causality test",
+        "family": "econometrics",
+        "score": 0.376875
+      },
+      {
+        "rank": 39,
+        "method": "Amihud illiquidity premium",
+        "family": "quant",
+        "score": 0.3757142857142857
+      },
+      {
+        "rank": 40,
+        "method": "Backdoor adjustment",
+        "family": "causal",
+        "score": 0.36301724137931035
+      },
+      {
+        "rank": 41,
+        "method": "Louvain community detection",
+        "family": "network_optimization",
+        "score": 0.3618181818181818
+      },
+      {
+        "rank": 42,
+        "method": "Black-Litterman allocation",
+        "family": "network_optimization",
+        "score": 0.36
+      },
+      {
+        "rank": 43,
+        "method": "Time-series momentum",
+        "family": "quant",
+        "score": 0.3595689655172414
+      },
+      {
+        "rank": 44,
+        "method": "Synthetic control method",
+        "family": "causal",
+        "score": 0.35607692307692307
+      },
+      {
+        "rank": 45,
+        "method": "Momentum crashes timing",
+        "family": "quant",
+        "score": 0.3551923076923077
+      },
+      {
+        "rank": 46,
+        "method": "Fama-MacBeth cross-sectional regression",
+        "family": "econometrics",
+        "score": 0.35363636363636364
+      },
+      {
+        "rank": 47,
+        "method": "Front-door criterion",
+        "family": "causal",
+        "score": 0.3527272727272727
+      },
+      {
+        "rank": 48,
+        "method": "Pairs trading cointegration",
+        "family": "quant",
+        "score": 0.3516470588235294
+      },
+      {
+        "rank": 49,
+        "method": "Minimum spanning tree asset clustering",
+        "family": "network_optimization",
+        "score": 0.35033333333333333
+      },
+      {
+        "rank": 50,
+        "method": "Variance risk premium",
+        "family": "quant",
+        "score": 0.3466666666666667
+      },
+      {
+        "rank": 51,
+        "method": "Idiosyncratic volatility anomaly",
+        "family": "quant",
+        "score": 0.34564814814814815
+      },
+      {
+        "rank": 52,
+        "method": "Intraday momentum",
+        "family": "quant",
+        "score": 0.34097826086956523
+      },
+      {
+        "rank": 53,
+        "method": "PageRank centrality ranking",
+        "family": "network_optimization",
+        "score": 0.33897058823529413
+      },
+      {
+        "rank": 54,
+        "method": "Long-term reversal",
+        "family": "quant",
+        "score": 0.3347058823529412
+      },
+      {
+        "rank": 55,
+        "method": "Engle-Granger cointegration test",
+        "family": "econometrics",
+        "score": 0.3327702702702703
+      },
+      {
+        "rank": 56,
+        "method": "Delta-hedged option returns",
+        "family": "quant",
+        "score": 0.3317307692307692
+      },
+      {
+        "rank": 57,
+        "method": "Post-earnings-announcement drift",
+        "family": "quant",
+        "score": 0.3283333333333333
+      },
+      {
+        "rank": 58,
+        "method": "Regression discontinuity design",
+        "family": "causal",
+        "score": 0.3281756756756757
+      },
+      {
+        "rank": 59,
+        "method": "Earnings announcement straddle",
+        "family": "quant",
+        "score": 0.3260294117647059
+      },
+      {
+        "rank": 60,
+        "method": "Cross-sectional momentum",
+        "family": "quant",
+        "score": 0.325
+      },
+      {
+        "rank": 61,
+        "method": "Quality minus junk",
+        "family": "quant",
+        "score": 0.320241935483871
+      },
+      {
+        "rank": 62,
+        "method": "Accruals anomaly",
+        "family": "quant",
+        "score": 0.32003846153846155
+      },
+      {
+        "rank": 63,
+        "method": "52-week high momentum",
+        "family": "quant",
+        "score": 0.31921428571428573
+      },
+      {
+        "rank": 64,
+        "method": "Option-implied skew trading",
+        "family": "quant",
+        "score": 0.31916666666666665
+      },
+      {
+        "rank": 65,
+        "method": "Standardized unexpected earnings",
+        "family": "quant",
+        "score": 0.31583333333333335
+      },
+      {
+        "rank": 66,
+        "method": "Hierarchical risk parity",
+        "family": "network_optimization",
+        "score": 0.31583333333333335
+      },
+      {
+        "rank": 67,
+        "method": "Net share issuance anomaly",
+        "family": "quant",
+        "score": 0.31379032258064515
+      },
+      {
+        "rank": 68,
+        "method": "Difference-in-differences",
+        "family": "causal",
+        "score": 0.313
+      },
+      {
+        "rank": 69,
+        "method": "Negative controls and placebo testing",
+        "family": "causal",
+        "score": 0.31015847708176797
+      },
+      {
+        "rank": 70,
+        "method": "Gross profitability factor",
+        "family": "quant",
+        "score": 0.30916666666666665
+      },
+      {
+        "rank": 71,
+        "method": "Hausman specification test",
+        "family": "econometrics",
+        "score": 0.307945709242282
+      },
+      {
+        "rank": 72,
+        "method": "Currency carry",
+        "family": "quant",
+        "score": 0.30616666666666664
+      },
+      {
+        "rank": 73,
+        "method": "Discrete wavelet transform denoising",
+        "family": "signal_processing",
+        "score": 0.30589521215973514
+      },
+      {
+        "rank": 74,
+        "method": "Merger arbitrage",
+        "family": "quant",
+        "score": 0.30566666666666664
+      },
+      {
+        "rank": 75,
+        "method": "Term structure carry",
+        "family": "quant",
+        "score": 0.30374193548387096
+      },
+      {
+        "rank": 76,
+        "method": "Commodity roll yield carry",
+        "family": "quant",
+        "score": 0.3036969696969697
+      },
+      {
+        "rank": 77,
+        "method": "Spectral entropy measure",
+        "family": "signal_processing",
+        "score": 0.30358829682715416
+      },
+      {
+        "rank": 78,
+        "method": "Quantile regression",
+        "family": "econometrics",
+        "score": 0.3033137820297096
+      },
+      {
+        "rank": 79,
+        "method": "Huber robust regression",
+        "family": "econometrics",
+        "score": 0.3032179505449596
+      },
+      {
+        "rank": 80,
+        "method": "Skewness preference anomaly",
+        "family": "quant",
+        "score": 0.30250000000000005
+      },
+      {
+        "rank": 81,
+        "method": "Propensity score matching",
+        "family": "causal",
+        "score": 0.30151724137931035
+      },
+      {
+        "rank": 82,
+        "method": "PC algorithm causal discovery",
+        "family": "causal",
+        "score": 0.30147427138192556
+      },
+      {
+        "rank": 83,
+        "method": "Markowitz mean-variance optimization",
+        "family": "network_optimization",
+        "score": 0.30069971860443706
+      },
+      {
+        "rank": 84,
+        "method": "MAX lottery effect",
+        "family": "quant",
+        "score": 0.30064814814814816
+      },
+      {
+        "rank": 85,
+        "method": "Kelly criterion sizing",
+        "family": "network_optimization",
+        "score": 0.2998395035506736
+      },
+      {
+        "rank": 86,
+        "method": "Augmented Dickey-Fuller test",
+        "family": "econometrics",
+        "score": 0.2981166494132222
+      },
+      {
+        "rank": 87,
+        "method": "Unscented Kalman filter",
+        "family": "signal_processing",
+        "score": 0.29652975093978484
+      },
+      {
+        "rank": 88,
+        "method": "Welch periodogram estimation",
+        "family": "signal_processing",
+        "score": 0.2962309668591012
+      },
+      {
+        "rank": 89,
+        "method": "Doubly robust estimation",
+        "family": "causal",
+        "score": 0.29588652081543565
+      },
+      {
+        "rank": 90,
+        "method": "Vector error correction model",
+        "family": "econometrics",
+        "score": 0.2953546367491755
+      },
+      {
+        "rank": 91,
+        "method": "Asset growth anomaly",
+        "family": "quant",
+        "score": 0.29466666666666663
+      },
+      {
+        "rank": 92,
+        "method": "Earnings yield value",
+        "family": "quant",
+        "score": 0.2936923076923077
+      },
+      {
+        "rank": 93,
+        "method": "Two-stage least squares instrumental variables",
+        "family": "econometrics",
+        "score": 0.29258145731821034
+      },
+      {
+        "rank": 94,
+        "method": "Hamilton regime switching model",
+        "family": "econometrics",
+        "score": 0.2899679622560905
+      },
+      {
+        "rank": 95,
+        "method": "Dividend yield premium",
+        "family": "quant",
+        "score": 0.2895714285714286
+      },
+      {
+        "rank": 96,
+        "method": "Low volatility anomaly",
+        "family": "quant",
+        "score": 0.28953703703703704
+      },
+      {
+        "rank": 97,
+        "method": "Book-to-market value",
+        "family": "quant",
+        "score": 0.2875714285714286
+      },
+      {
+        "rank": 98,
+        "method": "Betting against beta",
+        "family": "quant",
+        "score": 0.28553703703703703
+      },
+      {
+        "rank": 99,
+        "method": "Bollinger band mean reversion",
+        "family": "quant",
+        "score": 0.28500325407466953
+      },
+      {
+        "rank": 100,
+        "method": "RSI mean reversion",
+        "family": "quant",
+        "score": 0.27903686092355057
+      },
+      {
+        "rank": 101,
+        "method": "GJR-GARCH threshold volatility",
+        "family": "econometrics",
+        "score": 0.2530713229789772
+      }
+    ],
+    "suggestions_seed42": [
+      "Variational autoencoder alpha",
+      "Fast Fourier transform spectral analysis",
+      "Liquidity-adjusted momentum",
+      "LASSO variable selection",
+      "Lead-lag network inference"
+    ]
+  }
+}
