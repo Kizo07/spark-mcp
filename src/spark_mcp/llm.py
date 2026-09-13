@@ -86,12 +86,81 @@ def split_model_id(model_id: str) -> tuple[str, str]:
     return model_id, ""
 
 
+class OpenAICompatibleLLM:
+    """Chat-completions client for any OpenAI-compatible endpoint (plan §4.3/M4).
+
+    httpx is already a project dependency (fastmcp stack). temperature=0 for
+    score determinism; transient transport/5xx/429 errors retry with linear
+    backoff, anything else raises — callers (e.g. explore._llm_scores) treat a
+    raise as "fall back to the deterministic scorer" for that candidate.
+    `model_id()` is the configured model string; it enters every score-cache
+    key so a model swap can never silently re-scale cached scores.
+    """
+
+    def __init__(
+        self,
+        base_url: str,
+        api_key: str,
+        model: str,
+        *,
+        timeout: float = 90.0,
+        max_retries: int = 2,
+    ):
+        import httpx
+
+        self._base = base_url.rstrip("/")
+        self._key = api_key
+        self._model = model
+        self._timeout = timeout
+        self._max_retries = max_retries
+        self._client = httpx.Client(timeout=timeout)
+
+    def model_id(self) -> str:
+        return self._model
+
+    def complete(self, prompt: str, *, json_schema: dict | None = None) -> str:
+        import time
+
+        import httpx
+
+        payload: dict = {
+            "model": self._model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.0,
+        }
+        if json_schema is not None:
+            payload["response_format"] = {"type": "json_object"}
+        headers = {"Authorization": f"Bearer {self._key}"}
+        last_exc: Exception | None = None
+        for attempt in range(self._max_retries + 1):
+            try:
+                resp = self._client.post(
+                    f"{self._base}/chat/completions", json=payload, headers=headers
+                )
+                if resp.status_code in (429, 500, 502, 503, 504):
+                    raise httpx.HTTPStatusError(
+                        f"transient {resp.status_code}",
+                        request=resp.request,
+                        response=resp,
+                    )
+                resp.raise_for_status()
+                data = resp.json()
+                return str(data["choices"][0]["message"]["content"])
+            except (httpx.TransportError, httpx.HTTPStatusError) as exc:
+                last_exc = exc
+                if attempt < self._max_retries:
+                    time.sleep(0.5 * (attempt + 1))
+        assert last_exc is not None
+        raise last_exc
+
+
 def build_embedder(cfg) -> Embedder | None:
     """Embedder for the given config; None when degraded (plan §4.3/M4).
 
-    The OpenAI-compatible implementation wires up with the Phase 5 model
-    plumbing; until then a configured-but-unimplemented endpoint degrades to
-    None (FTS5-only retrieval, lexical novelty) rather than raising.
+    The z.ai coding-plan endpoint exposes no embeddings route (chat models
+    only), so a key alone does not produce an embedder: FTS5-only retrieval
+    and lexical novelty remain the degraded path until an embedding endpoint
+    (or local sentence-transformers extra) is configured.
     """
     from .config import Config
 
@@ -100,12 +169,13 @@ def build_embedder(cfg) -> Embedder | None:
         return None
     if not cfg.llm_api_key():
         return None
-    return None  # OpenAICompatibleEmbedder lands with Phase 5 wiring (M4)
+    return None  # OpenAICompatibleEmbedder lands with the Phase 5 model plumbing
 
 
 def build_llm(cfg) -> LLMClient | None:
     """LLM client for the given config; None when degraded (deterministic
-    scoring path, §8.1). Same wiring schedule as build_embedder."""
+    scoring path, §8.1). Wired as soon as base_url + key exist — the
+    OpenAI-compatible contract is stable across providers."""
     from .config import Config
 
     assert isinstance(cfg, Config)
@@ -113,4 +183,6 @@ def build_llm(cfg) -> LLMClient | None:
         return None
     if not cfg.llm_api_key():
         return None
-    return None  # OpenAICompatibleLLM lands with Phase 5 wiring (M4)
+    if not cfg.llm.base_url:
+        return None  # no endpoint to talk to: degrade, don't guess
+    return OpenAICompatibleLLM(cfg.llm.base_url, cfg.llm_api_key(), cfg.llm.model)

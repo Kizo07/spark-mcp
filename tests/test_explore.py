@@ -329,3 +329,17 @@ def test_seeded_reproducibility_includes_family_weights(tmp_path):
     assert a["family_weights"] == b["family_weights"]
     assert a["suggestion_ids"] == b["suggestion_ids"]
     assert set(a["suggestions"][0]["decomposition"]) == DECOMP_KEYS
+
+
+def test_parse_score_reply_tolerates_fences_and_prose():
+    from spark_mcp.explore import _parse_score_reply
+
+    assert _parse_score_reply('{"relevance": 0.7, "structural_fit": 0.2}') == (0.7, 0.2)
+    fenced = '```json\n{"relevance": 0.9, "structural_fit": 0.4}\n```'
+    assert _parse_score_reply(fenced) == (0.9, 0.4)
+    prose = 'Here are the scores: {"relevance": 0.5, "structural_fit": 0.5} — done.'
+    assert _parse_score_reply(prose) == (0.5, 0.5)
+    # clamped into [0, 1]
+    assert _parse_score_reply('{"relevance": 1.7, "structural_fit": -0.2}') == (1.0, 0.0)
+    assert _parse_score_reply("no json here") is None
+    assert _parse_score_reply('{"relevance": 0.5}') is None

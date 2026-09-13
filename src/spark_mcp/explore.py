@@ -311,6 +311,30 @@ def problem_class(problem: str) -> str:
     return hashlib.sha1(" ".join(toks).encode("utf-8")).hexdigest()[:16]
 
 
+def _parse_score_reply(reply: str) -> tuple[float, float] | None:
+    """Tolerant parse of the scorer reply: strip markdown fences, fall back to
+    the first {...} block, clamp to [0, 1]. None when no usable JSON."""
+    import re
+
+    text = reply.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```[a-zA-Z]*\s*", "", text)
+        text = re.sub(r"\s*```\s*$", "", text)
+    candidates = [text]
+    m = re.search(r"\{.*\}", text, re.DOTALL)
+    if m:
+        candidates.append(m.group(0))
+    for candidate in candidates:
+        try:
+            parsed = json.loads(candidate)
+            rel = float(np.clip(float(parsed["relevance"]), 0.0, 1.0))
+            fit = float(np.clip(float(parsed["structural_fit"]), 0.0, 1.0))
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+            continue
+        return rel, fit
+    return None
+
+
 def _llm_scores(
     db: Database,
     llm: Any,
@@ -338,11 +362,12 @@ def _llm_scores(
     )
     try:
         reply = llm.complete(prompt, json_schema=None)
-        parsed = json.loads(reply)
-        rel = float(np.clip(float(parsed["relevance"]), 0.0, 1.0))
-        fit = float(np.clip(float(parsed["structural_fit"]), 0.0, 1.0))
+        scores = _parse_score_reply(reply)
     except Exception:
         return None
+    if scores is None:
+        return None
+    rel, fit = scores
     db.execute(
         "INSERT OR REPLACE INTO score_cache"
         " (cache_key, method_id, problem_class, model_id, relevance,"
