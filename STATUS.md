@@ -250,3 +250,25 @@ any eval). Re-scored full field (glm-5.3); round 6 (same blind protocol):
 
 G4 re-evaluation: still RED (G1 judge). Phases 6–7 remain unstarted per the
 goal's stop rule; awaiting the user's choice between the two remaining paths.
+
+## G1 (amended protocol) GREEN — G4 re-evaluation GREEN (2026-09-13)
+
+User authorized the Tier-3 plan change (option 1): plan §18.0 G1 judge half
+now evaluates the suggestion DISTRIBUTION (union of top-5 across 5
+independent balanced draws must contain ≥2 distinct methods/problem rated
+≥3/5; rationale: measured knob-frontier proves no single-draw pass point
+exists — reviews/2026-09-13_g1-knob-frontier.md). Plan file amended;
+amendment recorded here and in the plan row.
+
+Round 7 (same blind judge/rubric, warm full-field cache, grown corpus):
+- Overlap half: **GREEN** — mean 0.236, per-problem [0.12, 0.30, 0.24,
+  0.24, 0.28], all ≤ 0.30.
+- Judge half (amended): **GREEN** — distinct methods rated ≥3/5 per
+  problem: [17, 3, 8, 3, 3] (reviews/2026-09-13_g1-judge-round7-union.md;
+  union sizes 16-19). P2: 2SLS/RR-shocks/VAR; P3: VRP/STAR/MSM/VPIN/HMM/
+  particle/Hamilton/skew; P4: MP/factor-risk/MST; P5: DWT/UKF/Kalman.
+
+**G4 re-evaluation: GREEN** — G1 (amended) + G2 + G3 green; ≥50-outcomes
+leg previously demonstrated (60 outcomes, Beta(10,4) ×5 families);
+§6 reassessment artifact committed. Phase 6 is unblocked; the G4 red
+period and both remediation paths are retained above for the record.
