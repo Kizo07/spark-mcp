@@ -1,7 +1,9 @@
 """MCP server: Phase-0 health tools, Phase-1 ledger & memory tools, Phase-2
 method graph & novelty tools, Phase-3 gates & backtest-seam tools, Phase-4
 QuantFlow Tier-2 hook seam, Phase-5 QD archive & exploration tools, Phase-6
-skill evolution (distill/challenger/replay/approve).
+skill evolution (distill/challenger/replay/approve), Phase-7 analogy,
+consolidation & curriculum (find_analogies/combine_methods/consolidate/
+generate_exercise).
 
 `create_server(config)` builds a `Services` (config + database handle +
 embedder/llm clients + backtest provider) that the tool functions close over —
@@ -20,6 +22,9 @@ from pathlib import Path
 from fastmcp import FastMCP
 
 from . import __version__, archive, explore, graph, hooks, ledger, memory, novelty
+from . import analogy as analogy_service
+from . import consolidate as consolidate_service
+from . import curriculum as curriculum_service
 from . import skills as skills_service
 from .budgets import spend_summary
 from .config import Config
@@ -435,9 +440,10 @@ def create_server(
         -> selection probabilities; each suggestion is the family's emptiest
         cell with resolved descriptor names + up to n candidate methods and
         hypotheses from the graph (family match). Pass `seed` for a
-        reproducible draw. gap_report_id lands in Phase 7 (consolidation gap
-        reports) — passing one raises a named ToolError, it is never silently
-        ignored. A trajectory event records the call.
+        reproducible draw. gap_report_id consumes a consolidation gap report
+        by id (plan §13/G5): families with open gaps get the configured
+        utility boost, and the report id is recorded on the trajectory +
+        result. A trajectory event records the call.
         """
         as_of = _as_of_or_now(as_of)
         return explore.suggest_next(
@@ -469,7 +475,12 @@ def create_server(
         if (hypothesis_id is None) == (episode_id is None):
             raise ValueError("exactly one of hypothesis_id / episode_id is required (N10)")
         if format != "md":
-            raise ValueError("format must be 'md' (md-only until Phase 7 names an HTML renderer)")
+            raise ValueError(
+                "format must be 'md' (HTML renderer DEFERRED:"
+                f" research.report_html_renderer={cfg.research.report_html_renderer!r};"
+                " Phase-7 decision record in STATUS.md, plan §6.3 tool 21 (N5)"
+                " + §18.1; building a renderer is a §20 non-goal for this phase)"
+            )
         return (
             {
                 "format": "md",
@@ -583,6 +594,148 @@ def create_server(
             decision,
             rationale,
             decided_by=decided_by,
+        )
+
+    @mcp.tool()
+    def decide_skill_promotion(
+        skill_name: str,
+        candidate_id: str,
+        decision: str,
+        rationale: str,
+        decided_by: str = "gate",
+    ) -> dict:
+        """The promotion gate (plan §11), reachable from the product surface
+        (Phase-6 re-review blocker B1). decision in {promoted, rejected,
+        auto}; 'auto' applies the documented criterion — beat the incumbent
+        champion's held-in mean (first promotion: >= replay_promotion_floor)
+        with heldout_gap under the alarm. Requires FULL replay-suite
+        evidence on the candidate. Gate decisions write an approvals row
+        (decided_by='gate') as the human-notify/veto surface, then attempt
+        the Gateway write (C7); a block stages the champion in Spark.
+        """
+        return skills_service.decide_promotion(
+            services.db,
+            cfg,
+            skill_name,
+            candidate_id,
+            decision,
+            rationale,
+            decided_by,
+        )
+
+    @mcp.tool()
+    def retire_skill(
+        name: str,
+        version: int,
+        rationale: str,
+    ) -> dict:
+        """Retire a skill version (plan §11 lifecycle). A retired champion
+        names the newest lower fallback version as rollback_target so the
+        veto/restore path always exists.
+        """
+        return skills_service.retire_skill(services.db, name, version, rationale)
+
+    # -- Phase 7: analogy, consolidation, curriculum (plan §6.1 tools 3-4,
+    # §6.3 tools 20-21, §12.3, §13, §18.1) ------------------------------------
+
+    @mcp.tool()
+    def find_analogies(
+        target_problem: str,
+        mech_tags: list[str],
+        k: int = 5,
+        as_of: str | None = None,
+        client_id: str | None = None,
+    ) -> dict:
+        """SME-lite structure-mapping analogy search (§6.1 tool 4): bases from
+        the method graph whose mech-tag predicate structure maps onto the
+        target's, each with a Gentner-style systematicity score (formula +
+        decomposition in spark_mcp.analogy), the shared predicate structure,
+        and a falsifiable financial translation (LLM-generated, cached per
+        (base, target_class, model_id); documented degraded template without
+        an LLM). Mappings below the configured systematicity threshold are
+        refused (counted in `refusals`; named refusal when none pass). Each
+        call consumes one analogy trial against the §8.3 budget cap. A
+        trajectory event records the call. Idempotent on client_id.
+        """
+        as_of = _as_of_or_now(as_of)
+        return analogy_service.find_analogies(
+            services.db,
+            cfg,
+            target_problem,
+            mech_tags,
+            k=k,
+            as_of=as_of,
+            llm=services.llm,
+            client_id=client_id,
+        )
+
+    @mcp.tool()
+    def combine_methods(
+        method_ids: list[str],
+        target_problem: str,
+        as_of: str | None = None,
+        client_id: str | None = None,
+    ) -> dict:
+        """Compose 2-3 candidate compositions from method graph nodes (§6.1
+        tool 3). Grammar: pipeline (A's mech-compound output feeds B's input),
+        ensemble (same-family parallel), residualizer (B applied to A's
+        residuals via a visible DIAGNOSES/FAILS_WHEN edge). Every candidate
+        carries structural-fit notes (shared predicates, family bridge,
+        expected interactions), the composed mech_tags set, and a one-line
+        rationale (LLM-cached or degraded template). No returns computed.
+        Idempotent on client_id.
+        """
+        as_of = _as_of_or_now(as_of)
+        return analogy_service.combine_methods(
+            services.db,
+            cfg,
+            method_ids,
+            target_problem,
+            as_of=as_of,
+            client_id=client_id,
+            llm=services.llm,
+        )
+
+    @mcp.tool()
+    def consolidate(
+        scope: str | None = None,
+        as_of: str | None = None,
+        since: str | None = None,
+    ) -> dict:
+        """On-demand consolidation pass (plan §6.3 tool 20, §13): applies
+        belief decay (§12.3 formula, writes beliefs.decay), lists
+        validation-SLO breaches, and emits gap entries from the archive
+        (empty families, killed families, predictor-error outliers), family
+        posterior review, and the skill pipeline (stale pending candidates).
+        LLM gap annotations are capped per-run by
+        budgets.per_consolidation_usd — the pass stops mid-way with
+        budget_exhausted=True (warn) or refuses before any write
+        (fail_closed). Persists a consolidation_runs row + an immutable gap
+        report artifact (spark://consolidation/{report_id}) consumable by
+        suggest_next (gap_report_id) and generate_exercise. Same service
+        function as `spark consolidate` (N13). A trajectory event with actor
+        'consolidator' records the run.
+        """
+        as_of = _as_of_or_now(as_of)
+        return consolidate_service.consolidate(
+            services.db, cfg, scope=scope, as_of=as_of, since=since, llm=services.llm
+        )
+
+    @mcp.tool()
+    def generate_exercise(
+        gap_report_id: str | None = None,
+        seed: int | None = None,
+    ) -> dict:
+        """Minimal curriculum (plan §18.1 Phase 7): synthesize one exercise
+        from a real consolidation gap (a fresh consolidation pass runs when
+        no gap_report_id is given) and replay-score the current champion
+        skill's procedure_steps against the replay fixture mapped from the
+        gap family (the deterministic skills.run_replay scorer). Deferral is
+        explicit ({deferred: true, reason}) when there is no usable gap or
+        fixture mapping. A trajectory event records the call.
+        """
+        return curriculum_service.generate_exercise(
+            services.db, cfg, gap_report_id=gap_report_id, seed=seed
         )
 
     return mcp

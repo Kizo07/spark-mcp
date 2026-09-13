@@ -9,6 +9,7 @@ from pathlib import Path
 import typer
 from rich import print
 
+from . import consolidate as consolidate_service
 from . import hooks
 from . import skills as skills_service
 from .config import Config
@@ -95,6 +96,37 @@ def closeout(
     db = open_db(cfg.db_path())
     data = json.loads(Path(payload).read_text(encoding="utf-8"))
     result = hooks.ingest_run_summary(db, cfg, data)
+    db.close()
+    print(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command()
+def consolidate(
+    scope: str | None = typer.Option(
+        None, "--scope", help="Restrict family-scoped gap analysis to one family."
+    ),
+    since: str | None = typer.Option(
+        None,
+        "--since",
+        help="Incremental run: only rows whose activity marker is at/after this"
+        " ISO timestamp are reconsidered (cron: pass the previous run's time).",
+    ),
+    as_of: str | None = typer.Option(
+        None, "--as-of", help="PIT pin for the pass (default now)."
+    ),
+    config: str | None = typer.Option(None, "--config", "-c"),
+) -> None:
+    """Run one consolidation pass and print the gap report (plan §6.3 tool
+    20, §13): belief decay application (§12.3), validation-SLO listing,
+    archive/posterior/skill-pipeline gap analysis, per-run LLM budget
+    governance. Same consolidate() the MCP tool calls (N13 — cron/systemd
+    timers use this command). Prints the returned report as JSON.
+    """
+    cfg = _load(config)
+    db = open_db(cfg.db_path())
+    result = consolidate_service.consolidate(
+        db, cfg, scope=scope, as_of=as_of, since=since, llm=build_llm(cfg)
+    )
     db.close()
     print(json.dumps(result, indent=2, sort_keys=True))
 
@@ -215,6 +247,43 @@ def skills_approve(
     result = skills_service.approve(
         db, cfg, target_type, target_id, decision, rationale, decided_by=decided_by
     )
+    db.close()
+    print(json.dumps(result, indent=2, sort_keys=True))
+
+
+@skills_app.command("decide")
+def skills_decide(
+    skill_name: str = typer.Option(..., "--skill-name"),
+    candidate_id: str = typer.Option(..., "--candidate-id"),
+    decision: str = typer.Option(..., "--decision", help="promoted|rejected|auto"),
+    rationale: str = typer.Option(..., "--rationale"),
+    decided_by: str = typer.Option("gate", "--decided-by"),
+    config: str | None = typer.Option(None, "--config", "-c"),
+) -> None:
+    """The promotion gate (plan §11), operator-reachable (Phase-6 re-review
+    blocker B1). 'auto' applies the documented criterion. Same
+    skills.decide_promotion the MCP tool calls."""
+    cfg = _load(config)
+    db = open_db(cfg.db_path())
+    result = skills_service.decide_promotion(
+        db, cfg, skill_name, candidate_id, decision, rationale, decided_by
+    )
+    db.close()
+    print(json.dumps(result, indent=2, sort_keys=True))
+
+
+@skills_app.command("retire")
+def skills_retire(
+    name: str = typer.Option(..., "--name"),
+    version: int = typer.Option(..., "--version"),
+    rationale: str = typer.Option(..., "--rationale"),
+    config: str | None = typer.Option(None, "--config", "-c"),
+) -> None:
+    """Retire a skill version (plan §11 lifecycle). Same skills.retire_skill
+    the MCP tool calls."""
+    cfg = _load(config)
+    db = open_db(cfg.db_path())
+    result = skills_service.retire_skill(db, name, version, rationale)
     db.close()
     print(json.dumps(result, indent=2, sort_keys=True))
 

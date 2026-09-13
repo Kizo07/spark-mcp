@@ -20,7 +20,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 10
 
 # Versioned migrations. Key = user_version the schema moves TO.
 MIGRATIONS: dict[int, str] = {
@@ -354,6 +354,14 @@ MIGRATIONS: dict[int, str] = {
     );
     CREATE INDEX IF NOT EXISTS idx_qd_cells_family ON qd_cells(family);
     """,
+    10: """
+    -- Phase 6 re-review (review 2026-09-13_phase-6, blocker B2): exact
+    -- candidate -> challenger linkage. approve()/promote_via_gateway used to
+    -- re-derive the challenger row from (name, lineage.parent_version),
+    -- which after a lineage fork could veto/promote the WRONG live version.
+    -- Nullable: pre-v9 rows keep the lineage-based fallback.
+    ALTER TABLE skill_candidates ADD COLUMN challenger_skill_id TEXT;
+    """,
     8: """
     -- Phase 6: skill evolution (plan §5.1, §11, M11). skill_candidates carries
     -- the replay evidence for one challenger; approvals is the M11 human-gate
@@ -393,6 +401,36 @@ MIGRATIONS: dict[int, str] = {
         task_id TEXT NOT NULL,
         model_id TEXT NOT NULL,
         score REAL NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    """,
+    9: """
+    -- Phase 7: consolidation runtime (plan §5.1 M10, §13) + SME-lite analogy
+    -- engine text cache (§6.1 tools 3-4). consolidation_runs is the
+    -- background-job audit log; the gap report itself is an immutable JSON
+    -- artifact at {artifacts_dir}/consolidation/{report_id}.json, so reports
+    -- are PIT-safe by construction (suggest_next consumes them by id, §13).
+    CREATE TABLE IF NOT EXISTS consolidation_runs (
+        run_id TEXT PRIMARY KEY,            -- == report_id
+        started_at TEXT NOT NULL,
+        finished_at TEXT,
+        scope TEXT,
+        llm_spend_usd REAL NOT NULL DEFAULT 0,
+        report_uri TEXT NOT NULL,           -- spark://consolidation/{report_id}
+        report_id TEXT NOT NULL
+    );
+
+    -- LLM-generated one-liners (analogy falsifiable translations cached per
+    -- (base, target_class, model_id); combine rationales per (methods, target
+    -- class, model_id)). Model version enters the key: a model swap re-
+    -- generates, never silently re-scales (same rule as score_cache, §4.3).
+    CREATE TABLE IF NOT EXISTS generated_text_cache (
+        cache_key TEXT PRIMARY KEY,         -- sha1(purpose|subject|context|model_id)
+        purpose TEXT NOT NULL,              -- analogy_translation | combine_rationale
+        subject_key TEXT NOT NULL,
+        context_key TEXT NOT NULL,          -- target problem class
+        model_id TEXT NOT NULL,
+        text TEXT NOT NULL,
         created_at TEXT NOT NULL
     );
     """,

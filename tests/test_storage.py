@@ -6,7 +6,7 @@ from spark_mcp.storage import open_db
 def test_migrate_creates_meta_and_version(tmp_path):
     db = open_db(tmp_path / "spark.db")
     version = db.conn.execute("PRAGMA user_version").fetchone()[0]
-    assert version == 8  # Phase 6: migration v8 adds skill_candidates/approvals
+    assert version == 10  # v8 adds skill evolution tables; v10 adds challenger linkage
     name = db.conn.execute(
         "SELECT value FROM spark_meta WHERE key='schema_name'"
     ).fetchone()[0]
@@ -19,7 +19,7 @@ def test_migrations_are_idempotent(tmp_path):
     db = open_db(path)
     db.close()
     db2 = open_db(path)  # second open: no pending migrations, no error
-    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == 8
+    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == 10
     db2.close()
 
 
@@ -52,7 +52,7 @@ def test_migration_v6_upgrades_a_v5_database(tmp_path):
     from spark_mcp import storage
 
     path = tmp_path / "spark.db"
-    markers = {v: storage.MIGRATIONS.pop(v) for v in (6, 7, 8)}
+    markers = {v: storage.MIGRATIONS.pop(v) for v in (6, 7, 8, 9, 10)}
     try:
         db = open_db(path)  # db frozen at v5 (Phase-3 state)
         assert db.conn.execute("PRAGMA user_version").fetchone()[0] == 5
@@ -62,7 +62,7 @@ def test_migration_v6_upgrades_a_v5_database(tmp_path):
     finally:
         storage.MIGRATIONS.update(markers)
     db2 = open_db(path)  # reopen with v6/v7/v8 restored: all apply
-    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == 8
+    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == 10
     tables = {
         r[0]
         for r in db2.conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
@@ -112,6 +112,8 @@ def test_phase1_tables_exist(tmp_path):
         "exploration_state",
         "spend_ledger",
         "qd_cells",
+        "consolidation_runs",
+        "generated_text_cache",
     ):
         assert t in tables, f"missing table {t}"
     db.close()

@@ -137,12 +137,23 @@ def _lineage(row: sqlite3.Row) -> dict:
 
 
 def _challenger_for(
-    db: Database, skill_name: str, parent_version: int | None
+    db: Database, skill_name: str, parent_version: int | None,
+    candidate: sqlite3.Row | None = None,
 ) -> sqlite3.Row | None:
-    """The skills row a candidate evaluates: the newest row of the name whose
-    lineage parents from parent_version. (Usually parent_version + 1; after a
-    rejected challenger the next free version is higher — versions are
-    per-name and never reused, so parent+1 is not a safe derivation.)"""
+    """The skills row a candidate evaluates. EXACT linkage first (review
+    blocker B2): v9+ candidates carry challenger_skill_id, immune to lineage
+    forks (v2 retired, v3 challenger from the same parent — a veto naming
+    the v2 candidate must never touch the live v3). Fallback for pre-v9
+    rows: newest row of the name whose lineage parents from parent_version.
+    (Usually parent_version + 1; after a rejected challenger the next free
+    version is higher — versions are per-name and never reused.)"""
+    if candidate is not None and candidate["challenger_skill_id"] is not None:
+        row = db.conn.execute(
+            "SELECT * FROM skills WHERE skill_id = ?",
+            (candidate["challenger_skill_id"],),
+        ).fetchone()
+        if row is not None:
+            return row
     rows = db.conn.execute(
         "SELECT * FROM skills WHERE name = ? ORDER BY version DESC", (skill_name,)
     ).fetchall()
@@ -517,14 +528,15 @@ def propose_skill_challenger(
         db.execute(
             "INSERT INTO skill_candidates ("
             " candidate_id, skill_name, parent_version, source_episode_ids,"
-            " mutation_op, verdict"
-            ") VALUES (?, ?, ?, ?, ?, 'pending')",
+            " mutation_op, verdict, challenger_skill_id"
+            ") VALUES (?, ?, ?, ?, ?, 'pending', ?)",
             (
                 candidate_id,
                 skill_name,
                 int(parent["version"]),
                 json.dumps(source),
                 op,
+                skill_id,
             ),
         )
         trajectory.record(
@@ -643,7 +655,7 @@ def run_replay(
     for name in names:
         candidate = _newest_pending_candidate(db, name)
         if candidate is not None:
-            row = _challenger_for(db, name, candidate["parent_version"])
+            row = _challenger_for(db, name, candidate["parent_version"], candidate=candidate)
             scored_as = "challenger"
         else:
             row = db.conn.execute(
@@ -730,7 +742,7 @@ def promote_via_gateway(
     httpx.MockTransport."""
     cand = dict(candidate)
     skill_name = cand["skill_name"]
-    row = _challenger_for(db, skill_name, cand["parent_version"])
+    row = _challenger_for(db, skill_name, cand["parent_version"], candidate=cand)
     base_payload = {
         "skill_name": skill_name,
         "candidate_id": cand["candidate_id"],
@@ -859,17 +871,22 @@ def decide_promotion(
     decided_by: str,
 ) -> dict:
     """The promotion gate (plan §11), used by the auto path and by human
-    ratification. Requires replay evidence (eval_scores non-null) on the
-    candidate. decision='promoted': the challenger becomes champion, the
-    prior champion becomes the rollback_target, credit is assigned, and —
-    per M11 auto-with-human-notify — when decided_by='gate' an approvals row
+    ratification. decision in {'promoted', 'rejected', 'auto'}: 'auto' applies
+    the documented gate criterion — promote iff the challenger beats the
+    incumbent champion's last held-in mean (first promotion: held-in mean >=
+    replay_promotion_floor) AND heldout_gap <= replay_heldout_gap_alarm;
+    otherwise reject. Promotion requires FULL-suite replay evidence (review
+    major M1): every held-in AND every held-out fixture must be scored on
+    the candidate — a cherry-picked subset cannot satisfy the gate.
+    decision='promoted': the challenger becomes champion, the prior champion
+    becomes the rollback_target, credit is assigned, and — per M11
+    auto-with-human-notify — when the decider is the gate an approvals row
     (decision='approved', decided_by='gate') is written as the human-veto
     surface, plus a trajectory notify event. The Gateway write is then
     attempted (C7); a block is reported in the result (gateway.status=
-    'blocked') and the champion stays staged_in_spark. decision='rejected':
-    the challenger is rejected."""
-    if decision not in ("promoted", "rejected"):
-        raise ToolError("decision must be 'promoted' or 'rejected'")
+    'blocked') and the champion stays staged_in_spark."""
+    if decision not in ("promoted", "rejected", "auto"):
+        raise ToolError("decision must be 'promoted', 'rejected', or 'auto'")
     if not rationale or not rationale.strip():
         raise ToolError("rationale is required")
     candidate = db.conn.execute(
@@ -886,10 +903,25 @@ def decide_promotion(
         raise ToolError(
             "promotion requires replay evidence: run run_replay for this skill first"
         )
-    challenger = _challenger_for(db, skill_name, candidate["parent_version"])
+    challenger = _challenger_for(db, skill_name, candidate["parent_version"], candidate=candidate)
     if challenger is None:  # pragma: no cover - candidate without its challenger row is a bug
         raise ToolError(f"internal: no challenger row for candidate {candidate_id}")
     version = int(challenger["version"])
+
+    # M1: full-suite coverage — every fixture (held-in and held-out) must be
+    # scored; filtered run_replay(task_ids=...) subsets cannot satisfy the gate.
+    eval_scores = json.loads(candidate["eval_scores"])
+    fixtures = load_fixtures()
+    in_ids = [f["task_id"] for f in fixtures if f.get("held_in", True)]
+    out_ids = [f["task_id"] for f in fixtures if not f.get("held_in", True)]
+    have_in = set((eval_scores.get("held_in") or {}).keys())
+    have_out = set((eval_scores.get("held_out") or {}).keys())
+    missing = (set(in_ids) - have_in) | (set(out_ids) - have_out)
+    if missing:
+        raise ToolError(
+            "promotion requires FULL replay-suite evidence; missing fixtures: "
+            + ", ".join(sorted(missing))
+        )
 
     source_episode_ids = json.loads(candidate["source_episode_ids"] or "[]")
     old_champion = db.conn.execute(
@@ -897,6 +929,31 @@ def decide_promotion(
         " ORDER BY version DESC LIMIT 1",
         (skill_name, version),
     ).fetchone()
+
+    if decision == "auto":
+        challenger_scores = eval_scores.get("held_in") or {}
+        ch_mean = (
+            sum(challenger_scores.values()) / len(challenger_scores)
+            if challenger_scores else 0.0
+        )
+        gap = candidate["heldout_gap"]
+        alarm = float(cfg.research.replay_heldout_gap_alarm)
+        if gap is not None and gap > alarm:
+            decision = "rejected"
+        elif old_champion is not None:
+            old_hist = json.loads(old_champion["benchmark_history"] or "[]")
+            old_scores = None
+            for entry in reversed(old_hist):
+                if entry.get("eval_scores", {}).get("held_in"):
+                    old_scores = entry["eval_scores"]["held_in"]
+                    break
+            old_mean = (
+                sum(old_scores.values()) / len(old_scores) if old_scores else 0.0
+            )
+            decision = "promoted" if ch_mean >= old_mean else "rejected"
+        else:
+            floor = float(getattr(cfg.research, "replay_promotion_floor", 0.5))
+            decision = "promoted" if ch_mean >= floor else "rejected"
 
     with db.transaction():
         db.execute(
@@ -922,6 +979,9 @@ def decide_promotion(
                     "decision": decision,
                     "heldout_gap": candidate["heldout_gap"],
                     "decided_by": decided_by,
+                    # full evidence snapshot so the NEXT auto gate compares
+                    # against this champion's actual held-in scores
+                    "eval_scores": eval_scores,
                 }
             )
             db.execute(
@@ -1092,7 +1152,9 @@ def approve(
                     f"candidate {target_id} is verdict={candidate['verdict']!r}; only a"
                     " promoted (staged) champion can be ratified or vetoed"
                 )
-            version_row = _challenger_for(db, candidate["skill_name"], candidate["parent_version"])
+            version_row = _challenger_for(
+                db, candidate["skill_name"], candidate["parent_version"], candidate=candidate
+            )
             if version_row is None or version_row["status"] != "champion":
                 raise ToolError(
                     f"skill {candidate['skill_name']} (candidate {target_id}) is not a"

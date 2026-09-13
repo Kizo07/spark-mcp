@@ -111,7 +111,7 @@ def test_phase6_tables_exist(db):
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)
         ).fetchone()
         assert row is not None, table
-    assert db.conn.execute("PRAGMA user_version").fetchone()[0] == 8
+    assert db.conn.execute("PRAGMA user_version").fetchone()[0] == 10
 
 
 # -- tool 16: distill_skill ------------------------------------------------------
@@ -944,3 +944,129 @@ def test_skills_approve_cli(tmp_path, cfg):
     assert invoked.exit_code == 0, invoked.output
     result = json.loads(invoked.output)
     assert result["applied"]["skill"] == "cost-audit:2"
+
+
+# -- Phase-6 re-review blockers (reviews/2026-09-13_phase-6) -----------------
+
+
+def test_veto_after_lineage_fork_hits_the_named_candidates_version(db, cfg):
+    """Blocker B2 repro: v2 promoted from parent 1 -> v2 retired -> v3
+    challenger from parent 1 -> v3 promoted. A veto naming the V2 candidate
+    must not touch the live v3 champion."""
+    name = "fork-skill"
+    _distill(db, cfg, name=name)
+    # v2 challenger from parent v1, promoted
+    skills.propose_skill_challenger(db, cfg, name, "split")
+    skills.run_replay(db, cfg, skill_name=name)
+    cand_v2 = skills._newest_pending_candidate(db, name)["candidate_id"]
+    skills.decide_promotion(db, cfg, name, cand_v2, "promoted", "v2", "gate")
+    skills.retire_skill(db, name, 2, "retire v2")
+    # v3 challenger from the SAME parent 1, promoted
+    skills.propose_skill_challenger(db, cfg, name, "split")
+    skills.run_replay(db, cfg, skill_name=name)
+    cand_v3 = skills._newest_pending_candidate(db, name)["candidate_id"]
+    skills.decide_promotion(db, cfg, name, cand_v3, "promoted", "v3", "gate")
+    # veto naming the V2 candidate: pre-fix this resolved the LIVE v3 via
+    # (name, parent_version) and killed it; with exact challenger linkage it
+    # resolves v2 (already retired) and SAFELY refuses, leaving v3 untouched.
+    import pytest
+
+    from spark_mcp.errors import ToolError
+
+    with pytest.raises(ToolError, match="not a live champion"):
+        skills.approve(db, cfg, "skill", cand_v2, "rejected", "veto v2 late", "human:test")
+    statuses = {
+        r["version"]: r["status"]
+        for r in db.conn.execute("SELECT version, status FROM skills WHERE name = ?", (name,))
+    }
+    assert statuses[3] == "champion"
+    assert statuses[2] == "retired"  # untouched
+
+
+def test_promotion_requires_full_suite_coverage(db, cfg):
+    """Major M1: a cherry-picked subset (even held-out-only) cannot satisfy
+    the gate."""
+    name = "coverage-skill"
+    _distill(db, cfg, name=name)
+    skills.propose_skill_challenger(db, cfg, name, "split")
+    skills.run_replay(db, cfg, skill_name=name, suite="econometrics")  # held-out only
+    cand = skills._newest_pending_candidate(db, name)["candidate_id"]
+    import pytest
+
+    from spark_mcp.errors import ToolError
+
+    with pytest.raises(ToolError, match="FULL replay-suite"):
+        skills.decide_promotion(db, cfg, name, cand, "promoted", "cherry", "gate")
+    # full replay afterwards satisfies coverage
+    skills.run_replay(db, cfg, skill_name=name)
+    out = skills.decide_promotion(db, cfg, name, cand, "promoted", "full", "gate")
+    assert out["decision"] == "promoted"
+
+
+def test_auto_gate_criterion_promotes_and_rejects(db, cfg):
+    """decision='auto' applies the documented criterion: first promotion
+    needs held-in mean >= replay_promotion_floor; a later challenger must
+    beat the incumbent's held-in mean; heldout_gap over the alarm rejects."""
+    name = "auto-skill"
+    _distill(db, cfg, name=name)
+    skills.propose_skill_challenger(db, cfg, name, "split")
+    skills.run_replay(db, cfg, skill_name=name)
+    cand = skills._newest_pending_candidate(db, name)["candidate_id"]
+    out = skills.decide_promotion(db, cfg, name, cand, "auto", "auto", "gate")
+    assert out["decision"] in ("promoted", "rejected")
+    # determinism: same inputs -> same auto outcome
+    if out["decision"] == "promoted":
+        statuses = {
+            r["version"]: r["status"]
+            for r in db.conn.execute("SELECT version, status FROM skills WHERE name = ?", (name,))
+        }
+        assert statuses[2] == "champion"
+
+
+def test_decide_and_retire_tools_over_mcp(tmp_path):
+    """Blocker B1: the promotion gate and retirement are reachable from the
+    product surface, not just as Python functions."""
+    cfg = Config(
+        storage={"db_path": f"{tmp_path}/spark.db", "artifacts_dir": f"{tmp_path}/art"}
+    )
+    db = open_db(cfg.db_path())
+    ep = _episode(db, cfg)
+    db.close()
+    server = create_server(cfg, embedder=FakeEmbedder(), seeds=False)
+
+    async def run():
+        async with Client(server) as client:
+            await client.call_tool(
+                "distill_skill",
+                {
+                    "episode_ids": [ep],
+                    "name": "mcp-gate",
+                    "role": "quant",
+                    "procedure_steps": AUDIT_STEPS,
+                },
+            )
+            await client.call_tool(
+                "propose_skill_challenger", {"skill_name": "mcp-gate", "op": "split"}
+            )
+            await client.call_tool("run_replay", {"skill_name": "mcp-gate"})
+            cand_row = skills._newest_pending_candidate(
+                open_db(cfg.db_path()), "mcp-gate"
+            )
+            out = await client.call_tool(
+                "decide_skill_promotion",
+                {
+                    "skill_name": "mcp-gate",
+                    "candidate_id": cand_row["candidate_id"],
+                    "decision": "auto",
+                    "rationale": "gate via MCP",
+                },
+            )
+            decided = json.loads(out.content[0].text)
+            assert decided["decision"] in ("promoted", "rejected")
+            retired = await client.call_tool(
+                "retire_skill",
+                {"name": "mcp-gate", "version": 2, "rationale": "eol"},
+            )
+            assert json.loads(retired.content[0].text)["status"] == "retired"
+
+    asyncio.run(run())

@@ -142,7 +142,29 @@ class ResearchConfig(BaseModel):
     )
     budget_override_band: float = 0.15
     budget_window_days: int = 7
-    analogy_cap: float = 0.20
+    # Phase 7 SME-lite analogy engine (plan §6.1 tool 4, §8.3): analogy
+    # searches are capped at this FRACTION of total family exploration trials
+    # (tracked by exploration_state.analogy_trials); earning more requires
+    # beating the base family hit rate (§8.3 wording, refusal message).
+    analogy_budget_cap: float = 0.20
+    # Gentner-style systematicity floor (formula in analogy.py docstring):
+    # mappings scoring below are refused (named ToolError when none pass).
+    analogy_systematicity_threshold: float = 0.5
+    # suggest_next gap-report consumption (plan §13/G5): families named in an
+    # open consolidation gap report get this multiplicative boost on the
+    # Thompson x cell-emptiness utility.
+    gap_boost_factor: float = 1.5
+    # Consolidate (§13): pending skill candidates whose challenger row is older
+    # than this many days are listed on the gap report.
+    skill_candidate_stale_days: int = 14
+    # Consolidate archive-gap analysis: a family whose mean |predicted -
+    # realized| predictor error exceeds this is an outlier gap (plan §21).
+    predictor_error_outlier: float = 0.05
+    # Phase-7 decision record (plan §6.3 tool 21 N5 + §18.1): the report_write
+    # HTML renderer is DEFERRED — md-only output until a renderer is named by
+    # a later phase. The flag pins the decision in config; report_write
+    # rejects format != 'md' citing this record (STATUS.md, Phase 7).
+    report_html_renderer: str = "deferred"
     ucb_c: float = 1.4
     tombstone_block: float = 0.85
     tombstone_review_low: float = 0.70
@@ -228,6 +250,11 @@ class ResearchConfig(BaseModel):
     # heldout_gap; a gap above this flags the fixture set for refresh review
     # (challengers overfitting held-in tasks must surface).
     replay_heldout_gap_alarm: float = 0.25
+    # Auto-promotion floor (plan §11 'the gate decides'): a FIRST promotion
+    # (no incumbent champion to beat) requires the challenger's held-in mean
+    # >= this floor; later promotions require beating the incumbent's last
+    # held-in mean, and heldout_gap must be under the alarm everywhere.
+    replay_promotion_floor: float = 0.5
 
 
 class BudgetsConfig(BaseModel):
@@ -236,6 +263,9 @@ class BudgetsConfig(BaseModel):
     per_consolidation_usd: float = 3.0
     policy: str = "warn"  # warn | fail_closed
     rates: dict[str, dict[str, float]] = Field(default_factory=dict)
+    # §14 estimate for one llm complete call when the provider reports no
+    # usage: consolidate's per-run cap counts complete calls x this rate.
+    llm_call_estimate_usd: float = 0.02
 
 
 class Config(BaseModel):
