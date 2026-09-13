@@ -17,7 +17,7 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
-from . import __version__, explore, graph, ledger, memory, novelty, trajectory
+from . import __version__, explore, graph, ledger, memory, novelty
 from .config import Config
 from .llm import build_embedder, build_llm
 from .storage import Database, open_db
@@ -65,7 +65,7 @@ def create_server(
     if seeds:
         graph.import_seeds(services.db, services.embedder)
 
-    mcp = FastMCP("spark")
+    mcp = FastMCP("spark", version=__version__)
 
     @mcp.tool()
     def spark_health() -> dict:
@@ -150,13 +150,7 @@ def create_server(
             client_id=client_id,
             embedder=services.embedder,
         )
-        trajectory.record(
-            services.db,
-            result["hypothesis_id"],
-            "spark",
-            "tool_call",
-            {"tool": "hypothesis_propose", "idea": idea, "client_id": client_id, "as_of": as_of},
-        )
+        # trajectory event for this call is recorded inside ledger.propose_hypothesis
         return (result)
 
     @mcp.tool()

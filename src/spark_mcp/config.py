@@ -62,6 +62,8 @@ class ResearchConfig(BaseModel):
     top_k: int = 50
     rrf_k: int = 60
     bandit_prior: list[float] = Field(default=[1.0, 1.0])
+    informed_prior_after_episodes: int = 20
+    contradiction_overlap: float = 0.6
     budget: dict[str, float] = Field(
         default={"refine": 0.60, "new_cell": 0.25, "long_shot": 0.15}
     )

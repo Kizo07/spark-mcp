@@ -9,7 +9,17 @@ import ast
 import sys
 from pathlib import Path
 
-SRC = Path(__file__).resolve().parents[1] / "src" / "spark_mcp"
+import pytest
+
+# tests/independence/test_independence_gate.py -> parents[2] is the repo root.
+# (parents[1] silently points at a nonexistent tests/src/spark_mcp and the scan
+# goes vacuous — caught by the Phase 0 milestone review.)
+SRC = Path(__file__).resolve().parents[2] / "src" / "spark_mcp"
+
+
+@pytest.fixture(autouse=True)
+def _no_ambient_llm_key(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
 FORBIDDEN_MODULES = {
     "hermes", "hermes_agent", "docling", "langmem", "graphiti",
@@ -30,8 +40,10 @@ def _imports_in_file(path: Path) -> set[str]:
 
 
 def test_no_reference_repo_imports_in_source():
+    scanned = list(SRC.rglob("*.py"))
+    assert scanned, f"scan found no source files under {SRC} (path drift?)"
     offenders = []
-    for py in SRC.rglob("*.py"):
+    for py in scanned:
         bad = _imports_in_file(py) & FORBIDDEN_MODULES
         if bad:
             offenders.append((py.name, sorted(bad)))

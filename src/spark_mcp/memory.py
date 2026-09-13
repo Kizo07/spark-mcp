@@ -21,10 +21,6 @@ from .timeutil import now_iso, validate_iso
 TOKEN_RE = re.compile(r"[a-z0-9]+")
 HISTORY_KINDS = ("beliefs", "tombstones", "episodes")
 
-# Lexical contradiction threshold for promote (§12.3 no-key mode: lexical-only,
-# conservative). Token overlap of the new claim against a candidate claim.
-CONTRADICTION_OVERLAP = 0.6
-
 
 def _tokens(text: str) -> list[str]:
     return TOKEN_RE.findall(text.lower())
@@ -150,10 +146,14 @@ def research_history(
     return out
 
 
-def _find_contradictions(db: Database, claim: str, as_of: str) -> list[dict]:
+def _find_contradictions(
+    db: Database, cfg: Config, claim: str, as_of: str
+) -> list[dict]:
     """FTS5 candidates on claim tokens among PIT-visible beliefs; lexical
-    token-overlap >= CONTRADICTION_OVERLAP (measured against the new claim's
-    tokens) confirms a contradiction in no-key mode (§12.3, conservative)."""
+    token-overlap >= cfg.research.contradiction_overlap (measured against the
+    new claim's tokens) confirms a contradiction in no-key mode
+    (§12.3, conservative)."""
+    overlap_threshold = cfg.research.contradiction_overlap
     fts = _fts_query(claim)
     if not fts:
         return []
@@ -171,7 +171,7 @@ def _find_contradictions(db: Database, claim: str, as_of: str) -> list[dict]:
         if not cand_tokens:
             continue
         overlap = len(new_tokens & cand_tokens) / len(new_tokens)
-        if overlap >= CONTRADICTION_OVERLAP:
+        if overlap >= overlap_threshold:
             contradictions.append(
                 {"belief_id": row["belief_id"], "claim": row["claim"], "overlap": overlap}
             )
@@ -204,7 +204,7 @@ def promote_belief(
             return json.loads(row["result"])
 
     as_of = validate_iso(as_of) if as_of else now_iso()
-    contradictions = _find_contradictions(db, claim, as_of)
+    contradictions = _find_contradictions(db, cfg, claim, as_of)
     threshold = cfg.research.belief_auto_promote_threshold
     promotion_status = (
         "auto" if confidence >= threshold and not contradictions else "pending_human"

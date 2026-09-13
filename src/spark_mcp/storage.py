@@ -72,7 +72,7 @@ MIGRATIONS: dict[int, str] = {
         corrected_metrics TEXT,
         risk_exposures TEXT,
         costs TEXT,                          -- required-or-estimated (§14)
-        reward REAL,                         -- §6.3 tool 15: non-null from Phase 1 (M13)
+        reward REAL NOT NULL DEFAULT 0.0,    -- §6.3 tool 15: non-null from Phase 1 (M13)
         outcome TEXT,
         failure_reason TEXT,
         status TEXT NOT NULL DEFAULT 'registered',  -- registered|testing|failed|

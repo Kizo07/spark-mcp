@@ -269,7 +269,6 @@ def register_hypothesis(
     (§5.0: SHA-256 over canonical JSON of {hypothesis_id, spec, seed,
     code_version}), flip the hypothesis to 'registered'. Idempotent on client_id.
     """
-    del cfg
     if client_id:
         row = db.conn.execute(
             "SELECT * FROM episodes WHERE client_id = ?", (client_id,)
@@ -289,15 +288,19 @@ def register_hypothesis(
     if hypothesis is None:
         raise ValueError(f"unknown hypothesis_id {hypothesis_id!r}")
 
+    payload = {
+        "hypothesis_id": hypothesis_id,
+        "spec": spec,
+        "seed": seed,
+        "code_version": __version__,
+    }
     spec_hash = _sha256(spec)
-    protocol_hash = _sha256(
-        {
-            "hypothesis_id": hypothesis_id,
-            "spec": spec,
-            "seed": seed,
-            "code_version": __version__,
-        }
-    )
+    canonical = _canonical_bytes(payload)
+    protocol_hash = hashlib.sha256(canonical).hexdigest()
+    # §5.0/N8: store the canonical pre-registration bytes for audit.
+    protocols_dir = cfg.artifacts_dir() / "protocols"
+    protocols_dir.mkdir(parents=True, exist_ok=True)
+    (protocols_dir / f"{protocol_hash}.json").write_bytes(canonical)
     episode_id = new_episode_id()
     as_of = now_iso()
     try:

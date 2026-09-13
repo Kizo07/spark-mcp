@@ -4,10 +4,17 @@ import asyncio
 import json
 import tempfile
 
+import pytest
 from fastmcp import Client
 
 from spark_mcp.config import Config
 from spark_mcp.server import create_server
+
+
+@pytest.fixture(autouse=True)
+def _no_ambient_llm_key(monkeypatch):
+    """Degraded-mode assertions must not depend on the ambient environment."""
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
 
 def _call(tool: str, args: dict | None = None):
