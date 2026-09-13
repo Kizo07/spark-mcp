@@ -189,12 +189,15 @@ Final commit records this file and all review artifacts.*
   families; cell `7:0:0` suggested AND acted on (posterior (3,1), qd row);
   tombstone re-spend blocked at cosine 0.931 with pre-check logged + ack
   path; suggestions carry decomposition + selection probability.
-- **Verdict: PASS-WITH-NITS** (reviews/2026-09-13_phase-5.md). Nits 2–6
-  fixed in `50337e9`; **carried: nit 1 — PIT `as_of` threading on archive
-  reads (must-fix before Phase 7; needs the hide-by-`updated_at` vs
-  history-table design decision)**, nits 7–9 (live subscore sparsity until
-  callers supply §10.2 components; completion-without-verdict success tick;
-  suggest_next field reuse). 260 tests; ruff clean.
+- **Verdict: PASS-WITH-NITS** (reviews/2026-09-13_phase-5.md). Nits 1–6
+  fixed (`50337e9`, `b96e786`, `1ffc88a`): PIT `as_of` now threads through
+  every archive read (coverage/elites/cell_emptiness/emptiest_cell/
+  family_posteriors/family_M/status/suggest_next; hide-by-`updated_at` is
+  the documented v1 semantics — a full snapshot needs a history table);
+  leakage tests pin future-dated state out of past reads. Carried: nits 7–9
+  (live subscore sparsity until callers supply §10.2 components;
+  completion-without-verdict success tick; suggest_next field reuse).
+  263 tests; ruff clean.
 
 ## G4 go/no-go evaluation (2026-09-13, before Phase 6)
 
