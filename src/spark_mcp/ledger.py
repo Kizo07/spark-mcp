@@ -14,7 +14,7 @@ import json
 import sqlite3
 from typing import Any
 
-from . import __version__, graph, memory, novelty, trajectory
+from . import __version__, budgets, graph, memory, novelty, trajectory
 from .config import Config
 from .ids import new_episode_id, new_hypothesis_id, new_trial_id
 from .storage import Database
@@ -182,7 +182,7 @@ def propose_hypothesis(
 
     hypothesis_id = new_hypothesis_id()
     try:
-        with db.conn:
+        with db.transaction():
             db.execute(
                 "INSERT INTO hypotheses ("
                 " hypothesis_id, parent_hypothesis_ids, research_family, hypothesis_type,"
@@ -227,7 +227,7 @@ def propose_hypothesis(
         hypothesis_id,
         "spark",
         "tool_call",
-        {"tool": "hypothesis_propose", "client_id": client_id, "as_of": as_of},
+        {"tool": "hypothesis_propose", "client_id": client_id, "as_of": as_of, "idea": idea},
     )
     # Phase 2 (§6.1 tool 1, §7): embed-on-write, then bounded novelty vs the
     # archive (excluding the idea itself). S stays None until realized_ic.
@@ -304,7 +304,7 @@ def register_hypothesis(
     episode_id = new_episode_id()
     as_of = now_iso()
     try:
-        with db.conn:
+        with db.transaction():
             db.execute(
                 "INSERT INTO episodes ("
                 " episode_id, hypothesis_id, run_kind, research_family,"
@@ -366,7 +366,7 @@ def register_hypothesis(
     }
 
 
-def log_outcome(
+def _log_outcome_impl(
     db: Database,
     cfg: Config,
     episode_id: str,
@@ -376,14 +376,16 @@ def log_outcome(
     costs: dict | None = None,
     reward: float | None = None,
     client_id: str | None = None,
+    embedder: Any | None = None,
 ) -> dict:
     """Close the loop on an episode: flip status per outcome, record
     costs (required-or-estimated, §14), keep reward non-null (M13), and apply
     the C4 reconciliation rule — metrics arriving for an episode with no
     counted trial insert a `reconciled` trial and flag the episode. Failure
-    outcomes write a tombstone (§12.2). Idempotent on client_id.
+    outcomes write a tombstone (§12.2, dedupe-keyed + embedded). Every outcome
+    appends to spend_ledger and ticks the per-family kill-rule counters
+    (§8.3). Idempotent on client_id.
     """
-    del cfg
     if client_id:
         replayed = _replay_effect(db, "log_outcome", client_id)
         if replayed is not None:
@@ -409,8 +411,9 @@ def log_outcome(
     trial_id: str | None = None
     trial_source: str | None = None
     reconciled = episode["reconciled"]
+    usd, tokens, spend_estimated = budgets.spend_from_costs(cfg, costs)
 
-    with db.conn:
+    with db.transaction():
         if metrics is not None:
             trial = db.conn.execute(
                 "SELECT * FROM trials WHERE episode_id = ? ORDER BY created_at DESC LIMIT 1",
@@ -487,8 +490,39 @@ def log_outcome(
                 },
                 evidence_episode_ids=[episode_id],
                 as_of=now,
+                # Phase 1 review nit: one tombstone per failed episode even
+                # under concurrent racing log_outcomes.
+                dedupe_key=hashlib.sha1(
+                    f"episode-failure|{episode_id}".encode()
+                ).hexdigest(),
+                embedder=embedder,
             )
             tombstone_id = tombstone["tombstone_id"]
+
+        # §14: every spend event appends to spend_ledger; over-limit days are
+        # warned about (policy warn) or refused (policy fail_closed).
+        budgets.record_spend(
+            db,
+            cfg,
+            family=episode["research_family"],
+            source="log_outcome",
+            usd=usd,
+            tokens=tokens,
+            estimated=spend_estimated,
+        )
+        budgets.enforce_daily_budget(db, cfg, run_id=episode_id, source="log_outcome")
+
+        # §8.3 kill rule: success resets consecutive_failures, failure ticks it.
+        from .gates.service import record_family_outcome
+
+        record_family_outcome(
+            db,
+            cfg,
+            episode["research_family"],
+            success=outcome in ("success", "validated"),
+            episode_id=episode_id,
+            failure_reason=failure_reason,
+        )
 
         trajectory.record(
             db,
@@ -518,3 +552,32 @@ def log_outcome(
     if client_id:
         _record_effect(db, "log_outcome", client_id, episode_id, result)
     return result
+
+
+def log_outcome(
+    db: Database,
+    cfg: Config,
+    episode_id: str,
+    outcome: str,
+    metrics: dict | None = None,
+    failure_reason: str | None = None,
+    costs: dict | None = None,
+    reward: float | None = None,
+    client_id: str | None = None,
+    embedder: Any | None = None,
+) -> dict:
+    """Thread-safe wrapper: see _log_outcome_impl (storage.locked serializes
+    the shared connection across MCP worker threads)."""
+    with db.locked():
+        return _log_outcome_impl(
+            db,
+            cfg,
+            episode_id,
+            outcome,
+            metrics=metrics,
+            failure_reason=failure_reason,
+            costs=costs,
+            reward=reward,
+            client_id=client_id,
+            embedder=embedder,
+        )

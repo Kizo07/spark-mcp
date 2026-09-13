@@ -212,7 +212,7 @@ def promote_belief(
 
     belief_id = new_belief_id()
     evidence = list(episode_ids)
-    with db.conn:
+    with db.transaction():
         db.execute(
             "INSERT INTO beliefs ("
             " belief_id, claim, confidence, decay, scope,"
@@ -286,31 +286,70 @@ def add_tombstone(
     match_keys: dict,
     evidence_episode_ids: list[str],
     as_of: str | None = None,
+    dedupe_key: str | None = None,
+    embedder: Any = None,
 ) -> dict:
     """Record negative knowledge (§12.2). Written by log_outcome on failure
-    outcomes, memory_promote contradiction findings, and consolidate.
+    outcomes, memory_promote contradiction findings, consolidate, and the
+    Phase 3 kill rule.
+
+    `dedupe_key` (sha1 of a stable discriminator) hardens the Phase 1
+    concurrent-write nit: INSERT OR IGNORE on its UNIQUE index collapses
+    racing writers (e.g. concurrent failure log_outcomes for one episode) to
+    the first tombstone; later identical inserts return the existing row.
+    Tombstones are embedded on write (§12.2 pre-check consumes them).
     """
     as_of = validate_iso(as_of) if as_of else now_iso()
     tombstone_id = new_tombstone_id()
-    db.execute(
-        "INSERT INTO tombstones ("
-        " tombstone_id, kind, summary, match_keys, evidence_episode_ids, as_of, created_at"
-        ") VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (
-            tombstone_id,
-            kind,
+    text = " ".join(
+        p
+        for p in (
             summary,
-            json.dumps(match_keys),
-            json.dumps(list(evidence_episode_ids)),
-            as_of,
-            now_iso(),
-        ),
+            " ".join(str(k) for k in match_keys.get("keywords", [])),
+            " ".join(str(k) for k in match_keys.get("mech_tags", [])),
+        )
+        if p
     )
-    return {
+    with db.transaction():
+        cursor = db.conn.execute(
+            "INSERT OR IGNORE INTO tombstones ("
+            " tombstone_id, kind, summary, match_keys, evidence_episode_ids, as_of,"
+            " created_at, dedupe_key"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                tombstone_id,
+                kind,
+                summary,
+                json.dumps(match_keys),
+                json.dumps(list(evidence_episode_ids)),
+                as_of,
+                now_iso(),
+                dedupe_key,
+            ),
+        )
+        if cursor.rowcount == 0 and dedupe_key is not None:
+            existing = db.conn.execute(
+                "SELECT * FROM tombstones WHERE dedupe_key = ?", (dedupe_key,)
+            ).fetchone()
+            if existing is not None:
+                return {
+                    "tombstone_id": existing["tombstone_id"],
+                    "kind": existing["kind"],
+                    "summary": existing["summary"],
+                    "match_keys": json.loads(existing["match_keys"]),
+                    "evidence_episode_ids": json.loads(existing["evidence_episode_ids"]),
+                    "as_of": existing["as_of"],
+                    "deduplicated": True,
+                }
+    result = {
         "tombstone_id": tombstone_id,
         "kind": kind,
         "summary": summary,
         "match_keys": match_keys,
         "evidence_episode_ids": list(evidence_episode_ids),
         "as_of": as_of,
+        "deduplicated": False,
     }
+    if embedder is not None:
+        graph.embed_text(db, embedder, "tombstone", tombstone_id, text)
+    return result

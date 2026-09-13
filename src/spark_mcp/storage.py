@@ -3,14 +3,24 @@
 Storage discipline (plan §5.0 / M6): WAL on, busy_timeout 5000, all mutations
 in explicit transactions, idempotency via UNIQUE constraints, migrations as
 versioned SQL applied through PRAGMA user_version.
+
+Concurrency (Phase 3 hardening, Phase 1 review nit): a single connection is
+shared across MCP worker threads (check_same_thread=False), so a re-entrant
+lock serializes transactions at the Python level while busy_timeout covers
+cross-process contention. `Database.transaction()` opens BEGIN IMMEDIATE and
+nests via SAVEPOINTs; `execute()` never wraps `with conn:` while a transaction
+is already active (the old behavior committed outer partial work early).
 """
 
 from __future__ import annotations
 
 import sqlite3
+import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 # Versioned migrations. Key = user_version the schema moves TO.
 MIGRATIONS: dict[int, str] = {
@@ -260,6 +270,49 @@ MIGRATIONS: dict[int, str] = {
     -- a sqlite-vec vec0 virtual table when the extension loads, else a plain
     -- BLOB table with identical columns (degraded storage, numpy similarity).
     """,
+    4: """
+    -- Phase 3: gates & backtest seam (plan §5.1, §8.3, §14).
+    --
+    -- exploration_state: per-family exploration counters + bandit posterior.
+    -- Phase 3 maintains trials/successes/consecutive_failures (+ the kill-rule
+    -- flag); Phase 5's QD archive consumes the rest (posterior, windows).
+    CREATE TABLE IF NOT EXISTS exploration_state (
+        family TEXT PRIMARY KEY,
+        trials INTEGER NOT NULL DEFAULT 0,
+        successes INTEGER NOT NULL DEFAULT 0,
+        consecutive_failures INTEGER NOT NULL DEFAULT 0,
+        analogy_trials INTEGER NOT NULL DEFAULT 0,
+        posterior TEXT NOT NULL DEFAULT '{"alpha": 1.0, "beta": 1.0}',
+        window_trials INTEGER NOT NULL DEFAULT 0,
+        window_successes INTEGER NOT NULL DEFAULT 0,
+        window_start TEXT,
+        last_reward REAL,
+        regime_context TEXT,
+        killed INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL
+    );
+
+    -- spend_ledger (§14): every spend event appends here; budget v1 reads it.
+    CREATE TABLE IF NOT EXISTS spend_ledger (
+        seq INTEGER PRIMARY KEY AUTOINCREMENT,
+        ts TEXT NOT NULL,
+        family TEXT,
+        source TEXT NOT NULL,            -- backtest_run | log_outcome | ...
+        usd REAL NOT NULL,
+        tokens INTEGER NOT NULL DEFAULT 0,
+        estimated INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_spend_ledger_ts ON spend_ledger(ts);
+    CREATE INDEX IF NOT EXISTS idx_spend_ledger_family ON spend_ledger(family);
+
+    -- Phase 1 review nit: concurrent same-episode failure log_outcomes
+    -- double-inserted tombstones. A UNIQUE dedupe key + INSERT OR IGNORE
+    -- collapses racing writers to one row (NULLs are distinct in SQLite
+    -- unique indexes, so tombstones without a key stay unaffected).
+    ALTER TABLE tombstones ADD COLUMN dedupe_key TEXT;
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_tombstones_dedupe
+        ON tombstones(dedupe_key);
+    """,
 }
 
 
@@ -270,6 +323,12 @@ class Database:
         self._conn: sqlite3.Connection | None = None
         self._vec_available = False
         self._vec_table_ready = False
+        # Serializes transactions across MCP worker threads sharing this
+        # handle; re-entrant so nested execute()/transaction() in one thread
+        # never self-deadlocks. Cross-process contention is covered by
+        # busy_timeout (WAL).
+        self._lock = threading.RLock()
+        self._txn_depth = 0
 
     @property
     def conn(self) -> sqlite3.Connection:
@@ -360,9 +419,60 @@ class Database:
                     self.conn.execute(f"PRAGMA user_version={version}")
             return self.conn.execute("PRAGMA user_version").fetchone()[0]
 
+    @contextmanager
+    def locked(self) -> Iterator[sqlite3.Connection]:
+        """Hold the instance lock for the whole block: every statement (reads
+        included) is serialized across MCP worker threads sharing one
+        connection. Re-entrant; combine freely with transaction()."""
+        with self._lock:
+            yield self.conn
+
+    @contextmanager
+    def transaction(self) -> Iterator[sqlite3.Connection]:
+        """Explicit transaction: BEGIN IMMEDIATE at the outer level, SAVEPOINTs
+        when nested. Commits on clean exit, rolls back (to the savepoint) and
+        re-raises on any exception. Serialized across threads via RLock.
+
+        Every multi-write mutation path must run inside this rather than
+        `with conn:` so partial work is never committed early (Phase 1 review
+        nit) and racing writers resolve through UNIQUE constraints inside one
+        atomic unit.
+        """
+        with self._lock:
+            conn = self.conn
+            depth = self._txn_depth
+            self._txn_depth += 1
+            try:
+                if depth == 0:
+                    conn.execute("BEGIN IMMEDIATE")
+                    try:
+                        yield conn
+                    except BaseException:
+                        conn.rollback()
+                        raise
+                    conn.commit()
+                else:
+                    name = f"spark_sp_{depth}"
+                    conn.execute(f"SAVEPOINT {name}")
+                    try:
+                        yield conn
+                    except BaseException:
+                        conn.execute(f"ROLLBACK TO {name}")
+                        conn.execute(f"RELEASE {name}")
+                        raise
+                    conn.execute(f"RELEASE {name}")
+            finally:
+                self._txn_depth -= 1
+
     def execute(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
-        with self.conn:
-            return self.conn.execute(sql, params)
+        """Execute one statement. Outside an explicit transaction this commits
+        (backwards compatible); inside `transaction()` it joins the open
+        transaction and never commits early."""
+        with self._lock:
+            if self.conn.in_transaction:
+                return self.conn.execute(sql, params)
+            with self.conn:
+                return self.conn.execute(sql, params)
 
     # -- capability probes (doctor / N14) -----------------------------------
 

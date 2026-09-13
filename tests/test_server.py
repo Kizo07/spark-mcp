@@ -36,7 +36,7 @@ def test_spark_health():
     payload = json.loads(_call("spark_health"))
     assert payload["service"] == "spark"
     assert payload["db_exists"] is True
-    assert payload["schema_version"] == 3
+    assert payload["schema_version"] == 4
 
 
 def test_spark_doctor_reports_degraded_mode_and_capabilities():

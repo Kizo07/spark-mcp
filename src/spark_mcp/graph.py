@@ -65,7 +65,7 @@ def embed_text(
     vec = np.asarray(embedder.embed([text]), dtype=np.float32)[0]
     db.ensure_vec_embeddings(int(vec.shape[0]))
     model, model_version = split_model_id(embedder.model_id())
-    with db.conn:
+    with db.transaction():
         db.conn.execute(
             "INSERT INTO vec_embeddings (subject_type, subject_id, model, model_version,"
             " embedding) VALUES (?, ?, ?, ?, ?)",
@@ -117,7 +117,7 @@ def add_node(
     configured the node text is embedded on write (§4.3 embed-on-write)."""
     as_of = validate_iso(as_of) if as_of else now_iso()
     node_id = node_id or new_node_id()
-    with db.conn:
+    with db.transaction():
         db.conn.execute(
             "INSERT INTO graph_nodes (node_id, type, label, family, mech_tags, summary,"
             " as_of, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -266,7 +266,7 @@ def import_seeds(
     }
     id_by_key: dict[str, str] = {}
 
-    with db.conn:
+    with db.transaction():
         for card in concepts:
             key = normalize_name(card["name"])
             existing = find_node_by_label(db, card["name"])

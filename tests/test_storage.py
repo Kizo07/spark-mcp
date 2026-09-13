@@ -6,7 +6,7 @@ from spark_mcp.storage import open_db
 def test_migrate_creates_meta_and_version(tmp_path):
     db = open_db(tmp_path / "spark.db")
     version = db.conn.execute("PRAGMA user_version").fetchone()[0]
-    assert version == 3
+    assert version == 4
     name = db.conn.execute(
         "SELECT value FROM spark_meta WHERE key='schema_name'"
     ).fetchone()[0]
@@ -19,7 +19,7 @@ def test_migrations_are_idempotent(tmp_path):
     db = open_db(path)
     db.close()
     db2 = open_db(path)  # second open: no pending migrations, no error
-    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == 3
+    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == 4
     db2.close()
 
 
@@ -47,6 +47,8 @@ def test_phase1_tables_exist(tmp_path):
         "graph_edges",
         "graph_nodes_fts",
         "score_cache",
+        "exploration_state",
+        "spend_ledger",
     ):
         assert t in tables, f"missing table {t}"
     db.close()
@@ -79,4 +81,38 @@ def test_wal_and_busy_timeout(tmp_path):
 def test_fts5_probe(tmp_path):
     db = open_db(tmp_path / "spark.db")
     assert db.fts5_available() is True
+    db.close()
+
+
+def test_execute_does_not_commit_inside_outer_transaction(tmp_path):
+    """Phase 1 review nit, closed: execute() inside an open transaction must
+    not commit partial work when it returns."""
+    import pytest
+
+    db = open_db(tmp_path / "spark.db")
+    with pytest.raises(RuntimeError):
+        with db.transaction():
+            db.execute("INSERT INTO spark_meta (key, value) VALUES ('outer', '1')")
+            db.execute("INSERT INTO spark_meta (key, value) VALUES ('inner', '2')")
+            raise RuntimeError("boom")
+    rows = db.conn.execute(
+        "SELECT key FROM spark_meta WHERE key IN ('outer', 'inner')"
+    ).fetchall()
+    assert rows == []  # both rolled back: no early commit from inner execute()
+    db.close()
+
+
+def test_transaction_nests_via_savepoints(tmp_path):
+    db = open_db(tmp_path / "spark.db")
+    with db.transaction():
+        db.execute("INSERT INTO spark_meta (key, value) VALUES ('outer', '1')")
+        try:
+            with db.transaction():
+                db.execute("INSERT INTO spark_meta (key, value) VALUES ('inner', '2')")
+                raise ValueError("nested failure")
+        except ValueError:
+            pass
+        db.execute("INSERT INTO spark_meta (key, value) VALUES ('outer2', '3')")
+    keys = {r[0] for r in db.conn.execute("SELECT key FROM spark_meta").fetchall()}
+    assert {"outer", "outer2"} <= keys and "inner" not in keys
     db.close()

@@ -226,7 +226,9 @@ def test_trajectory_records_tool_calls(db, cfg):
     rows = db.conn.execute(
         "SELECT kind, run_id FROM trajectory_events ORDER BY seq"
     ).fetchall()
-    assert [r["kind"] for r in rows] == ["tool_call"] * len(rows)
+    # Phase 3: log_outcome also records the §8.3 family-outcome gate event.
+    assert {r["kind"] for r in rows} <= {"tool_call", "gate"}
+    assert [r["kind"] for r in rows].count("tool_call") == 3
     assert {hyp["hypothesis_id"], reg["episode_id"]} <= {r["run_id"] for r in rows}
 
 

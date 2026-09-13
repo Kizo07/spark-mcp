@@ -6,7 +6,7 @@ PASS-WITH-NITS without blockers (AGENTS.md rule 5).
 
 | Phase | Commit | Review file | Verdict | Open items |
 |---|---|---|---|---|
-| 0 — Skeleton | `559910f` → fixes in `a1b2c3d` | reviews/2026-09-12_phase-0.md | **FAIL (soft)** on first review; blockers fixed; re-review pending | — |
+| 0 — Skeleton | `559910f` → fixes in `03f6b19` | reviews/2026-09-12_phase-0.md (FAIL, superseded) + reviews/2026-09-13_phase-0-rereview.md (**PASS-WITH-NITS**) | **PASS-WITH-NITS** | nits below |
 | 1 — Ledger & Memory | `bc511a3` | reviews/2026-09-12_phase-1.md | **PASS-WITH-NITS** | nits carried below |
 | 2 — Method Graph & Novelty | `1344d89` | reviews/2026-09-12_phase-2.md | pending | G1 judge half pending |
 

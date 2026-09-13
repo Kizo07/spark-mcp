@@ -1,0 +1,121 @@
+"""Budget v1 (plan §14 / M15): spend ledger, rate-card estimation, enforcement.
+
+Every spend event appends to `spend_ledger`; `report_write` includes a cost
+section built from it here, and the Phase 5 `archive_status` will expose the
+same `spend_summary` (its return gains a `spend` field, old fields intact).
+
+Enforcement policy (config `budgets.policy`):
+- `warn` (default): over-limit spend logs a trajectory event and proceeds.
+- `fail_closed`: raises ToolError. `backtest_run` checks BEFORE the trial row
+  and dispatch, so a raise there leaves no trial and no provider call; the
+  spend row rolls back with the same transaction.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from . import trajectory
+from .config import Config
+from .errors import ToolError
+from .storage import Database
+from .timeutil import now_iso
+
+
+def estimate_usd(cfg: Config, *, tokens: int, model: str | None = None) -> float:
+    """Rate-card estimate for a spend event (§14): per-1K-token rates looked
+    up by model. Unknown model or zero tokens -> 0.0 (caller marks estimated).
+    """
+    if tokens <= 0:
+        return 0.0
+    model_key = model or cfg.llm.model
+    rates = cfg.budgets.rates.get(model_key)
+    if not rates:
+        return 0.0
+    per_1k = float(rates.get("input_per_1k", 0.0)) + float(rates.get("output_per_1k", 0.0))
+    return tokens / 1000.0 * per_1k
+
+
+def record_spend(
+    db: Database,
+    cfg: Config,
+    *,
+    family: str | None,
+    source: str,
+    usd: float | None = None,
+    tokens: int = 0,
+    estimated: bool = False,
+    run_id: str | None = None,
+) -> dict:
+    """Append one spend_ledger row. `usd` missing -> rate-card estimate
+    (0.0 when the model is unknown), always flagged estimated. Returns the
+    recorded row."""
+    if usd is None:
+        usd = estimate_usd(cfg, tokens=tokens)
+        estimated = True
+    row = {
+        "ts": now_iso(),
+        "family": family,
+        "source": source,
+        "usd": float(usd),
+        "tokens": int(tokens),
+        "estimated": bool(estimated),
+    }
+    db.execute(
+        "INSERT INTO spend_ledger (ts, family, source, usd, tokens, estimated)"
+        " VALUES (?, ?, ?, ?, ?, ?)",
+        (row["ts"], family, source, row["usd"], row["tokens"], int(row["estimated"])),
+    )
+    return row
+
+
+def spend_summary(db: Database) -> dict[str, float]:
+    """{today_usd, total_usd} across the ledger — the §14 spend summary shape
+    archive_status will return (and report_write renders as a cost section)."""
+    today = now_iso()[:10] + "T00:00:00Z"  # ISO text compares lexicographically
+    today_usd = db.conn.execute(
+        "SELECT COALESCE(SUM(usd), 0.0) AS s FROM spend_ledger WHERE ts >= ?", (today,)
+    ).fetchone()["s"]
+    total_usd = db.conn.execute("SELECT COALESCE(SUM(usd), 0.0) AS s FROM spend_ledger").fetchone()[
+        "s"
+    ]
+    return {"today_usd": float(today_usd), "total_usd": float(total_usd)}
+
+
+def enforce_daily_budget(
+    db: Database, cfg: Config, *, run_id: str, source: str, hard: bool = False
+) -> list[str]:
+    """Check the daily total against cfg.budgets.daily_usd. Returns warning
+    strings (policy `warn` logs a trajectory event and proceeds); raises
+    ToolError when `hard` is set (backtest_run pre-dispatch under fail_closed:
+    the raise rolls the trial row back — no trial, no dispatch) or when the
+    configured policy is `fail_closed`."""
+    summary = spend_summary(db)
+    limit = float(cfg.budgets.daily_usd)
+    if summary["today_usd"] <= limit:
+        return []
+    message = (
+        f"daily budget exceeded: ${summary['today_usd']:.4f} spent today "
+        f"(limit ${limit:.2f}, source {source})"
+    )
+    if hard or cfg.budgets.policy == "fail_closed":
+        raise ToolError(message)
+    trajectory.record(
+        db,
+        run_id,
+        "spark",
+        "observation",
+        {"kind": "budget_warning", "message": message, "today_usd": summary["today_usd"]},
+    )
+    return [message]
+
+
+def spend_from_costs(cfg: Config, costs: dict[str, Any] | None) -> tuple[float, int, bool]:
+    """(usd, tokens, estimated) for a costs dict: reported usd wins; otherwise
+    rate-card estimate from the token count."""
+    costs = costs or {}
+    usd = costs.get("usd")
+    tokens = int(costs.get("tokens", 0) or 0)
+    if usd is not None:
+        return float(usd), tokens, bool(costs.get("estimated", False))
+    return estimate_usd(cfg, tokens=tokens), tokens, True

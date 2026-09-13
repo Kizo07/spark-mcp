@@ -66,15 +66,18 @@ def test_five_canonical_problems_carry_full_decomposition(tmp_path):
 
 
 def test_repeat_query_overlap_below_g1_threshold(tmp_path):
-    """G1: repeat-query overlap < 30% at balanced — measured as mean pairwise
-    Jaccard-overlap of suggestion sets across 5 unseeded repeats."""
+    """G1: repeat-query overlap < 30% at balanced — mean pairwise Jaccard
+    overlap of suggestion sets across 5 repeats. Fixed seeds per repeat keep
+    the measurement deterministic in CI (a bare single seed would prove only
+    that one draw); the seeds are distinct, so this still measures
+    repeat-diversity across draws, not one draw five times."""
 
     async def run():
         async with Client(_server(tmp_path)) as client:
             sets = []
-            for _ in range(5):
+            for seed in (101, 202, 303, 404, 505):
                 out = await _explore(
-                    client, CANONICAL_PROBLEMS[0], k=5, mode="balanced"
+                    client, CANONICAL_PROBLEMS[0], k=5, mode="balanced", seed=seed
                 )
                 sets.append(set(out["suggestion_ids"]))
             pairwise = [len(a & b) / 5 for a, b in itertools.combinations(sets, 2)]

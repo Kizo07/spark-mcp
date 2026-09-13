@@ -1,11 +1,11 @@
 """MCP server: Phase-0 health tools, Phase-1 ledger & memory tools, Phase-2
-method graph & novelty tools.
+method graph & novelty tools, Phase-3 gates & backtest-seam tools.
 
 `create_server(config)` builds a `Services` (config + database handle +
-embedder/llm clients) that the tool functions close over — no module-level
-mutable state, so tests can inject a temp-db Config and fake clients. When
-no Config is passed, `SPARK_CONFIG` (env) is used if set, else defaults
-(db_path ~/.spark/spark.db, plan §16).
+embedder/llm clients + backtest provider) that the tool functions close over —
+no module-level mutable state, so tests can inject a temp-db Config and fake
+clients. When no Config is passed, `SPARK_CONFIG` (env) is used if set, else
+defaults (db_path ~/.spark/spark.db, plan §16).
 """
 
 from __future__ import annotations
@@ -18,7 +18,9 @@ from pathlib import Path
 from fastmcp import FastMCP
 
 from . import __version__, explore, graph, ledger, memory, novelty
+from .budgets import spend_summary
 from .config import Config
+from .gates import service as gates_service
 from .llm import build_embedder, build_llm
 from .storage import Database, open_db
 from .timeutil import now_iso, validate_iso
@@ -26,13 +28,14 @@ from .timeutil import now_iso, validate_iso
 
 @dataclass
 class Services:
-    """One config + one database handle + model clients, shared by every tool
-    handler. `embedder`/`llm` are None in degraded mode (§4.3)."""
+    """One config + one database handle + model clients + provider, shared by
+    every tool handler. `embedder`/`llm` are None in degraded mode (§4.3)."""
 
     cfg: Config
     db: Database
     embedder: object | None = None
     llm: object | None = None
+    provider: object | None = None
 
 
 def _resolve_config(config: Config | None) -> Config:
@@ -40,6 +43,20 @@ def _resolve_config(config: Config | None) -> Config:
         return config
     env_path = os.environ.get("SPARK_CONFIG")
     return Config.from_yaml(env_path) if env_path else Config.from_yaml()
+
+
+def _build_provider(cfg: Config):
+    """Backtest provider per §15.2: AlphaEngineProvider when the peer is
+    enabled (stdio/http via peers.alpha_engine), SimulatedProvider otherwise
+    (default; CI/demo)."""
+    peer = cfg.peers.alpha_engine
+    if peer.enabled and (peer.command or peer.url):
+        from .providers.alpha_engine import AlphaEngineProvider
+
+        return AlphaEngineProvider(peer)
+    from .providers.simulated import SimulatedProvider
+
+    return SimulatedProvider(cfg.artifacts_dir())
 
 
 def _as_of_or_now(as_of: str | None) -> str:
@@ -52,6 +69,7 @@ def create_server(
     embedder: object | None = None,
     llm: object | None = None,
     seeds: bool = True,
+    provider: object | None = None,
 ) -> FastMCP:
     cfg = _resolve_config(config)
     db_path = cfg.db_path()
@@ -60,6 +78,7 @@ def create_server(
         db=open_db(db_path),
         embedder=build_embedder(cfg) if embedder is None else embedder,
         llm=build_llm(cfg) if llm is None else llm,
+        provider=_build_provider(cfg) if provider is None else provider,
     )
     cfg.artifacts_dir().mkdir(parents=True, exist_ok=True)
     if seeds:
@@ -181,7 +200,9 @@ def create_server(
         """Close the loop on an episode: flip status per outcome; costs are
         required-or-estimated (missing -> {usd: 0, tokens: 0, estimated: true});
         reconciliation rule (C4): metrics for an episode with no counted trial
-        insert a 'reconciled' trial and flag the episode. Idempotent on client_id.
+        insert a 'reconciled' trial and flag the episode. Failure outcomes write
+        a dedupe-keyed tombstone; every outcome appends to spend_ledger and
+        ticks the per-family kill-rule counters. Idempotent on client_id.
         """
         return (
             ledger.log_outcome(
@@ -194,6 +215,7 @@ def create_server(
                 costs=costs,
                 reward=reward,
                 client_id=client_id,
+                embedder=services.embedder,
             )
         )
 
@@ -302,6 +324,77 @@ def create_server(
                 client_id=client_id,
                 embedder=services.embedder,
             )
+        )
+
+    # -- Phase 3: gates & backtest seam (plan §6 tools 11-14, §9, §12.2, §15.2) --
+
+    @mcp.tool()
+    def backtest_run(
+        episode_id: str,
+        spec: dict,
+        acknowledge_tombstone: dict | None = None,
+        client_id: str | None = None,
+    ) -> dict:
+        """Dispatch a backtest under the trial governor. Mandatory §12.2
+        tombstone pre-check (logged on episodes.tombstone_check; blocked
+        dispatches may re-attempt with acknowledge_tombstone={tombstone_id,
+        rationale}). A PENDING trial row lands before dispatch; retries on the
+        same (episode_id, spec, seed) return the winner's trial without a new
+        dispatch (M never double-counts). Returns trial + provider metrics
+        (sr/T/skew/kurt net of costs, simulated flag). Idempotent on client_id.
+        """
+        return gates_service.backtest_run(
+            services.db,
+            cfg,
+            services.provider,
+            episode_id,
+            spec,
+            client_id=client_id,
+            acknowledge_tombstone=acknowledge_tombstone,
+            embedder=services.embedder,
+            llm=services.llm,
+        )
+
+    @mcp.tool()
+    def significance_gate(episode_id: str) -> dict:
+        """Type-A gate (§9.1): DSR = PSR(SR_hat; E[max SR|H0, M_family, skew,
+        kurt, T]) — no subtraction — on the episode's net-of-costs metrics,
+        with the MinBTL pre-check. Flips the episode to validated iff DSR
+        p < dsr_alpha (SR_hat > 0, non-degenerate) and the outcome was not
+        failed, else inconclusive. SR is always reported paired with DSR;
+        C6 wording: no causal promotion without DAG, no promotion of any kind
+        without falsifier.
+        """
+        return gates_service.significance_gate(services.db, cfg, episode_id)
+
+    @mcp.tool()
+    def causal_check(
+        episode_id: str,
+        spec: dict,
+        client_id: str | None = None,
+    ) -> dict:
+        """Type-B causal probe (§9.3, C6 scoped): validate CausalSpec, delegate
+        to the provider (granger/pcmci-*, targets/conditioning/lags), store
+        under episodes.metrics.causal, return the provider result verbatim.
+        Providers without causal support raise NotImplementedError -> ToolError.
+        """
+        return gates_service.causal_check(
+            services.db, cfg, services.provider, episode_id, spec, client_id=client_id
+        )
+
+    @mcp.tool()
+    def risk_decompose(
+        episode_id: str,
+        spec: dict,
+        client_id: str | None = None,
+    ) -> dict:
+        """Book risk decomposition (§15.2): validate BookSpec (exactly one of
+        book_id / holdings_uri / returns_uri), delegate to the provider,
+        store on episodes.risk_exposures, return verbatim. Providers without
+        risk support raise NotImplementedError -> ToolError.
+        """
+        return gates_service.risk_decompose(
+            services.db, cfg, services.provider, episode_id, spec, client_id=client_id
         )
 
     @mcp.tool()
@@ -438,8 +531,13 @@ def _report_markdown(services: Services, hypothesis_id: str | None, episode_id: 
         "## Costs",
         "",
         f"- total: ${total_usd:.4f} usd, {total_tokens} tokens (summed over reported episodes)",
-        "",
     ]
+    spend = spend_summary(db)
+    lines.append(
+        f"- spend ledger: ${spend['today_usd']:.4f} usd today, ${spend['total_usd']:.4f} usd total"
+        " (§14; archive_status will expose the same summary in Phase 5)"
+    )
+    lines.append("")
     return "\n".join(lines)
 
 
