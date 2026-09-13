@@ -11,6 +11,7 @@ from fastmcp import Client
 from fastmcp.exceptions import ToolError
 
 from spark_mcp.config import Config
+from spark_mcp.explore import explore_methods
 from spark_mcp.llm import FakeEmbedder
 from spark_mcp.server import create_server
 
@@ -219,3 +220,112 @@ def test_explore_respects_as_of_for_pit():
     assert "causal" in out_now["prior_trials"]
     assert out_past["prior_trials"] == {}  # PIT: the episode is in the future
     assert out_past["families_tried"] == []
+
+
+def test_family_weights_inference(seeded, cfg, embedder):
+    """Family-aware relevance: the problem's family-weight map is inferred
+    from the graph's own vocabulary; an unrelated problem is neutral."""
+    from spark_mcp import retrieval
+    from spark_mcp.explore import DeterministicScorer
+
+    scorer = DeterministicScorer(seeded, "2024-01-01T00:00:00Z", cfg)
+    causal_weights = scorer.family_weights(
+        retrieval.tokens("identify the causal effect of a policy shock")
+    )
+    assert causal_weights["causal"] == pytest.approx(1.0)  # max-normalized
+    assert causal_weights["network_optimization"] < 0.5
+    neutral = scorer.family_weights(retrieval.tokens("zzq xyzzy blorp"))
+    assert all(w == pytest.approx(1.0) for w in neutral.values())
+
+
+def test_causal_problem_ranks_causal_above_allocation(seeded, cfg, embedder):
+    """Family-aware scoring: for a causal-worded problem, causal-family
+    methods outrank allocation/network methods in the score order."""
+    out = explore_methods(
+        seeded,
+        cfg,
+        CANONICAL_PROBLEMS[1],
+        k=5,
+        mode="balanced",
+        as_of="2024-01-01T00:00:00Z",
+        embedder=embedder,
+        seed=11,
+    )
+    fam_by_rank = [c["family"] for c in out["candidates"]]
+    first_causal = fam_by_rank.index("causal")
+    first_network = fam_by_rank.index("network_optimization")
+    assert first_causal < first_network
+
+
+def test_cross_family_composition_survives_via_edges(seeded, cfg, embedder):
+    """Cross-family composition is not zeroed: a volatility-regime problem
+    still surfaces signal-processing methods (regime_detection vocabulary)
+    in the scored candidates with positive scores."""
+    out = explore_methods(
+        seeded,
+        cfg,
+        CANONICAL_PROBLEMS[2],
+        k=5,
+        mode="balanced",
+        as_of="2024-01-01T00:00:00Z",
+        embedder=embedder,
+        seed=13,
+    )
+    signal = [c for c in out["candidates"] if c["family"] == "signal_processing"]
+    assert signal and all(c["score"] > 0 for c in signal)
+    econometrics = [c for c in out["candidates"] if c["family"] == "econometrics"]
+    assert econometrics and all(c["score"] > 0 for c in econometrics)
+
+
+def test_family_factor_floors_off_family_relevance(seeded, cfg, embedder):
+    """With family_weight_floor, an off-family candidate's relevance channel
+    is scaled down toward the floor (not zeroed, not full)."""
+    out = explore_methods(
+        seeded,
+        cfg,
+        CANONICAL_PROBLEMS[1],  # causal problem: network weight ~0
+        k=5,
+        mode="balanced",
+        as_of="2024-01-01T00:00:00Z",
+        embedder=embedder,
+        seed=17,
+    )
+    assert out["family_weights"]["causal"] == pytest.approx(1.0)
+    assert out["family_weights"]["network_optimization"] < 0.5
+    network = [c for c in out["candidates"] if c["family"] == "network_optimization"]
+    causal = [c for c in out["candidates"] if c["family"] == "causal"]
+    assert network and causal
+    # the floored family factor pushes every off-family score below the
+    # on-family scores (composition stays possible: scores remain > 0)
+    assert max(c["score"] for c in network) < max(c["score"] for c in causal)
+    assert all(c["score"] > 0 for c in network)
+
+
+def test_obvious_champion_not_suggested(seeded, cfg, embedder):
+    """selection_obvious_drop: the single best-scoring candidate is excluded
+    from the draw — suggestions surface challengers (non-obvious picks)."""
+    out = explore_methods(
+        seeded,
+        cfg,
+        CANONICAL_PROBLEMS[3],
+        k=5,
+        mode="balanced",
+        as_of="2024-01-01T00:00:00Z",
+        embedder=embedder,
+        seed=23,
+    )
+    champion = out["candidates"][0]["method_id"]
+    assert champion not in out["suggestion_ids"]
+
+
+def test_seeded_reproducibility_includes_family_weights(tmp_path):
+    async def run():
+        async with Client(_server(tmp_path)) as client:
+            a = await _explore(client, CANONICAL_PROBLEMS[1], k=5, seed=31)
+            b = await _explore(client, CANONICAL_PROBLEMS[1], k=5, seed=31)
+            return a, b
+
+    a, b = asyncio.run(run())
+    assert a["family_weights"] == b["family_weights"]
+    assert a["suggestion_ids"] == b["suggestion_ids"]
+    assert set(a["suggestions"][0]["decomposition"]) == DECOMP_KEYS

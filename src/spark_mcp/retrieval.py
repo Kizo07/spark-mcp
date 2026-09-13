@@ -20,9 +20,24 @@ from .timeutil import validate_iso
 
 TOKEN_RE = re.compile(r"[a-z0-9]+")
 
+# Generic English stopwords (stdlib-only IR hygiene): they carry no
+# family/semantic signal and, being rare in node texts, would otherwise hold
+# inflated IDF and dominate matches.
+STOPWORDS = frozenset(
+    """
+    a an and are as at be been being but by can could did do does doing for
+    from had has have having he her hers him his how i if in into is it its
+    just me more most my no nor not of on once only or other our ours over
+    own same she should so some such than that the their theirs them
+    themselves then there these they this those through to too under until
+    very was we were what when where which while who whom why will with
+    would you your yours
+    """.split()
+)
+
 
 def tokens(text: str) -> set[str]:
-    return set(TOKEN_RE.findall(text.lower()))
+    return {t for t in TOKEN_RE.findall(text.lower()) if t not in STOPWORDS}
 
 
 def jaccard(a: set[str], b: set[str]) -> float:

@@ -4,14 +4,23 @@
           + w_e·exploration_bonus + w_p·prior_success
 
 relevance/structural_fit are LLM-scored only when a key (LLM client) is
-configured; otherwise the DeterministicScorer (lexical + graph-proximity)
-runs. LLM scores are cached per (method, problem_class, model_id).
-exploration_bonus is the Phase 2 uniform constant (bandit posteriors arrive
-with the QD archive in Phase 5); prior_success is the family deflated hit
-rate (Beta-posterior mean, cfg.research.bandit_prior) from PIT episodes,
-default 0.5 with no data. Selection = softmax(temperature by mode) sampled
-without replacement into a pool, then MMR(λ) diversification → k
-suggestions, each carrying its full decomposition + selection probability.
+configured; otherwise the DeterministicScorer runs: IDF-weighted lexical
+relevance (best of diluted full-text recall and concentrated mech-tag
+evidence), max-normalized across candidates and scaled by a family factor —
+the problem's match against each family's graph vocabulary (family names,
+ASSUMES/FAILS_WHEN concept atoms, whole mechanism-tag compounds with
+affix/part/middle-word discounts, size-normalized so big families can't win
+by bulk). The factor applies softly to structural_fit too (edges are the
+legitimate cross-family composition route). LLM scores are cached per
+(method, problem_class, model_id). exploration_bonus is the Phase 2 uniform
+constant (bandit posteriors arrive with the QD archive in Phase 5);
+prior_success is the family deflated hit rate (Beta-posterior mean,
+cfg.research.bandit_prior) from PIT episodes, default 0.5 with no data.
+Selection (§8.2): candidates within selection_score_band of the best score
+form the defensible set; the pool is drawn from it with a flattened
+(higher-temperature) softmax, then MMR(λ) diversification → k suggestions,
+each carrying its full decomposition + selection probability (the reported
+selection_probability is always the unflattened softmax).
 """
 
 from __future__ import annotations
@@ -34,17 +43,51 @@ TERMINAL_FAILURE = ("failure", "failed")
 
 class DeterministicScorer:
     """Degraded-mode scorer (§8.1): IDF-weighted lexical relevance of the node
-    text (rare problem tokens like 'causal' outweigh generic ones like
-    'returns'), structural fit from graph proximity — neighbors that are
-    themselves relevant to the problem, Laplace-smoothed."""
+    text (exact tokens plus discounted affix-bounded derivational matches),
+    scaled by a family factor — the problem's match against each family's
+    graph vocabulary, max-normalized with a configured floor so cross-family
+    composition survives. Family vocabulary: family names + ASSUMES /
+    FAILS_WHEN concept labels contribute natural-language ATOMS (middle words
+    of compound concepts discounted); mechanism tags stay whole COMPOUNDS
+    (inner parts match only at a part-of-compound discount, so
+    'normal_returns' does not make 'returns' allocation vocabulary). A
+    vocab-space IDF over the family "documents" discounts terms many families
+    share ('estimation', 'error'). Structural fit comes from graph proximity;
+    the family factor applies to the node's own lexical relevance only, so
+    the two channels compose without double-counting."""
 
-    def __init__(self, db: Database, as_of: str):
+    # Derivational affixes bounding a substring match (noise ~ denoising,
+    # robust ~ robustness, shift ~ regime_shift). Anything not on these lists
+    # must be an exact token match — free substring matching lets 'estimate'
+    # match 'estimation_accuracy' and family weights collapse toward 1.
+    _AFFIX_PRE = frozenset(
+        {"de", "re", "un", "in", "im", "over", "under", "pre", "post", "mis",
+         "non", "multi", "counter"}
+    )
+    _AFFIX_POST = frozenset(
+        {"ing", "ed", "es", "s", "er", "est", "ly", "ion", "tion", "ation",
+         "sion", "ment", "ness", "ity", "al", "ic", "ive", "ous", "ful",
+         "able", "ible", "ize", "ise", "ify"}
+    )
+
+    def __init__(self, db: Database, as_of: str, cfg: Config):
+        import json as _json
         import math
         from collections import Counter
 
+        self._morph_min = max(int(cfg.research.family_morph_min_len), 3)
+        self._part_discount = float(cfg.research.family_part_discount)
+        self._affix_discount = float(cfg.research.family_affix_discount)
+        self._middle_discount = float(cfg.research.family_middle_discount)
+        self._cfg = cfg
+
         rows = db.conn.execute(
-            "SELECT label, summary, mech_tags FROM graph_nodes WHERE as_of <= ?", (as_of,)
+            "SELECT label, summary, mech_tags, family FROM graph_nodes"
+            " WHERE as_of <= ? AND type = 'technique'",
+            (as_of,),
         ).fetchall()
+
+        # node-text IDF (drives relevance / structural_fit recall)
         docs = [
             retrieval.tokens(" ".join([r["label"], r["summary"] or "", r["mech_tags"]]))
             for r in rows
@@ -55,23 +98,192 @@ class DeterministicScorer:
             df.update(set(d))
         self._idf = {t: math.log((n + 1) / (c + 1)) + 1.0 for t, c in df.items()}
 
+        # family vocabulary (drives family_weights)
+        self._atoms: dict[str, set[str]] = {}
+        self._compounds: dict[str, set[str]] = {}
+        self._atom_middle: dict[str, set[str]] = {}  # atoms from concept middles
+
+        def _atoms(family: str) -> set[str]:
+            return self._atoms.setdefault(family, set())
+
+        def _add_compound(family: str, term: str) -> None:
+            self._compounds.setdefault(family, set()).add(term)
+
+        for r in rows:
+            family = r["family"] or ""
+            _atoms(family).update(retrieval.tokens(family))  # family name
+            for tag in _json.loads(r["mech_tags"] or "[]"):
+                tag = str(tag)
+                if "_" in tag:
+                    _add_compound(family, tag)  # inner parts are not atoms
+                else:
+                    _atoms(family).add(tag)  # bare tag = natural word
+            for word in retrieval.TOKEN_RE.findall(r["summary"] or ""):
+                if "_" in word:
+                    _add_compound(family, word)
+        for r in db.conn.execute(
+            "SELECT src_node.family AS family, dst.label AS concept"
+            " FROM graph_edges e"
+            " JOIN graph_nodes src_node ON src_node.node_id = e.src"
+            " JOIN graph_nodes dst ON dst.node_id = e.dst"
+            " WHERE e.predicate IN ('ASSUMES', 'FAILS_WHEN')"
+            " AND e.valid_from <= ? AND (e.valid_to IS NULL OR ? < e.valid_to)"
+            " AND e.as_of <= ?",
+            (as_of, as_of, as_of),
+        ).fetchall():
+            family = r["family"] or ""
+            words = retrieval.tokens(r["concept"])
+            _atoms(family).update(words)
+            parts = [w for w in retrieval.TOKEN_RE.findall(r["concept"]) if w in words]
+            for w in parts[1:-1]:  # middle words of multi-word concepts
+                self._atom_middle.setdefault(family, set()).add(w)
+
+        # vocab-space IDF: each family's vocab (atoms + compounds) is one doc,
+        # so terms many families share are weakly discriminative
+        fam_count = max(len(self._atoms), 1)
+        vocab_df: Counter[str] = Counter()
+        for fam in self._atoms:
+            for t in self._atoms[fam] | self._compounds.get(fam, set()):
+                vocab_df[t] += 1
+        self._vidf = {
+            t: math.log((fam_count + 1) / (c + 1)) + 1.0 for t, c in vocab_df.items()
+        }
+
+    def _affix_bounded(self, short: str, long: str) -> bool:
+        """True when `short` sits inside `long` bounded only by derivational
+        affixes (plus optional underscores), in either direction."""
+        if len(short) > len(long):
+            short, long = long, short
+        start = 0
+        while True:
+            i = long.find(short, start)
+            if i < 0:
+                return False
+            pre, post = long[:i], long[i + len(short):]
+            pre_ok = pre in ("", "_") or pre.rstrip("_") in self._AFFIX_PRE
+            post_ok = post in ("", "_") or post.lstrip("_") in self._AFFIX_POST
+            if pre_ok and post_ok:
+                return True
+            start = i + 1
+
+    def _atom_weight(self, token: str, family: str) -> float:
+        if token not in self._atoms.get(family, set()):
+            return 0.0
+        w = self._vidf.get(token, 1.0)
+        if token in self._atom_middle.get(family, set()):
+            w *= self._middle_discount
+        return w
+
+    def _compound_weight(self, token: str, family: str) -> float:
+        """Best weight against the family's compound tags: exact compound >
+        exact part > affix-bounded part (detect ~ regime_DETECTION) >
+        affix-bounded whole, each discounted."""
+        best = 0.0
+        for c in self._compounds.get(family, set()):
+            if token == c:
+                best = max(best, self._vidf.get(c, 1.0))
+                continue
+            parts = c.split("_")
+            if token in parts:
+                best = max(best, self._vidf.get(c, 1.0) * self._part_discount)
+                continue
+            if len(token) < self._morph_min:
+                continue
+            if any(
+                len(p) >= self._morph_min and self._affix_bounded(token, p)
+                for p in parts
+            ):
+                best = max(best, self._vidf.get(c, 1.0) * self._affix_discount)
+            elif self._affix_bounded(token, c):
+                best = max(best, self._vidf.get(c, 1.0) * self._affix_discount)
+        return best
+
+    def _term_weight(self, token: str, family: str) -> float:
+        return max(self._atom_weight(token, family), self._compound_weight(token, family))
+
+    def family_weights(self, problem_tokens: set[str]) -> dict[str, float]:
+        """How strongly the problem text points at each research family, in
+        [0, 1], max-normalized. Raw matches are deflated by vocabulary size
+        (large families collect spurious matches by bulk alone) and a problem
+        matching nothing returns all-ones (never punish with no signal)."""
+        import math
+
+        alpha = float(self._cfg.research.family_size_norm_exponent)
+        raw = {}
+        for fam in self._atoms:
+            vocab_size = len(self._atoms[fam]) + len(self._compounds.get(fam, set()))
+            total = sum(
+                self._term_weight(t, fam) for t in problem_tokens if len(t) >= 3
+            )
+            raw[fam] = total / max(1.0, math.sqrt(vocab_size)) ** (2.0 * alpha)
+        top = max(raw.values(), default=0.0)
+        if top <= 0:
+            return {f: 1.0 for f in raw}
+        return {f: w / top for f, w in raw.items()}
+
     def _recall(self, problem_tokens: set[str], text_tokens: set[str]) -> float:
-        """IDF-weighted share of the problem's vocabulary covered by the text."""
-        shared = problem_tokens & text_tokens
-        if not shared or not problem_tokens:
+        """IDF-weighted share of the problem's vocabulary covered by the text
+        (exact tokens plus affix-bounded derivational matches, discounted)."""
+        if not problem_tokens:
+            return 0.0
+        covered = 0.0
+        for t in problem_tokens:
+            if t in text_tokens:
+                covered += self._idf.get(t, 1.0)
+            elif len(t) >= self._morph_min:
+                forms = [
+                    self._idf.get(u, 1.0)
+                    for u in text_tokens
+                    if len(u) >= self._morph_min and self._affix_bounded(t, u)
+                ]
+                if forms:
+                    covered += max(forms) * self._affix_discount
+        if covered <= 0:
             return 0.0
         denom = sum(self._idf.get(t, 1.0) for t in problem_tokens)
         if denom <= 0:
             return 0.0
-        return sum(self._idf.get(t, 1.0) for t in shared) / denom
+        return covered / denom
+
+    def mech_evidence(self, problem_tokens: set[str], node: dict) -> float:
+        """Concentrated mechanism-tag evidence: IDF-weighted problem match
+        against the node's own mech_tags, with the same affix/part discounts.
+        Unlike relevance (a recall diluted by the full problem denominator),
+        this rewards a direct hit on the curated mechanism descriptors — a
+        method tagged regime_detection IS about detecting regimes even if its
+        label/summary never says 'volatility'."""
+        compounds = [str(t) for t in node.get("mech_tags", []) if "_" in str(t)]
+        atoms = {str(t) for t in node.get("mech_tags", []) if "_" not in str(t)}
+        total = 0.0
+        for t in problem_tokens:
+            if len(t) < 3:
+                continue
+            best = 0.0
+            if t in atoms:
+                best = self._idf.get(t, 1.0)
+            elif len(t) >= self._morph_min:
+                for c in compounds:
+                    parts = c.split("_")
+                    if t in parts:
+                        best = max(best, self._idf.get(c, 1.0) * self._part_discount)
+                    elif self._affix_bounded(t, c) or any(
+                        len(p) >= self._morph_min and self._affix_bounded(t, p)
+                        for p in parts
+                    ):
+                        best = max(best, self._idf.get(c, 1.0) * self._affix_discount)
+            total += best
+        return total
 
     def relevance(self, problem_tokens: set[str], node: dict) -> float:
+        """Best of diluted text recall and concentrated tag evidence (max, not
+        sum — the tag tokens are already inside the recall text)."""
         node_tokens = retrieval.tokens(
             " ".join(
                 [node["label"], node.get("summary") or "", " ".join(node["mech_tags"])]
             )
         )
-        return self._recall(problem_tokens, node_tokens)
+        return max(self._recall(problem_tokens, node_tokens),
+                   self.mech_evidence(problem_tokens, node))
 
     def structural_fit(
         self, db: Database, node: dict, problem_tokens: set[str], as_of: str
@@ -272,18 +484,56 @@ def explore_methods(
             c["mech_tags"] = json.loads(c["mech_tags"])
 
     posteriors = _family_posteriors(db, cfg, as_of)
-    scorer = DeterministicScorer(db, as_of)
+    scorer = DeterministicScorer(db, as_of, cfg)
     problem_tokens = retrieval.tokens(problem)
     exploration_bonus = float(cfg.research.exploration_bonus_uniform)
+    family_weights = scorer.family_weights(problem_tokens)
+    family_floor = float(cfg.research.family_weight_floor)
 
-    scored = []
+    def _family_factor(node_family: str | None) -> float:
+        # on-family candidates keep full lexical relevance; off-family ones
+        # keep `family_floor` of it (cross-family composition stays possible)
+        return family_floor + (1.0 - family_floor) * family_weights.get(
+            node_family or "", 0.0
+        )
+
+    fit_exponent = float(cfg.research.family_fit_factor_exponent)
+
+    # Pass 1: raw factored relevance per candidate (LLM or deterministic),
+    # plus structural_fit in the same pass when an LLM is present.
+    raw_relevance: list[float] = []
+    llm_fit: list[float | None] = []
     for node in candidates:
         llm_scores = _llm_scores(db, llm, node, problem, pclass) if llm else None
         if llm_scores is not None:
-            relevance, structural_fit = llm_scores
+            raw_relevance.append(llm_scores[0])
+            llm_fit.append(llm_scores[1])
         else:
-            relevance = scorer.relevance(problem_tokens, node)
-            structural_fit = scorer.structural_fit(db, node, problem_tokens, as_of)
+            raw_relevance.append(
+                scorer.relevance(problem_tokens, node) * _family_factor(node.get("family"))
+            )
+            llm_fit.append(None)
+    # Max-normalize the factored relevance across candidates: raw recall is
+    # denominator-diluted by unmatched problem tokens, which would let the
+    # structural_fit channel dominate the ranking and wash the family factor
+    # out. Normalization restores the §8.1 channel balance with the pinned
+    # weights; the value reported in the decomposition is the value used.
+    rel_max = max(raw_relevance, default=0.0)
+
+    scored = []
+    for node, relevance, fit in zip(candidates, raw_relevance, llm_fit, strict=True):
+        factor = _family_factor(node.get("family"))
+        structural_fit = (
+            fit if fit is not None else scorer.structural_fit(db, node, problem_tokens, as_of)
+        )
+        if fit is None:
+            # the family factor applies to lexical evidence directly and to
+            # graph-proximity evidence softened (fit_exponent): edges are the
+            # legitimate cross-family composition channel, but they cannot
+            # fully override a family mismatch either
+            if rel_max > 0:
+                relevance = relevance / rel_max
+            structural_fit = structural_fit * factor**fit_exponent
         fam_stats = posteriors.get(node.get("family") or "", {})
         prior_success = float(fam_stats.get("prior_success", 0.5))
         nov = novelty.check_novelty(
@@ -339,6 +589,7 @@ def explore_methods(
             "k": k,
             "as_of": as_of,
             "candidate_count": 0,
+            "family_weights": family_weights,
             "prior_trials": {},
             "families_tried": [],
             "suggestions": [],
@@ -352,14 +603,42 @@ def explore_methods(
     for s, p in zip(scored, probs, strict=True):
         s["selection_probability"] = float(p)
 
+    # Selection pool = the "defensible set": candidates within
+    # selection_score_band of the best score (§8.2 — softmax picks among
+    # defensible moves, randomness never promotes an indefensible one).
+    # Softmax sampling without replacement inside the set keeps exploration
+    # (G1 repeat-overlap); if the band is too tight to sample from, fall back
+    # to the top 2k by score so k suggestions are always reachable.
+    band = float(cfg.research.selection_score_band)
+    obvious_drop = max(int(cfg.research.selection_obvious_drop), 0)
+    order = sorted(
+        range(len(scored)), key=lambda i: (-scored[i]["score"], scored[i]["method_id"])
+    )
+    pool_order = order[obvious_drop:]  # the champion is the obvious move
+    best = scored[pool_order[0]]["score"]
+    eligible_idx = [i for i in pool_order if scored[i]["score"] >= best - band]
+    min_eligible = max(int(cfg.research.selection_min_eligible), k + 1)
+    if len(eligible_idx) < min_eligible:  # keep the draw stochastic (G1 overlap)
+        eligible_idx = pool_order[: min(min_eligible, len(pool_order))]
+
     rng = np.random.default_rng(seed)
-    n = len(scored)
-    pool_size = min(n, max(2 * k, k + 5))
-    if n <= pool_size:
-        pool = list(scored)
+    pool_size = min(len(eligible_idx), k + max(int(cfg.research.selection_pool_extra), 1))
+    if len(eligible_idx) <= pool_size:
+        pool = [scored[i] for i in eligible_idx]
     else:
-        drawn = rng.choice(n, size=pool_size, replace=False, p=probs)
-        pool = [scored[int(i)] for i in drawn]
+        # Pool draw uses a flattened (higher-temperature) distribution: the
+        # reported selection_probability stays the true softmax (§8.2), but
+        # exploration across repeats (G1 overlap) needs the draw to stay
+        # stochastic even when the score ranking is decisive.
+        flatten = max(float(cfg.research.selection_pool_temp_multiplier), 1e-6)
+        pool_logits = np.array(
+            [scored[i]["score"] for i in eligible_idx], dtype=np.float64
+        ) / (max(temperature, 1e-9) * flatten)
+        pool_logits -= pool_logits.max()
+        pool_probs = np.exp(pool_logits)
+        pool_probs /= pool_probs.sum()
+        drawn = rng.choice(len(eligible_idx), size=pool_size, replace=False, p=pool_probs)
+        pool = [scored[eligible_idx[int(i)]] for i in drawn]
 
     sim_matrix = _similarity_matrix(db, pool, embedder, as_of)
     suggestions = _mmr_select(pool, k, lam, sim_matrix)
@@ -373,7 +652,8 @@ def explore_methods(
         "mmr_lambda": lam,
         "k": k,
         "as_of": as_of,
-        "candidate_count": n,
+        "candidate_count": len(scored),
+        "family_weights": family_weights,
         "prior_trials": {f: v["trials"] for f, v in posteriors.items()},
         "families_tried": sorted(posteriors),
         "candidates": [
@@ -398,7 +678,7 @@ def explore_methods(
             "tool": "explore_methods",
             "mode": mode,
             "k": k,
-            "candidate_count": n,
+            "candidate_count": len(scored),
             "suggestion_ids": result["suggestion_ids"],
             "as_of": as_of,
         },

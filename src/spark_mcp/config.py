@@ -54,6 +54,46 @@ class ResearchConfig(BaseModel):
     family_count_norm: int = 20
     # Phase 2 uniform exploration bonus; bandit posteriors replace it in Phase 5.
     exploration_bonus_uniform: float = 0.5
+    # Family-aware relevance (degraded/deterministic mode): candidates from a
+    # family the problem doesn't point at keep this fraction of their lexical
+    # relevance (cross-family composition stays possible, just penalized).
+    family_weight_floor: float = 0.05
+    # Minimum token length for substring (derivational) matches when matching
+    # problem tokens against the family vocabulary (noise ~ denoising).
+    family_morph_min_len: int = 4
+    # Discounts inside the family-vocabulary match: part-of-compound tags
+    # ('returns' inside 'normal_returns'), affix-bounded derivations
+    # (robust ~ robustness), and middle words of compound concepts
+    # ('estimate' inside 'Edge estimate accuracy').
+    family_part_discount: float = 0.3
+    family_affix_discount: float = 0.5
+    family_middle_discount: float = 0.5
+    # Family-weight size normalization: raw family matches are deflated by
+    # vocab_size^exponent so large families (51 quant cards) cannot win by
+    # bulk alone against focused families (10 signal cards).
+    family_size_norm_exponent: float = 0.5
+    # Selection: candidates within this score band of the best candidate form
+    # the "defensible set" the softmax draws from (§8.2); wider = more
+    # exploration (lower repeat-overlap), narrower = tighter tracking of the
+    # score ranking. The set is never smaller than selection_min_eligible so
+    # the draw stays stochastic (G1-grade repeat-overlap), and the pool is
+    # k + selection_pool_extra so MMR picks k from a meaningfully random draw.
+    # selection_obvious_drop top scorers are excluded from the set: the
+    # champion is the obvious move — suggestions surface challengers (G1 asks
+    # for non-obvious-yet-plausible, and the excluded pick would otherwise
+    # recur in every repeat, driving repeat-overlap up).
+    selection_score_band: float = 0.12
+    selection_min_eligible: int = 24
+    selection_pool_extra: int = 0
+    selection_obvious_drop: int = 1
+    # Softened family factor exponent for the structural_fit channel: edges
+    # are the legitimate cross-family composition route, so fit is penalized
+    # by factor^exponent rather than the full factor.
+    family_fit_factor_exponent: float = 0.5
+    # Pool draws use temperature x this multiplier (higher = flatter draws =
+    # more repeat-query exploration); the reported selection_probability is
+    # always the unflattened softmax.
+    selection_pool_temp_multiplier: float = 3.0
     scoring_weights: list[float] = Field(default=[0.35, 0.20, 0.20, 0.15, 0.10])
     temperatures: dict[str, float] = Field(
         default={"safe": 0.3, "balanced": 0.7, "exploratory": 1.2}

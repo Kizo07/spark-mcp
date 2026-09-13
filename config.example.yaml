@@ -20,6 +20,18 @@ research:
   s_cap: 5.0
   family_count_norm: 20        # cell_emptiness v1 normalizer (QD grid: Phase 5)
   exploration_bonus_uniform: 0.5  # bandit posteriors replace this in Phase 5
+  family_weight_floor: 0.05   # off-family relevance floor (deterministic mode)
+  family_morph_min_len: 4     # substring-match min length for family vocab
+  family_part_discount: 0.3   # part-of-compound tag match discount
+  family_affix_discount: 0.5  # affix-bounded derivation match discount
+  family_middle_discount: 0.5 # middle-word-of-concept match discount
+  family_size_norm_exponent: 0.5  # deflate raw matches by family vocab size
+  selection_score_band: 0.12   # defensible-set band for softmax pool (§8.2)
+  selection_min_eligible: 24  # keep the pool stochastic (G1 repeat-overlap)
+  selection_pool_extra: 0     # pool size = k + extra, drawn from eligible
+  selection_obvious_drop: 1   # exclude the top scorer (surface challengers)
+  family_fit_factor_exponent: 0.5  # softened family factor on the fit channel
+  selection_pool_temp_multiplier: 3.0  # flatten pool draws (G1 exploration)
   scoring_weights: [0.35, 0.20, 0.20, 0.15, 0.10]
   temperatures: { safe: 0.3, balanced: 0.7, exploratory: 1.2 }
   mmr_lambda: 0.5
