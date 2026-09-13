@@ -167,3 +167,57 @@ Final commit records this file and all review artifacts.*
   semantics + N6/N7 carried (only bite once real payloads flow). QuantFlow
   §15.1 row verification committed at reviews/2026-09-13_quantflow_151_verification.md
   (rows 1/2/5 PARTIAL, 3/4 ABSENT).
+
+## Phase 5 — QD archive & exploration (closed 2026-09-13)
+
+- `archive.py`: native MAP-Elites (pure-Python grid; pyribs not installable
+  here, optional accelerator only). SQL `qd_cells` is durable truth;
+  write-through upsert inside the caller's transaction; strict `>`
+  replacement (ties keep incumbent); config-named bins, no catch-all family
+  (unknown families refused named). §10.2 per-type rewards (causal stability
+  drawn from the same budget; descriptive/execution reduced set + excluded
+  from insertion by default with a named refusal logged, never a caller
+  error); `component_defaults` honesty field.
+- Thompson posteriors authoritative in `exploration_state` (PIT via
+  `updated_at`; episode-derived Beta fallback for pre-v7 rows); explore's
+  exploration bonus = posterior mean — empty-state outputs bit-identical
+  (G1-pinned). `novelty.check_novelty` real `cell_emptiness` from the
+  archive family slice (basis reported; degraded approximation preserved).
+- `archive_status` + `suggest_next` tools; `log_outcome` triggers QD
+  insertion on terminal success; `gap_report_id` placeholder names Phase 7.
+- **G3 GREEN** (tests/test_g3_scenario.py, unmocked): 4/192 cells across 4
+  families; cell `7:0:0` suggested AND acted on (posterior (3,1), qd row);
+  tombstone re-spend blocked at cosine 0.931 with pre-check logged + ack
+  path; suggestions carry decomposition + selection probability.
+- **Verdict: PASS-WITH-NITS** (reviews/2026-09-13_phase-5.md). Nits 2–6
+  fixed in `50337e9`; **carried: nit 1 — PIT `as_of` threading on archive
+  reads (must-fix before Phase 7; needs the hide-by-`updated_at` vs
+  history-table design decision)**, nits 7–9 (live subscore sparsity until
+  callers supply §10.2 components; completion-without-verdict success tick;
+  suggest_next field reuse). 260 tests; ruff clean.
+
+## G4 go/no-go evaluation (2026-09-13, before Phase 6)
+
+§18.0 G4 condition: **G1–G3 green + ≥50 logged outcomes with non-degenerate
+family posteriors, else reassess (§6 kill rule).**
+
+| Conjunct | Result |
+|---|---|
+| G1 | **NOT green** — overlap green (0.212, all ≤0.30), judge red ([5,1,1,1,1] after 5 blind rounds; diagnosis: depth-per-problem vs draw entropy + thin corpus shelves; remedy = corpus ingestion, out of Phases 4–7 scope) |
+| G2 | GREEN (standalone) |
+| G3 | GREEN (Phase 5 scenario, reproduced by reviewer + orchestrator) |
+| ≥50 outcomes, non-degenerate posteriors | **PASS** — 60 outcomes across 5 families, Beta(10,4) everywhere (script: /tmp/g4_outcomes.py pattern; 60 trial rows, 0 degenerate) |
+
+**G4 verdict: RED — reassess per §6.** Reassessment summary: the §6 kill
+rule is functioning (tombstone + consecutive-failure machinery verified in
+G2/G3 scenarios); the blocker is not exploration hygiene but the G1 judge
+half's corpus-depth ceiling, already diagnosed and deliberately not gamed.
+Per the goal's stop rule, Phases 6–7 are NOT started with G4 red; this is a
+report-and-stop point, not a forced pass.
+
+Unblock paths (human decision, §19): (a) fund the corpus-saturation work
+(methods-corpus ingestion for thin shelves) and re-run the G1 judge, then
+G4 re-evaluates; (b) accept G4-red risk and direct Phase 6–7 to proceed —
+skill evolution would run on posteriors that are statistically healthy but
+on a suggestion base whose blind-eval depth is unproven; (c) re-scope G1's
+judge protocol (plan change, not orchestrator discretion).
