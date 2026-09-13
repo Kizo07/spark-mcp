@@ -447,3 +447,56 @@ def test_closeout_cli(tmp_path, cfg):
 def test_telemetry_push_is_an_explicit_deferral(db, cfg):
     with pytest.raises(NotImplementedError, match="deferred"):
         hooks.telemetry_push(db, cfg, {})
+
+
+def test_empty_skills_preserve_prior_enrichment(db, cfg):
+    """{} means 'unknown' (row-3 fallback), never 'no skills': a later
+    summary carrying less must not wipe earlier evidence (review N1)."""
+    import json as _json
+
+    ep = _desk_episode(db, cfg)
+    base = _payload(episode_id=ep, skills_activated={"quant-desk": "2.0.0"})
+    hooks.ingest_run_summary(db, cfg, base)
+    hooks.ingest_run_summary(db, cfg, _payload(episode_id=ep, skills_activated={}))
+    row = db.conn.execute(
+        "SELECT skill_versions FROM episodes WHERE episode_id = ?", (ep,)
+    ).fetchone()
+    assert _json.loads(row["skill_versions"]) == {"quant-desk": "2.0.0"}
+
+
+def test_whitespace_only_strings_treated_as_absent(db, cfg):
+    """run_id/fingerprint/resolution of '   ' are absent, not values (N5)."""
+    ep = _desk_episode(db, cfg)
+    out = hooks.ingest_run_summary(
+        db,
+        cfg,
+        _payload(
+            episode_id=ep,
+            fingerprint="   ",
+            fingerprint_spec_version="  ",
+            failure_sketches=[{"stage": "s", "error_class": "e", "resolution": "  "}],
+        ),
+    )
+    assert out["fingerprint"] is None
+    assert out["fingerprint_spec_version"] is None
+    assert out["difficulty"]["failures_overcome"] == 0
+    row = db.conn.execute(
+        "SELECT agent_assembly_fingerprint, fingerprint_spec_version FROM episodes"
+        " WHERE episode_id = ?",
+        (ep,),
+    ).fetchone()
+    assert row["agent_assembly_fingerprint"] is None
+    assert row["fingerprint_spec_version"] is None
+
+
+def test_orphan_spec_version_without_fingerprint_ignored(db, cfg):
+    ep = _desk_episode(db, cfg)
+    hooks.ingest_run_summary(
+        db,
+        cfg,
+        _payload(episode_id=ep, fingerprint_spec_version="spec/9"),
+    )
+    row = db.conn.execute(
+        "SELECT fingerprint_spec_version FROM episodes WHERE episode_id = ?", (ep,)
+    ).fetchone()
+    assert row["fingerprint_spec_version"] is None

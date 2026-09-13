@@ -167,14 +167,24 @@ def ingest_run_summary(db: Database, cfg: Config, payload: dict) -> dict:
     summary = validate_run_summary(payload)
 
     run_id = summary["run_id"]
-    # Empty strings are treated as absent throughout enrichment.
-    episode_id = summary.get("episode_id") or None
-    fingerprint = summary.get("fingerprint") or None
-    spec_version = summary.get("fingerprint_spec_version") or None
+    # Whitespace-only strings are treated as absent throughout enrichment.
+    def _blank(value: str | None) -> str | None:
+        value = (value or "").strip()
+        return value or None
+
+    episode_id = _blank(summary.get("episode_id"))
+    fingerprint = _blank(summary.get("fingerprint"))
+    spec_version = _blank(summary.get("fingerprint_spec_version"))
+    # A spec version without its fingerprint is orphan metadata (review N4):
+    # never persist it alone.
     if fingerprint and not spec_version:
         spec_version = UNVERSIONED
+    elif not fingerprint:
+        spec_version = None
     skills = dict(summary["skills_activated"])
-    failures_overcome = sum(1 for s in summary["failure_sketches"] if s["resolution"])
+    failures_overcome = sum(
+        1 for s in summary["failure_sketches"] if _blank(s["resolution"])
+    )
 
     research = cfg.research
     retrospective_triggered = (
@@ -208,8 +218,10 @@ def ingest_run_summary(db: Database, cfg: Config, payload: dict) -> dict:
     enriched = False
     with db.transaction():
         # Tier-1 events key by episode/hypothesis id; a Tier-2 summary joins
-        # that trajectory when its episode is known, else keys by the
-        # QuantFlow run_id (which is preserved inside the payload either way).
+        # that trajectory under its CLAIMED episode_id even when the episode
+        # does not exist yet (late-join: a later episode created with that id
+        # finds its hook evidence); otherwise it keys by the QuantFlow
+        # run_id. Both ids are preserved inside the payload either way.
         trajectory.record(db, episode_id or run_id, RUN_SUMMARY_ACTOR, RUN_SUMMARY_KIND, event)
         if episode_id:
             row = db.conn.execute(
@@ -221,16 +233,20 @@ def ingest_run_summary(db: Database, cfg: Config, payload: dict) -> dict:
                     " episode not enriched"
                 )
             else:
+                # COALESCE semantics on every enrichment field: a later
+                # summary carrying LESS information must never wipe earlier
+                # evidence (review N1 — {} means "unknown" per row-3
+                # fallback, not "no skills").
                 db.execute(
                     "UPDATE episodes SET"
                     " agent_assembly_fingerprint = COALESCE(?, agent_assembly_fingerprint),"
                     " fingerprint_spec_version = COALESCE(?, fingerprint_spec_version),"
-                    " skill_versions = ?"
+                    " skill_versions = COALESCE(?, skill_versions)"
                     " WHERE episode_id = ?",
                     (
                         fingerprint,
                         spec_version,
-                        json.dumps(skills, sort_keys=True),
+                        json.dumps(skills, sort_keys=True) if skills else None,
                         episode_id,
                     ),
                 )
