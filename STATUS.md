@@ -132,7 +132,7 @@ delta review: overlap half green (0.212, all problems ≤0.30), judge half red
 plus thin corpus shelves — and a plan-scoped remedy (Phase-4 ingestion).
 Final commit records this file and all review artifacts.*
 
-## Phase 4 — QuantFlow hook seam, Spark-side (built 2026-09-13; pending review)
+## Phase 4 — QuantFlow hook seam, Spark-side (closed 2026-09-13, fallback tier)
 
 - `hooks.py`: Tier-2 run-summary receiver per §15.1 C9/C10. `validate_run_summary`
   is strict (schema_version=1; newer versions refused with the received
@@ -158,4 +158,12 @@ Final commit records this file and all review artifacts.*
   §15.2 contract on this machine (same finding as the G2 live-peer half);
   extension point named `hooks.telemetry_push` (raises NotImplementedError)
   until the peer exposes the contract.
-- Verdict: pending milestone review (AGENTS.md rule 5).
+- **Verdict: PASS-WITH-NITS** (reviews/2026-09-13_phase-4.md) — closed at the
+  **fallback tier**: Spark-side receiver + simulated desk close-out per the
+  plan's row-1 fallback; the full-integration tier (a real quantflow-emitted
+  hook end-to-end) stays open until quantflow lands change-list rows 1–3 + a
+  desk call site. Review nits N1–N5 fixed in `46db5cc` (preserve-on-empty
+  enrichment, orphan spec version, whitespace blanks); N3 at-least-once Tier-2
+  semantics + N6/N7 carried (only bite once real payloads flow). QuantFlow
+  §15.1 row verification committed at reviews/2026-09-13_quantflow_151_verification.md
+  (rows 1/2/5 PARTIAL, 3/4 ABSENT).
