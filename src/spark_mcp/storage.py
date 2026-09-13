@@ -10,7 +10,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 # Versioned migrations. Key = user_version the schema moves TO.
 MIGRATIONS: dict[int, str] = {
@@ -22,6 +22,179 @@ MIGRATIONS: dict[int, str] = {
         value TEXT NOT NULL
     );
     INSERT OR REPLACE INTO spark_meta (key, value) VALUES ('schema_name', 'spark');
+    """,
+    2: """
+    -- Phase 1: ledger & memory (plan §5.1). skills is created now deliberately
+    -- so episodes record skill_versions from day one (M13); its lifecycle
+    -- machinery arrives in Phase 6.
+
+    -- Hypotheses: the idea DAG. One hypothesis : N trial episodes. (C3)
+    CREATE TABLE IF NOT EXISTS hypotheses (
+        hypothesis_id TEXT PRIMARY KEY,
+        parent_hypothesis_ids TEXT NOT NULL DEFAULT '[]',  -- JSON array; idea lineage
+        research_family TEXT NOT NULL,
+        hypothesis_type TEXT NOT NULL,      -- predictive|causal|descriptive|
+                                            -- portfolio|risk|execution
+        mechanism TEXT NOT NULL,
+        expected_direction TEXT NOT NULL,
+        horizon TEXT NOT NULL,
+        scope TEXT NOT NULL,
+        dag TEXT,                           -- JSON; REQUIRED iff hypothesis_type='causal'
+        adjustment_set TEXT,                -- REQUIRED iff causal
+        falsifier TEXT NOT NULL,
+        predicted_ic REAL NOT NULL,         -- (C8) required at propose time
+        predicted_sigma REAL NOT NULL,      -- (C8) floor applied at scoring time
+        universe TEXT NOT NULL,
+        as_of TEXT NOT NULL,
+        data_through TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'proposed',  -- proposed|registered|testing|retired
+        client_id TEXT UNIQUE,
+        created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_hypotheses_family ON hypotheses(research_family);
+
+    -- Episodes: trial records. append-only. (C3)
+    CREATE TABLE IF NOT EXISTS episodes (
+        episode_id TEXT PRIMARY KEY,
+        hypothesis_id TEXT NOT NULL REFERENCES hypotheses,
+        run_kind TEXT NOT NULL DEFAULT 'primary',   -- primary|placebo|shuffled|reconciled
+        research_family TEXT NOT NULL,              -- denormalized for M_family counts
+        agent_assembly_fingerprint TEXT,
+        fingerprint_spec_version TEXT,              -- (C9) QuantFlow change list v1
+        skill_versions TEXT NOT NULL DEFAULT '{}',  -- JSON; recorded from day one (M13)
+        protocol_hash TEXT,
+        spec_hash TEXT,
+        seed INTEGER,
+        tool_calls INTEGER,
+        datasets TEXT,
+        params TEXT,
+        metrics TEXT,
+        corrected_metrics TEXT,
+        risk_exposures TEXT,
+        costs TEXT,                          -- required-or-estimated (§14)
+        reward REAL,                         -- §6.3 tool 15: non-null from Phase 1 (M13)
+        outcome TEXT,
+        failure_reason TEXT,
+        status TEXT NOT NULL DEFAULT 'registered',  -- registered|testing|failed|
+                                                    -- inconclusive|validated|promoted|
+                                                    -- tombstoned
+        tombstone_check TEXT,        -- JSON {status: hit|miss|ack, matched_id, rationale}
+        reconciled INTEGER NOT NULL DEFAULT 0,   -- (C4) out-of-band reconciliation flag
+        as_of TEXT NOT NULL,
+        data_through TEXT NOT NULL,
+        client_id TEXT UNIQUE,
+        created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_episodes_hypothesis ON episodes(hypothesis_id);
+    CREATE INDEX IF NOT EXISTS idx_episodes_status ON episodes(status);
+    CREATE INDEX IF NOT EXISTS idx_episodes_family ON episodes(research_family);
+
+    -- Trials: the countable unit for M. Inserted PENDING before dispatch. (C2/C4)
+    CREATE TABLE IF NOT EXISTS trials (
+        trial_id TEXT PRIMARY KEY,
+        episode_id TEXT NOT NULL REFERENCES episodes,
+        idem_key TEXT NOT NULL,        -- sha1(episode_id|spec_hash|seed)
+        family TEXT NOT NULL,
+        source TEXT NOT NULL,          -- spark|reconciled
+        status TEXT NOT NULL,          -- pending|completed|failed
+        provider TEXT NOT NULL,        -- alpha_engine|simulated|...
+        created_at TEXT NOT NULL,
+        completed_at TEXT,
+        UNIQUE(episode_id, idem_key)
+    );
+    CREATE INDEX IF NOT EXISTS idx_trials_episode ON trials(episode_id);
+    CREATE INDEX IF NOT EXISTS idx_trials_family_status ON trials(family, status);
+
+    -- Beliefs: semantic memory. Promotion via gate + §12.3 lifecycle. (M9)
+    CREATE TABLE IF NOT EXISTS beliefs (
+        belief_id TEXT PRIMARY KEY,
+        claim TEXT NOT NULL,
+        confidence REAL NOT NULL,            -- raw; §12.3 decay writes `decay`
+        decay REAL NOT NULL DEFAULT 1.0,     -- multiplicative staleness factor
+        direction TEXT,
+        horizon TEXT,
+        regime_scope TEXT,
+        supporting_runs TEXT NOT NULL DEFAULT '[]',   -- JSON (N6)
+        contradicting_runs TEXT NOT NULL DEFAULT '[]',
+        scope TEXT,
+        last_validated TEXT,
+        valid_from TEXT NOT NULL,
+        valid_to TEXT,                       -- invalidation, not deletion
+        as_of TEXT NOT NULL,
+        data_through TEXT NOT NULL,
+        promotion_status TEXT NOT NULL DEFAULT 'auto', -- auto|pending_human|approved|
+                                                       -- rejected
+        created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_beliefs_validity ON beliefs(valid_from, valid_to);
+
+    -- Negative knowledge (§12.2). Tombstones are written by log_outcome
+    -- (failure outcomes), memory_promote contradiction findings, consolidate.
+    CREATE TABLE IF NOT EXISTS tombstones (
+        tombstone_id TEXT PRIMARY KEY,
+        kind TEXT NOT NULL,
+        summary TEXT NOT NULL,               -- FTS5-indexed
+        match_keys TEXT NOT NULL,            -- JSON: keywords + mech_tags + embedding ref
+        evidence_episode_ids TEXT NOT NULL DEFAULT '[]',
+        as_of TEXT NOT NULL,
+        supersedes TEXT,
+        created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_tombstones_as_of ON tombstones(as_of);
+
+    -- Procedural memory (M13: created P1 to record skill_versions on
+    -- episodes; lifecycle machinery arrives Phase 6).
+    CREATE TABLE IF NOT EXISTS skills (
+        skill_id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        version INTEGER NOT NULL,
+        role TEXT,                           -- quant|ml|nlp|risk|lead
+        body_uri TEXT NOT NULL,
+        lineage TEXT NOT NULL DEFAULT '{}',
+        status TEXT NOT NULL DEFAULT 'draft', -- draft|challenger|champion|rejected|
+                                              -- retired|rollback_target
+        credit TEXT NOT NULL DEFAULT '{}',
+        benchmark_history TEXT NOT NULL DEFAULT '[]',
+        promotion_status TEXT NOT NULL DEFAULT 'auto',
+        created_at TEXT NOT NULL,
+        UNIQUE(name, version)
+    );
+
+    -- Tier-1 trajectory (C10): Spark's own tool-call/observation/gate events.
+    CREATE TABLE IF NOT EXISTS trajectory_events (
+        seq INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_id TEXT NOT NULL,
+        ts TEXT NOT NULL,
+        actor TEXT NOT NULL,                 -- 'spark' | 'consolidator' | 'quantflow-hook'
+        kind TEXT NOT NULL,                  -- tool_call|observation|gate|hook_summary|...
+        payload TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_trajectory_run_seq ON trajectory_events(run_id, seq);
+
+    -- Uniform client_id idempotency for mutating effects that have no natural
+    -- client_id column in the plan DDL (log_outcome, memory_promote):
+    -- reuse returns the recorded result with no side effects (N2).
+    CREATE TABLE IF NOT EXISTS tool_effects (
+        client_id TEXT PRIMARY KEY,
+        tool TEXT NOT NULL,
+        subject_id TEXT NOT NULL,
+        result TEXT NOT NULL,                -- JSON of the returned record
+        created_at TEXT NOT NULL
+    );
+
+    -- FTS5 (degraded-mode retrieval, §4.3/§12.1). External-content tables kept
+    -- in sync by insert triggers; queries PIT-filter before ranking.
+    CREATE VIRTUAL TABLE IF NOT EXISTS beliefs_fts
+        USING fts5(claim, content='beliefs', content_rowid='rowid');
+    CREATE VIRTUAL TABLE IF NOT EXISTS tombstones_fts
+        USING fts5(summary, content='tombstones', content_rowid='rowid');
+
+    CREATE TRIGGER IF NOT EXISTS beliefs_ai AFTER INSERT ON beliefs BEGIN
+        INSERT INTO beliefs_fts(rowid, claim) VALUES (new.rowid, new.claim);
+    END;
+    CREATE TRIGGER IF NOT EXISTS tombstones_ai AFTER INSERT ON tombstones BEGIN
+        INSERT INTO tombstones_fts(rowid, summary) VALUES (new.rowid, new.summary);
+    END;
     """,
 }
 

@@ -6,7 +6,7 @@ from spark_mcp.storage import open_db
 def test_migrate_creates_meta_and_version(tmp_path):
     db = open_db(tmp_path / "spark.db")
     version = db.conn.execute("PRAGMA user_version").fetchone()[0]
-    assert version == 1
+    assert version == 2
     name = db.conn.execute(
         "SELECT value FROM spark_meta WHERE key='schema_name'"
     ).fetchone()[0]
@@ -19,8 +19,33 @@ def test_migrations_are_idempotent(tmp_path):
     db = open_db(path)
     db.close()
     db2 = open_db(path)  # second open: no pending migrations, no error
-    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == 1
+    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == 2
     db2.close()
+
+
+def test_phase1_tables_exist(tmp_path):
+    db = open_db(tmp_path / "spark.db")
+    tables = {
+        r[0]
+        for r in db.conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
+    }
+    for t in (
+        "spark_meta",
+        "hypotheses",
+        "episodes",
+        "trials",
+        "beliefs",
+        "tombstones",
+        "skills",
+        "trajectory_events",
+        "tool_effects",
+        "beliefs_fts",
+        "tombstones_fts",
+    ):
+        assert t in tables, f"missing table {t}"
+    db.close()
 
 
 def test_wal_and_busy_timeout(tmp_path):
