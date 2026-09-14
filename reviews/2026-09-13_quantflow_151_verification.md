@@ -1,6 +1,6 @@
 # QuantFlow §15.1 change-list verification (read-only, 2026-09-13)
 
-Verified against /home/kanav/Documents/Projects/quantflow by read-only
+Verified against <peer: quantflow> by read-only
 inspection (no quantflow files modified; repo AGENTS.md respected). This
 record satisfies review nit N8 (tier evidence must live in-repo).
 
