@@ -151,6 +151,8 @@ def create_server(
         """Propose a hypothesis. C6 refusal rule: mechanism, expected_direction,
         horizon, falsifier, scope, predicted_ic, predicted_sigma required for
         ALL types; dag + adjustment_set required iff hypothesis_type='causal'.
+        hypothesis_type MUST be one of: causal, descriptive, execution,
+        portfolio, predictive, risk.
         Returns {hypothesis_id, N, S, novelty{...}} — N bounded per §7 (lexical
         proxy in degraded mode), S null until a realized_ic exists. Idempotent
         on client_id.
