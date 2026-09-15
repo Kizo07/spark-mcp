@@ -7,7 +7,7 @@ returns the peer's payload verbatim.
 
 The transport is injectable: `AlphaEngineProvider(config, transport=fake)`
 keeps unit tests off the network/stdio entirely (no live peer in CI). The
-fastmcp import stays inside `_connect` so importing this module never requires
+fastmcp import stays inside `call` so importing this module never requires
 a usable MCP client (AGENTS.md: peers are optional, never dependencies).
 """
 
@@ -34,32 +34,43 @@ class _FastMCPTransport:
 
     def __init__(self, peer: PeerConfig):
         self._peer = peer
-        self._client: Any = None
 
-    def _connect(self) -> Any:
-        if self._client is None:
-            from fastmcp import Client  # lazy: importing this module stays cheap
+    def _client_target(self) -> Any:
+        """Transport target for fastmcp's Client: url string or server-config
+        dict. A fresh Client is built from this per call — fastmcp 4 clients
+        bind to the event loop that opens them, so caching one across the
+        per-call ``asyncio.run`` loops below dies with 'Event loop is closed'
+        on the second use."""
+        if self._peer.transport == "http" and self._peer.url:
+            return self._peer.url
+        if self._peer.command:
+            import shlex
 
-            if self._peer.transport == "http" and self._peer.url:
-                self._client = Client(self._peer.url)
-            elif self._peer.command:
-                import shlex
-
-                cmd = self._peer.command
-                args = self._peer.args or []
-                if len(args) == 1 and " " in args[0]:
-                    args = shlex.split(args[0])
-                self._client = Client({"command": cmd, "args": list(args)})
-            else:
-                raise ToolError(
-                    "alpha_engine peer enabled but neither url nor command configured"
-                )
-        return self._client
+            args = self._peer.args or []
+            if len(args) == 1 and " " in args[0]:
+                args = shlex.split(args[0])
+            return {
+                "mcpServers": {
+                    "alpha_engine": {"command": self._peer.command, "args": list(args)}
+                }
+            }
+        raise ToolError(
+            "alpha_engine peer enabled but neither url nor command configured"
+        )
 
     def call(self, tool: str, payload: dict) -> dict:
-        client = self._connect()
-        with client:
-            result = client.call_tool(tool, payload)
+        import asyncio
+
+        from fastmcp import Client  # lazy: importing this module stays cheap
+
+        async def _invoke() -> Any:
+            # fastmcp's Client is an async context manager (the sync ``with``
+            # shim was removed in fastmcp 4); each call opens and closes one
+            # stdio connection inside a fresh event loop.
+            async with Client(self._client_target()) as client:
+                return await client.call_tool(tool, payload)
+
+        result = asyncio.run(_invoke())
         if getattr(result, "is_error", False):
             raise ToolError(
                 f"alpha_engine tool {tool!r} returned an error: {result.content!r}"

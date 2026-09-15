@@ -92,8 +92,17 @@ satisfied** (flagged literal moved to `selection_pool_extra` in the Phase-2
 selection redesign); champion-exclusion flag resolved (`e16980e` reversal);
 delta-review nits 1–6 resolved or recorded here. Still open:
 
-- **Live alpha_engine integration**: needs peer-side §15.2 tools (out of
-  this goal's scope: no alpha_engine changes permitted).
+- **Live alpha_engine integration**: **LANDED 2026-09-15** (post-goal,
+  outside the phase reviews). alpha_engine grew the §15.2 tools
+  (`run_backtest` / `causal_test` / `risk_decompose`; alpha_engine
+  `spark_bridge.py`, 11 peer-side tests); Spark's `_FastMCPTransport` needed
+  fastmcp-4 repairs (bare-dict Client config removed upstream, sync `with`
+  shim gone, per-call client inside one `asyncio.run` loop — the cached
+  client bound to a closed loop on second use). Verified through
+  `AlphaEngineProvider` against the live peer: backtest/causal/risk all
+  return `provider=alpha_engine, simulated=false`; suite green, ruff clean.
+  Original deferral rationale: needed peer-side §15.2 tools (was out of the
+  goal's scope).
 - **Corpus saturation for thin shelves** (early-warning vol regime,
   microstructure denoising, macro-causal identification) — the G1
   judge-half remedy; scoped to Phase 4+ ingestion. Do NOT grow seeds to
