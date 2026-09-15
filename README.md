@@ -1,18 +1,12 @@
 # spark-mcp
 
-Spark — the creativity and institutional-learning MCP for quant research
+Creativity and institutional-learning MCP for quant research
 organizations. Spark remembers what a research organization has tried
 (including failures), counts every trial so statistical verdicts are
 deflated rather than lucky, points at unexplored regions of research
 space, and turns validated trajectories into replay-gated skills. It
 never backtests and never owns market data — a peer engine computes,
 Spark judges.
-
-Built per the Spark v3 master plan through phases 0–7 (hypothesis
-ledger, method graph + novelty, gates, QuantFlow hook seam, MAP-Elites
-QD archive, skill evolution, analogy/consolidation/curriculum). Current
-state and per-phase evidence: `STATUS.md`; independent milestone
-reviews: `reviews/`.
 
 ## Install
 
@@ -21,8 +15,7 @@ uv venv .venv --python 3.12
 uv pip install -e '.[dev]'
 ```
 
-Requires Python ≥3.11. The `[qd]` extra needs `pyribs` (optional —
-the QD archive is pure-Python by design).
+Requires Python ≥3.11. The `[qd]` extra needs `pyribs` (optional).
 
 ## Quick start
 
@@ -35,9 +28,9 @@ python -m pytest -q    # test suite incl. the independence gate
 
 ## Configuration
 
-All settings live in `config.example.yaml` (copy to your `SPARK_CONFIG`
-path or rely on defaults: DB at `~/.spark/spark.db`). Secrets are
-environment-variable references only — never values in files:
+Copy `config.example.yaml` to your `SPARK_CONFIG` path or rely on
+defaults (DB at `~/.spark/spark.db`). Secrets are environment-variable
+references only — never values in files:
 
 | Setting | Env var | Purpose |
 |---|---|---|
@@ -75,16 +68,8 @@ Any MCP-capable agent or harness can spawn it over stdio:
 
 - `src/spark_mcp/` — package (config, storage, llm protocols+fakes,
   server, cli, gates, QD archive, skill evolution)
-- `tests/` — unit tests + `tests/independence/` (the blocking
-  independence gate)
-- `reviews/` — independent milestone reviews
-- `STATUS.md` — per-phase verdicts and program-gate evidence
-
-## The independence contract
-
-This package works installed alone. The reference repos studied during
-design are never imported, read, or required at runtime.
-`tests/independence/` enforces this on every test run.
+- `tests/` — unit tests + `tests/independence/` (blocking gate:
+  no third-party research repos imported, read, or required at runtime)
 
 ## Conventions
 
