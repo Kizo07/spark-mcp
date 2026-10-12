@@ -284,6 +284,30 @@ def test_gap_entry_shape(db, cfg):
         assert gap["kind"] in {
             "belief_stale", "empty_family", "killed_family",
             "predictor_error_outlier", "family_posterior_weak", "skill_candidate_stale",
+            "fixture_suite_small",
         }
         assert gap["severity"] in {"high", "medium", "info"}
         assert gap["suggested_action"]
+
+
+def test_fixture_growth_gap_quiet_at_default_floor(db, cfg):
+    """F4: the seeded suite (6 fixtures) meets the default floor (6) — no gap."""
+    from spark_mcp.skills import load_fixtures
+
+    assert len(load_fixtures()) == 6
+    assert cfg.research.replay_min_fixtures == 6
+    report = consolidate_mod.consolidate(db, cfg, as_of=PINNED)
+    assert not [g for g in report["gaps"] if g["kind"] == "fixture_suite_small"]
+
+
+def test_fixture_growth_gap_fires_below_floor(db, cfg):
+    """F4: raising the floor surfaces fixture growth as an open gap — alarm
+    only (the report still completes; the gate never reads this)."""
+    cfg.research.replay_min_fixtures = 7
+    report = consolidate_mod.consolidate(db, cfg, as_of=PINNED)
+    gaps = [g for g in report["gaps"] if g["kind"] == "fixture_suite_small"]
+    assert len(gaps) == 1
+    assert gaps[0]["severity"] == "medium"
+    assert gaps[0]["evidence"] == {"fixture_count": 6, "min_fixtures": 7}
+    assert gaps[0]["suggested_action"]
+    assert report["report_id"]

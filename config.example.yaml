@@ -85,6 +85,33 @@ research:
   gepa_generations: 2
   gepa_pareto_top_k: 3
   replay_heldout_gap_alarm: 0.25
+  replay_promotion_floor: 0.5   # first-promotion held-in bar (auto gate)
+  replay_promotion_margin: 0.05 # auto-gate strict margin; ties never promote
+  replay_min_fixtures: 6        # below this, consolidate alarms fixture growth
+  # Artifact-evolution loop (evolution upgrade plan §2.G): execution-grounded
+  # fitness + computed promotion. All defaults are live here; uncomment to tune.
+  #evolution_max_rounds: 8
+  #evolution_max_consecutive_rejections: 3
+  #evolution_dsr_margin: 0.02   # strict DSR-prob margin over the incumbent
+  #evolution_sr_margin: 0.0     # strict SR margin (DSR margin binds)
+  #evolution_first_promotion_floor: 0.95  # DSR-prob floor, first promotion
+  #evolution_sota_jump_window: 6
+  #evolution_sota_jump_threshold: 0.2
+  #evolution_render_max_tokens: 4000
+  #evolution_require_live_provider: false  # true in prod: refuse simulated fitness
+  # Level-2 variation base template + perturbation grids (component 2):
+  # vary_spec perturbs lookback/type over this fixed base; costs inherit the
+  # parent episode's (or these) and are never perturbed.
+  #evolution_base_spec:
+  #  signal_ref: "artifacts://signals/evo-base.json"
+  #  params: {type: momentum, lookback: 20, holding: 1, turnover: 1.0}
+  #  universe_pit: "TOYA,TOYB,TOYC,TOYD,TOYE,TOYF,TOYG,TOYH@2019-01-01"
+  #  dates: {is_start: "2019-01-01", is_end: "2019-12-31",
+  #          oos_start: "2020-01-01", oos_end: "2020-06-30"}
+  #  costs: {bps: 5.0, slippage: 2.0, borrow: 0.0}
+  #  splits: {purge: 5, embargo: 5}
+  #evolution_lookback_grid: [5, 10, 20, 40, 60, 120]
+  #evolution_type_grid: [momentum, reversal]
 budgets:
   daily_usd: 25.0
   per_episode_usd: 5.0

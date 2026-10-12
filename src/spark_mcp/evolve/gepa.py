@@ -24,15 +24,25 @@ from __future__ import annotations
 
 import random
 import re
+from collections import Counter
 from typing import Any
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 _NUM_RE = re.compile(r"[-+]?(?:\d+\.?\d*|\.\d+)")
 _JUDGE_MAX_TOKENS = 400
 
+# Fallback guard step appended when no failure evidence exists (pinned: the
+# regression test asserts this exact sentence and that it carries no rubric
+# text).
+GUARD_STEP_FALLBACK = "Record the inputs, assumptions, and outputs of this step for audit."
+
 # Deterministic mutation operators, applied round-robin when refreshing a
-# population. Each returns new steps (never mutates in place).
-MUTATION_OPS = ("add_check_step", "drop_step", "rotate_steps")
+# population. Each returns new steps (never mutates in place). Fixtures are
+# never passed to mutation ops — they route to the scorer only — so no op
+# can read rubric text (evolution upgrade plan §2.F1). `reflect` (plan §2.F2)
+# replaced the score-neutral `rotate_steps`: an LLM rewrite when a model is
+# available, else reflect's seeded syntactic fallback.
+MUTATION_OPS = ("add_guard_step", "drop_step", "reflect")
 
 
 def _tokens(text: str) -> list[str]:
@@ -155,23 +165,35 @@ def pareto_front(scored: list[tuple[dict, float]]) -> list[tuple[dict, float]]:
     return front
 
 
-def _add_check_step(ind: dict, fixtures: list[dict], rng: random.Random) -> list[str]:
-    """Append a verification step derived from an uncovered rubric item of a
-    randomly chosen fixture; when everything is covered, append an audit step."""
+def _guard_sentence(error_class: str, count: int) -> str:
+    # Exact template of skills._op_repair (kept in sync by the GEPA repair
+    # tests): the guard conditions on failure evidence, never rubric text.
+    return (
+        f"Guard against {error_class}: check data coverage, preconditions, and"
+        f" inputs before executing this procedure (observed in {count} source"
+        " episode(s))."
+    )
+
+
+def _add_guard_step(
+    ind: dict, failure_sketches: list[dict] | None, rng: random.Random
+) -> list[str]:
+    """Append a guard step conditioned on *failure evidence* — the most common
+    Tier-2 `failure_sketches` error class — or the generic audit sentence
+    when no failure evidence exists. Never reads fixtures or rubric text.
+    Deterministic given (ind, failure_sketches): no randomness consumed."""
+    del rng  # deterministic by construction; kept for _mutate uniformity
     steps = list(ind["procedure_steps"])
-    candidates = [f for f in fixtures if f.get("rubric")]
-    if candidates:
-        fixture = candidates[rng.randrange(len(candidates))]
-        blob = " ".join(steps).lower()
-        uncovered = [
-            item
-            for item in fixture["rubric"]
-            if not _rubric_item_covered(blob, item)
-        ]
-        if uncovered:
-            steps.append(f"Verify: {uncovered[0]}.")
-            return steps
-    steps.append("Record the inputs, assumptions, and outputs of this step for audit.")
+    classes = [
+        str(s.get("error_class", "")).strip()
+        for s in (failure_sketches or [])
+        if str(s.get("error_class", "")).strip()
+    ]
+    if classes:
+        error_class, count = Counter(classes).most_common(1)[0]
+        steps.append(_guard_sentence(error_class, count))
+    else:
+        steps.append(GUARD_STEP_FALLBACK)
     return steps
 
 
@@ -182,21 +204,50 @@ def _drop_step(ind: dict, rng: random.Random) -> list[str]:
     return steps
 
 
-def _rotate_steps(ind: dict, rng: random.Random) -> list[str]:
-    steps = list(ind["procedure_steps"])
-    if len(steps) > 1:
-        shift = rng.randint(1, len(steps) - 1)
-        steps = steps[shift:] + steps[:shift]
-    return steps
+def _reflect_step(
+    ind: dict, failure_sketches: list[dict] | None, rng: random.Random, llm: Any | None
+) -> list[str]:
+    """Reflective rewrite of the procedure (plan §2.F2): component B applied
+    to skill text — one LLM rewrite when a model is available, else the
+    seeded syntactic fallback (deterministic given parent + sketches + rng).
+    The import is function-local: reflect imports this module's guard
+    constants, so a top-level import would be circular.
+    """
+    from .reflect import reflect_variation
+
+    feedback: dict | None = (
+        {"failure_sketches": list(failure_sketches)} if failure_sketches else None
+    )
+    proposal = reflect_variation(
+        parent=list(ind["procedure_steps"]),
+        feedback=feedback,
+        ancestors_render="",
+        rng=rng,
+        llm=llm,
+        schema="skill_steps",
+    )
+    assert isinstance(proposal.body, list)
+    return list(proposal.body)
 
 
-def _mutate(ind: dict, fixtures: list[dict], rng: random.Random, op: str) -> dict:
-    if op == "add_check_step":
-        steps = _add_check_step(ind, fixtures, rng)
+def _mutate(
+    ind: dict,
+    failure_sketches: list[dict] | None,
+    rng: random.Random,
+    op: str,
+    llm: Any | None = None,
+) -> dict:
+    # Routing rule: no mutation op receives fixtures — fixtures route to the
+    # scorer (score_population/fixture_score) only, so no op can re-read
+    # rubric text.
+    if op == "add_guard_step":
+        steps = _add_guard_step(ind, failure_sketches, rng)
     elif op == "drop_step":
         steps = _drop_step(ind, rng)
+    elif op == "reflect":
+        steps = _reflect_step(ind, failure_sketches, rng, llm)
     else:
-        steps = _rotate_steps(ind, rng)
+        raise ValueError(f"unknown mutation op {op!r}; expected one of {MUTATION_OPS}")
     return {
         "name": ind["name"],
         "procedure_steps": steps,
@@ -212,11 +263,17 @@ def run_gepa(
     generations: int,
     pareto_top_k: int,
     seed: int = 0,
+    failure_sketches: list[dict] | None = None,
+    llm: Any | None = None,
 ) -> dict:
     """Run the minimal evolution loop. `seed_individuals` must be non-empty;
     the population is padded to `population_size` with mutated variants and
-    refreshed from the pareto top-k for `generations` rounds. Deterministic
-    given (seed_individuals, fixtures, caps, seed)."""
+    refreshed from the pareto top-k for `generations` rounds. `fixtures`
+    score the population only; `failure_sketches` (Tier-2 error evidence)
+    feed the guard-step mutation op; `llm` (when given) powers the `reflect`
+    mutation op, else its seeded fallback runs. Deterministic given
+    (seed_individuals, fixtures, failure_sketches, caps, seed, llm replies).
+    """
     if not seed_individuals:
         raise ValueError("run_gepa needs at least one seed individual")
     if population_size < 1 or generations < 1 or pareto_top_k < 1:
@@ -229,7 +286,9 @@ def run_gepa(
     i = 0
     while len(population) < population_size:
         base = seed_individuals[i % len(seed_individuals)]
-        population.append(_mutate(base, fixtures, rng, MUTATION_OPS[i % len(MUTATION_OPS)]))
+        population.append(
+            _mutate(base, failure_sketches, rng, MUTATION_OPS[i % len(MUTATION_OPS)], llm)
+        )
         i += 1
 
     for _ in range(generations):
@@ -243,7 +302,9 @@ def run_gepa(
         j = 0
         while len(refreshed) < population_size:
             base = parents[j % len(parents)]
-            refreshed.append(_mutate(base, fixtures, rng, MUTATION_OPS[j % len(MUTATION_OPS)]))
+            refreshed.append(
+                _mutate(base, failure_sketches, rng, MUTATION_OPS[j % len(MUTATION_OPS)], llm)
+            )
             j += 1
         population = refreshed
 

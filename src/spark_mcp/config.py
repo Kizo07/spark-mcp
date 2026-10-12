@@ -252,9 +252,56 @@ class ResearchConfig(BaseModel):
     replay_heldout_gap_alarm: float = 0.25
     # Auto-promotion floor (plan §11 'the gate decides'): a FIRST promotion
     # (no incumbent champion to beat) requires the challenger's held-in mean
-    # >= this floor; later promotions require beating the incumbent's last
-    # held-in mean, and heldout_gap must be under the alarm everywhere.
+    # to exceed this floor by more than replay_promotion_margin; later
+    # promotions require beating the incumbent's last held-in mean by more
+    # than the margin, and heldout_gap must be under the alarm everywhere.
+    # Ties never promote (strict inequality).
     replay_promotion_floor: float = 0.5
+    # Skill auto-gate margin (evolution upgrade plan §2.F3): the challenger's
+    # held-in mean must exceed the incumbent mean (or the first-promotion
+    # floor) by MORE than this. DSR margin is the binding constraint at the
+    # artifact layer; this is its skill-text analogue.
+    replay_promotion_margin: float = 0.05
+    # Fixture-growth alarm threshold (plan §2.F4): consolidate reports an
+    # open fixture-growth gap while len(fixtures) is below this. Alarm only,
+    # never blocks promotion.
+    replay_min_fixtures: int = 6
+    # Artifact-evolution loop (evolution upgrade plan §2.G): all knobs for
+    # the execution-grounded fitness + computed-promotion layer.
+    evolution_max_rounds: int = 8
+    evolution_max_consecutive_rejections: int = 3
+    evolution_dsr_margin: float = 0.02
+    evolution_sr_margin: float = 0.0
+    evolution_first_promotion_floor: float = 0.95  # DSR prob floor, first promotion
+    evolution_sota_jump_window: int = 6
+    evolution_sota_jump_threshold: float = 0.2  # hit-rate below → new root
+    evolution_render_max_tokens: int = 4000
+    evolution_require_live_provider: bool = False  # True in prod: refuse simulated fitness
+    # Level-2 variation base template (component 2): vary_spec perturbs
+    # params/seed over this fixed base. Universe/dates/signal/splits stay on
+    # the base (window moves need a data-availability oracle to stay
+    # PIT-safe, so fixed configured windows are the safe default). Costs here
+    # apply when no parent episode costs exist; costs are never perturbed.
+    evolution_base_spec: dict[str, Any] = Field(
+        default={
+            "signal_ref": "artifacts://signals/evo-base.json",
+            "params": {"type": "momentum", "lookback": 20, "holding": 1, "turnover": 1.0},
+            "universe_pit": "TOYA,TOYB,TOYC,TOYD,TOYE,TOYF,TOYG,TOYH@2019-01-01",
+            "dates": {
+                "is_start": "2019-01-01",
+                "is_end": "2019-12-31",
+                "oos_start": "2020-01-01",
+                "oos_end": "2020-06-30",
+            },
+            "costs": {"bps": 5.0, "slippage": 2.0, "borrow": 0.0},
+            "splits": {"purge": 5, "embargo": 5},
+        }
+    )
+    # Level-2 perturbation grids: lookback/type are resampled from these via
+    # the run's seeded rng. The default type grid is the provider-supported
+    # real-signal subset ("noise" is a null control, not an evolution target).
+    evolution_lookback_grid: list[int] = Field(default=[5, 10, 20, 40, 60, 120])
+    evolution_type_grid: list[str] = Field(default=["momentum", "reversal"])
 
 
 class BudgetsConfig(BaseModel):

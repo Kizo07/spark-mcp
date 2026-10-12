@@ -411,12 +411,19 @@ def _op_paraphrase(parent: sqlite3.Row, llm: Any | None) -> tuple[list[str], dic
 
 
 def _op_gepa(
-    cfg: Config, parent: sqlite3.Row, source_episode_ids: list[str]
+    db: Database,
+    cfg: Config,
+    parent: sqlite3.Row,
+    source_episode_ids: list[str],
+    llm: Any | None = None,
 ) -> tuple[list[str], dict]:
     """gepa: run the native minimal GEPA loop (evolve/gepa.py) seeded with the
     parent's procedure, over the HELD-IN fixtures only (held-out fixtures are
-    promotion-time evidence, never evolution feedback, §21). Deterministic:
-    the RNG seed is derived from (skill_name, parent_version)."""
+    promotion-time evidence, never evolution feedback, §21). The guard-step
+    mutation op is fed the source episodes' Tier-2 failure sketches (failure
+    evidence, never rubric text); `llm` (when given) powers the `reflect`
+    mutation op, else its seeded fallback runs. Deterministic: the RNG seed
+    is derived from the parent's procedure content."""
     fixtures = [f for f in load_fixtures() if f.get("held_in", True)]
     parent_lin = _lineage(parent)
     # Seed derived from the parent's content, not its name: the same
@@ -440,6 +447,8 @@ def _op_gepa(
         generations=cfg.research.gepa_generations,
         pareto_top_k=cfg.research.gepa_pareto_top_k,
         seed=seed,
+        failure_sketches=_tier2_failure_sketches(db, source_episode_ids),
+        llm=llm,
     )
     return list(result["best"]["procedure_steps"]), {
         "gepa": {
@@ -487,7 +496,7 @@ def propose_skill_challenger(
             " (decide it via run_replay + decide_promotion before proposing another)"
         )
 
-    if llm is None and op == "paraphrase":
+    if llm is None and op in ("paraphrase", "gepa"):
         llm = build_llm(cfg)
 
     if op == "repair":
@@ -499,7 +508,7 @@ def propose_skill_challenger(
     elif op == "paraphrase":
         steps, extra = _op_paraphrase(parent, llm)
     else:
-        steps, extra = _op_gepa(cfg, parent, source)
+        steps, extra = _op_gepa(db, cfg, parent, source, llm)
 
     # Version = next free for the name (never reused: a rejected challenger
     # keeps its version, so parent+1 is not always free).
@@ -878,10 +887,12 @@ def decide_promotion(
     """The promotion gate (plan §11), used by the auto path and by human
     ratification. decision in {'promoted', 'rejected', 'auto'}: 'auto' applies
     the documented gate criterion — promote iff the challenger beats the
-    incumbent champion's last held-in mean (first promotion: held-in mean >=
-    replay_promotion_floor) AND heldout_gap <= replay_heldout_gap_alarm;
-    otherwise reject. Promotion requires FULL-suite replay evidence (review
-    major M1): every held-in AND every held-out fixture must be scored on
+    incumbent champion's last held-in mean by MORE than
+    replay_promotion_margin (first promotion: held-in mean exceeds
+    replay_promotion_floor by more than the margin; ties never promote) AND
+    heldout_gap <= replay_heldout_gap_alarm; otherwise reject. Promotion
+    requires FULL-suite replay evidence (review major M1): every held-in AND
+    every held-out fixture must be scored on
     the candidate — a cherry-picked subset cannot satisfy the gate.
     decision='promoted': the challenger becomes champion, the prior champion
     becomes the rollback_target, credit is assigned, and — per M11
@@ -935,6 +946,7 @@ def decide_promotion(
         )
         gap = candidate["heldout_gap"]
         alarm = float(cfg.research.replay_heldout_gap_alarm)
+        margin = float(cfg.research.replay_promotion_margin)
         if gap is not None and gap > alarm:
             decision = "rejected"
         elif old_champion is not None:
@@ -947,10 +959,10 @@ def decide_promotion(
             old_mean = (
                 sum(old_scores.values()) / len(old_scores) if old_scores else 0.0
             )
-            decision = "promoted" if ch_mean >= old_mean else "rejected"
+            decision = "promoted" if ch_mean - old_mean > margin else "rejected"
         else:
             floor = float(getattr(cfg.research, "replay_promotion_floor", 0.5))
-            decision = "promoted" if ch_mean >= floor else "rejected"
+            decision = "promoted" if ch_mean - floor > margin else "rejected"
 
     if decision == "promoted":
         fixtures = load_fixtures()
@@ -1082,11 +1094,11 @@ def approve(
     decided_by: str = "human:operator",
 ) -> dict:
     """Human gate (plan §6.3 tool 22, M11). target_type in {belief, skill,
-    adoption}; decision in {approved, rejected}. Idempotent per actor class
-    on (target_type, target_id, decision): a duplicate from the same class
-    (gate vs human) returns the existing approval row with no side effects,
-    while a human ratification is recorded alongside the gate's auto-notify
-    row rather than colliding with it.
+    adoption, evolution}; decision in {approved, rejected}. Idempotent per
+    actor class on (target_type, target_id, decision): a duplicate from the
+    same class (gate vs human) returns the existing approval row with no side
+    effects, while a human ratification is recorded alongside the gate's
+    auto-notify row rather than colliding with it.
 
     - belief: target_id = belief_id; the belief must be promotion_status=
       'pending_human' (§12.3); approval resolves it.
@@ -1097,9 +1109,13 @@ def approve(
     - adoption: target_id = skill_id of a champion; records the human
       authorization for adoption into a live book. The book edit itself is
       out of band in QuantFlow — Spark never touches live books (§11).
+    - evolution: target_id = evolution line_id; decision='rejected' vetoes
+      the line head — the rollback head is restored and the vetoed head is
+      abandoned (recorded in `applied`). decision='approved' ratifies the
+      head. A veto with no rollback head is refused.
     """
-    if target_type not in ("belief", "skill", "adoption"):
-        raise ToolError("target_type must be one of belief|skill|adoption")
+    if target_type not in ("belief", "skill", "adoption", "evolution"):
+        raise ToolError("target_type must be one of belief|skill|adoption|evolution")
     if decision not in ("approved", "rejected"):
         raise ToolError("decision must be 'approved' or 'rejected'")
     if not rationale or not rationale.strip():
@@ -1195,7 +1211,7 @@ def approve(
                 }
             else:
                 applied = {"ratified_version": version}
-        else:  # adoption
+        elif target_type == "adoption":
             row = db.conn.execute(
                 "SELECT * FROM skills WHERE skill_id = ?", (target_id,)
             ).fetchone()
@@ -1210,6 +1226,49 @@ def approve(
                 "adoption": "recorded_out_of_band",
                 "skill": f"{row['name']}:{row['version']}",
             }
+        elif target_type == "evolution":
+            line = db.conn.execute(
+                "SELECT * FROM evolution_lines WHERE line_id = ?", (target_id,)
+            ).fetchone()
+            if line is None:
+                raise ToolError(f"unknown evolution line {target_id!r}")
+            if decision == "approved":
+                applied = {
+                    "ratified_head_hypothesis_id": line["head_hypothesis_id"],
+                    "ratified_head_episode_id": line["head_episode_id"],
+                }
+            else:
+                if (
+                    line["rollback_hypothesis_id"] is None
+                    and line["rollback_episode_id"] is None
+                ):
+                    raise ToolError(
+                        f"evolution line {target_id} has no rollback head to"
+                        " restore; nothing for a veto to roll back to"
+                    )
+                vetoed = {
+                    "hypothesis_id": line["head_hypothesis_id"],
+                    "episode_id": line["head_episode_id"],
+                }
+                db.execute(
+                    "UPDATE evolution_lines SET head_hypothesis_id = ?,"
+                    " head_episode_id = ?, rollback_hypothesis_id = NULL,"
+                    " rollback_episode_id = NULL, updated_at = ?"
+                    " WHERE line_id = ?",
+                    (
+                        line["rollback_hypothesis_id"],
+                        line["rollback_episode_id"],
+                        now_iso(),
+                        target_id,
+                    ),
+                )
+                applied = {
+                    "vetoed_head": vetoed,
+                    "restored_head_hypothesis_id": line["rollback_hypothesis_id"],
+                    "restored_head_episode_id": line["rollback_episode_id"],
+                }
+        else:  # pragma: no cover - target check above admits only the four branches
+            raise ToolError(f"unknown target_type {target_type!r}")
         approval_id = new_approval_id()
         db.execute(
             "INSERT INTO approvals ("

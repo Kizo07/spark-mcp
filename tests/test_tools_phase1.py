@@ -38,7 +38,7 @@ def test_phase1_tools_full_flow(tmp_path):
     async def run():
         async with Client(_server(tmp_path)) as client:
             health = json.loads((await client.call_tool("spark_health", {})).content[0].text)
-            assert health["schema_version"] == 10  # v8 skill evolution; v10 challenger linkage
+            assert health["schema_version"] == 11  # v11: evolution lines
 
             prop = json.loads(
                 (await client.call_tool("hypothesis_propose", PROPOSE_ARGS)).content[0].text

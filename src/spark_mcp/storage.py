@@ -20,7 +20,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 
 # Versioned migrations. Key = user_version the schema moves TO.
 MIGRATIONS: dict[int, str] = {
@@ -386,7 +386,7 @@ MIGRATIONS: dict[int, str] = {
 
     CREATE TABLE IF NOT EXISTS approvals (
         approval_id TEXT PRIMARY KEY,
-        target_type TEXT NOT NULL,          -- belief|skill|adoption
+        target_type TEXT NOT NULL,          -- belief|skill|adoption|evolution
         target_id TEXT NOT NULL,
         decision TEXT NOT NULL,             -- approved|rejected
         rationale TEXT NOT NULL,
@@ -433,6 +433,74 @@ MIGRATIONS: dict[int, str] = {
         text TEXT NOT NULL,
         created_at TEXT NOT NULL
     );
+    """,
+    11: """
+    -- Artifact-evolution loop (evolution upgrade plan §2.C1): lineage pointers
+    -- + run audit + narrated feedback. Additive only: no existing table gains
+    -- columns, no backfill (pre-existing hypotheses keep their
+    -- parent_hypothesis_ids DAG parents as-is).
+    --
+    -- evolution_lines: the "current selection / branch from ancestor" pointer
+    -- the ledger lacked. One active line per family by default; branching
+    -- inserts a new line whose head points at any ancestor (branch point).
+    -- rollback_* mirrors the skill rollback_target: on every promotion the
+    -- prior head moves there before the new head is set, so a human veto via
+    -- approve(target_type='evolution') can restore it.
+    CREATE TABLE IF NOT EXISTS evolution_lines (
+        line_id TEXT PRIMARY KEY,           -- elif_ ULID
+        family TEXT NOT NULL,
+        head_hypothesis_id TEXT,
+        head_episode_id TEXT,
+        rollback_hypothesis_id TEXT,
+        rollback_episode_id TEXT,
+        status TEXT NOT NULL DEFAULT 'active',  -- active|abandoned|merged
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_evolution_lines_family
+        ON evolution_lines(family, status);
+
+    -- evolution_runs: one audit record per bounded evolution run.
+    CREATE TABLE IF NOT EXISTS evolution_runs (
+        run_id TEXT PRIMARY KEY,            -- erun_ ULID
+        line_id TEXT NOT NULL REFERENCES evolution_lines(line_id),
+        seed INTEGER NOT NULL,
+        caps_json TEXT NOT NULL DEFAULT '{}',  -- {population/beam width, max_rounds, ...}
+        status TEXT NOT NULL DEFAULT 'running',  -- running|finished|stopped_*
+        head_before TEXT,                   -- head_hypothesis_id at start
+        head_after TEXT,                    -- head_hypothesis_id at end
+        started_at TEXT NOT NULL,
+        finished_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_evolution_runs_line ON evolution_runs(line_id);
+
+    -- evolution_feedback: structured narrated trace rows. Narration fields
+    -- (observations/hypothesis_evaluation/new_hypothesis) are write-only
+    -- audit: recorded after the decision, never inputs to promote.decide.
+    -- metrics_json/fitness_json are IS-only (same allowlist as fitness: no
+    -- oos_* keys ever land here).
+    CREATE TABLE IF NOT EXISTS evolution_feedback (
+        feedback_id TEXT PRIMARY KEY,       -- efb_ ULID
+        run_id TEXT NOT NULL REFERENCES evolution_runs(run_id),
+        hypothesis_id TEXT NOT NULL,
+        episode_id TEXT NOT NULL,
+        parent_ids_json TEXT NOT NULL DEFAULT '[]',
+        observations TEXT,
+        hypothesis_evaluation TEXT,
+        new_hypothesis TEXT,
+        metrics_json TEXT NOT NULL DEFAULT '{}',
+        fitness_json TEXT NOT NULL DEFAULT '{}',
+        decision TEXT NOT NULL,             -- promoted|rejected + computed reason
+        model_id TEXT,
+        prompt_sha TEXT,
+        as_of TEXT NOT NULL,
+        data_through TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_evolution_feedback_run
+        ON evolution_feedback(run_id);
+    CREATE INDEX IF NOT EXISTS idx_evolution_feedback_hypothesis
+        ON evolution_feedback(hypothesis_id);
     """,
 }
 

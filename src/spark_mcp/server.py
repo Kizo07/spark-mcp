@@ -3,7 +3,7 @@ method graph & novelty tools, Phase-3 gates & backtest-seam tools, Phase-4
 QuantFlow Tier-2 hook seam, Phase-5 QD archive & exploration tools, Phase-6
 skill evolution (distill/challenger/replay/approve), Phase-7 analogy,
 consolidation & curriculum (find_analogies/combine_methods/consolidate/
-generate_exercise).
+generate_exercise), plus artifact evolution (evolution_run/evolution_status).
 
 `create_server(config)` builds a `Services` (config + database handle +
 embedder/llm clients + backtest provider) that the tool functions close over —
@@ -28,6 +28,7 @@ from . import curriculum as curriculum_service
 from . import skills as skills_service
 from .budgets import spend_summary
 from .config import Config
+from .evolve import run as evolution_service
 from .gates import service as gates_service
 from .llm import build_embedder, build_llm
 from .storage import Database, open_db
@@ -581,12 +582,13 @@ def create_server(
         decided_by: str = "human:operator",
     ) -> dict:
         """Human gate (plan §6.3 tool 22, M11): target_type in {belief, skill,
-        adoption}, decision in {approved, rejected}. belief resolves a
-        pending_human promotion (§12.3); skill ratifies or vetoes a staged
-        champion (veto rolls back to the rollback_target, §11); adoption
-        records the human authorization for taking a champion into a live
-        QuantFlow book (the book edit itself is out of band). Idempotent on
-        (target_type, target_id, decision).
+        adoption, evolution}, decision in {approved, rejected}. belief
+        resolves a pending_human promotion (§12.3); skill ratifies or vetoes
+        a staged champion (veto rolls back to the rollback_target, §11);
+        adoption records the human authorization for taking a champion into
+        a live QuantFlow book (the book edit itself is out of band);
+        evolution ratifies or vetoes an evolution line head (veto restores
+        the rollback head). Idempotent on (target_type, target_id, decision).
         """
         return skills_service.approve(
             services.db,
@@ -609,11 +611,13 @@ def create_server(
         """The promotion gate (plan §11), reachable from the product surface
         (Phase-6 re-review blocker B1). decision in {promoted, rejected,
         auto}; 'auto' applies the documented criterion — beat the incumbent
-        champion's held-in mean (first promotion: >= replay_promotion_floor)
-        with heldout_gap under the alarm. Requires FULL replay-suite
-        evidence on the candidate. Gate decisions write an approvals row
-        (decided_by='gate') as the human-notify/veto surface, then attempt
-        the Gateway write (C7); a block stages the champion in Spark.
+        champion's held-in mean by more than replay_promotion_margin (first
+        promotion: exceed replay_promotion_floor by more than the margin;
+        ties never promote) with heldout_gap under the alarm. Requires FULL
+        replay-suite evidence on the candidate. Gate decisions write an
+        approvals row (decided_by='gate') as the human-notify/veto surface,
+        then attempt the Gateway write (C7); a block stages the champion in
+        Spark.
         """
         return skills_service.decide_promotion(
             services.db,
@@ -636,6 +640,54 @@ def create_server(
         veto/restore path always exists.
         """
         return skills_service.retire_skill(services.db, name, version, rationale)
+
+    # -- Artifact evolution (evolution upgrade plan §2.E, §3.3) ------------------
+
+    @mcp.tool()
+    def evolution_run(
+        family: str,
+        seed_hypothesis_id: str | None = None,
+        max_rounds: int | None = None,
+        seed: int = 0,
+        client_id: str | None = None,
+    ) -> dict:
+        """Bounded RD-shaped evolution run over research artifacts (hypothesis
+        → spec variant → executed backtest → DSR significance gate →
+        execution-grounded fitness → computed promotion → narrated trace).
+        Selection is always computed from numbers (trial governor, DSR gate,
+        strict DSR/SR margins, C6 blockers); the LLM may narrate but never
+        decides. Promotions move the line head (prior head kept as rollback)
+        and write a gate approvals row as the human-veto surface — veto
+        post-run via approve(target_type='evolution'); the run itself is a
+        closed loop and never blocks on input. Without an LLM the run needs a
+        seed hypothesis or an already-headed line (root synthesis from
+        nothing needs a model). Deterministic given (seed, caps, provider):
+        reruns agree on decisions and heads by hypothesis content + episode
+        metrics (ULID keys and timestamps excluded). Stops on max_rounds,
+        consecutive rejections, kill-rule death, or budget exhaustion
+        (fail_closed budgets close the run with status stopped_budget rather
+        than raising). Refuses unknown seeds and cross-family seeds.
+        Idempotent on client_id.
+        """
+        return evolution_service.run_evolution(
+            services.db,
+            cfg,
+            services.provider,
+            family=family,
+            seed_hypothesis_id=seed_hypothesis_id,
+            max_rounds=max_rounds,
+            seed=seed,
+            llm=services.llm,
+            client_id=client_id,
+        )
+
+    @mcp.tool()
+    def evolution_status(run_id: str) -> dict:
+        """Read-only evolution run report: the run record, per-round feedback
+        (decisions with DSR/SR, model, prompt sha), the line's current head +
+        rollback, and the computed SOTA ancestor. Unknown runs are refused.
+        """
+        return evolution_service.evolution_status(services.db, run_id)
 
     # -- Phase 7: analogy, consolidation, curriculum (plan §6.1 tools 3-4,
     # §6.3 tools 20-21, §12.3, §13, §18.1) ------------------------------------
@@ -716,7 +768,8 @@ def create_server(
         report artifact (spark://consolidation/{report_id}) consumable by
         suggest_next (gap_report_id) and generate_exercise. Same service
         function as `spark consolidate` (N13). A trajectory event with actor
-        'consolidator' records the run.
+        'consolidator' records the run. Also alarms when the replay fixture
+        suite counts below replay_min_fixtures (alarm only).
         """
         as_of = _as_of_or_now(as_of)
         return consolidate_service.consolidate(

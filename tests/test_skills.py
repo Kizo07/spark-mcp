@@ -111,7 +111,7 @@ def test_phase6_tables_exist(db):
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)
         ).fetchone()
         assert row is not None, table
-    assert db.conn.execute("PRAGMA user_version").fetchone()[0] == 10
+    assert db.conn.execute("PRAGMA user_version").fetchone()[0] == 11
 
 
 # -- tool 16: distill_skill ------------------------------------------------------
@@ -295,8 +295,65 @@ def test_gepa_operator_runs_within_caps_and_is_deterministic(db, cfg):
     b = skills.propose_skill_challenger(db, cfg, "gepa-b", "gepa")
     assert a["gepa"]["population_size"] == cfg.research.gepa_population_size
     assert a["gepa"]["generations"] == cfg.research.gepa_generations
-    assert a["procedure_steps"] == b["procedure_steps"]  # seed derived from name+version
-    assert len(a["procedure_steps"]) != len(AUDIT_STEPS) or a["procedure_steps"] != AUDIT_STEPS
+    assert a["procedure_steps"] == b["procedure_steps"]  # seed derived from parent content
+    # F1 behavior change (was: challenger always differed via appended rubric
+    # text — the leak): with no Tier-2 failure evidence the guard op appends
+    # only the generic audit sentence, which adds no coverage, so the parent
+    # itself may legitimately win best. Pin well-formedness + no-leak instead.
+    assert a["procedure_steps"]
+    blob = " ".join(a["procedure_steps"]).lower()
+    for fixture in skills.load_fixtures():
+        for item in fixture["rubric"]:
+            assert item.lower() not in blob, item
+
+
+def test_gepa_operator_passes_failure_sketches(db, cfg, monkeypatch):
+    """F1 wiring: _op_gepa feeds the source episodes' Tier-2 failure sketches
+    to run_gepa (failure evidence, never rubric text)."""
+    from spark_mcp.evolve import gepa as gepa_mod
+
+    ep = _episode(db, cfg)
+    _ingest_sketch(db, cfg, ep, error_class="DataGap")
+    _distill(db, cfg, name="gepa-sketch", episodes=[ep])
+    captured = {}
+    real_run_gepa = gepa_mod.run_gepa
+
+    def spy(seed_individuals, fixtures, **kwargs):
+        captured.update(kwargs)
+        return real_run_gepa(seed_individuals, fixtures, **kwargs)
+
+    monkeypatch.setattr(gepa_mod, "run_gepa", spy)
+    skills.propose_skill_challenger(db, cfg, "gepa-sketch", "gepa")
+    assert [s.get("error_class") for s in captured["failure_sketches"]] == ["DataGap"]
+
+
+def test_gepa_operator_threads_llm_to_run_gepa(db, cfg, monkeypatch):
+    """F2 wiring: the challenger passes its llm through to run_gepa so the
+    `reflect` op can rewrite (and None keeps the seeded fallback)."""
+    import json
+
+    from spark_mcp.evolve import gepa as gepa_mod
+    from spark_mcp.llm import FakeLLM
+
+    ep = _episode(db, cfg)
+    _distill(db, cfg, name="gepa-llm", episodes=[ep])
+    captured = {}
+    real_run_gepa = gepa_mod.run_gepa
+
+    def spy(seed_individuals, fixtures, **kwargs):
+        captured.update(kwargs)
+        return real_run_gepa(seed_individuals, fixtures, **kwargs)
+
+    monkeypatch.setattr(gepa_mod, "run_gepa", spy)
+    llm = FakeLLM({"procedure": json.dumps({"steps": ["Rank on quality."]})})
+    ch = skills.propose_skill_challenger(db, cfg, "gepa-llm", "gepa", llm=llm)
+    assert captured["llm"] is llm
+    assert ch["procedure_steps"]
+    # Without an LLM the op degrades deterministically (existing behavior).
+    _distill(db, cfg, name="gepa-nollm", episodes=[ep])
+    a = skills.propose_skill_challenger(db, cfg, "gepa-nollm", "gepa")
+    assert captured["llm"] is None
+    assert a["procedure_steps"]
 
 
 def test_challenger_refuses_unknown_op_and_unknown_skill(db, cfg):
@@ -1154,3 +1211,67 @@ def test_auto_gate_all_four_branches(db, cfg):
                              mk_out(0.0), alarm + 0.05)
     out3 = skills.decide_promotion(db, cfg, name3, cid3, "auto", "gap", "gate")
     assert out3["decision"] == "rejected"
+
+
+def test_auto_gate_margin_tie_rejects(db, cfg):
+    """Evolution upgrade plan §2.F3: the auto gate requires a STRICT margin —
+    an exact tie with the incumbent (or exactly margin above) rejects.
+
+    Values are exactly-representable binary fractions so ties and the
+    margin boundary are hit exactly, not approached through float dust.
+    """
+    cfg.research.replay_promotion_margin = 0.25
+    fixtures = skills.load_fixtures()
+    in_ids = [f["task_id"] for f in fixtures if f.get("held_in", True)]
+    out_ids = [f["task_id"] for f in fixtures if not f.get("held_in", True)]
+
+    def mk_in(val):
+        return {t: val for t in in_ids}
+
+    def mk_out(val):
+        return {t: val for t in out_ids}
+
+    name = "auto-margin-incumbent"
+    db.execute(
+        "INSERT INTO skills (skill_id, name, version, role, body_uri, lineage,"
+        " status, credit, benchmark_history, promotion_status, created_at)"
+        " VALUES (?, ?, 1, NULL, 'spark://skills/auto-margin-incumbent/1', '{}',"
+        " 'champion', '{}', ?, 'auto', ?)",
+        (skills.new_skill_id(), name,
+         json.dumps([{"eval_scores": {"held_in": {"t1": 0.625}}}]),
+         skills.now_iso()),
+    )
+    for label, val, expect in (
+        ("exact tie", 0.625, "rejected"),
+        ("exactly margin above", 0.875, "rejected"),
+        ("above margin", 1.0, "promoted"),
+    ):
+        cid = _cand_with_scores(db, cfg, name, 1, mk_in(val), mk_out(0.5), 0.0)
+        out = skills.decide_promotion(db, cfg, name, cid, "auto", label, "gate")
+        assert out["decision"] == expect, (label, out)
+
+
+def test_auto_gate_first_promotion_margin(db, cfg):
+    """F3 first-promotion branch: the floor needs the same strict margin."""
+    floor = cfg.research.replay_promotion_floor
+    assert floor == 0.5
+    cfg.research.replay_promotion_margin = 0.25
+    fixtures = skills.load_fixtures()
+    in_ids = [f["task_id"] for f in fixtures if f.get("held_in", True)]
+    out_ids = [f["task_id"] for f in fixtures if not f.get("held_in", True)]
+
+    def mk_in(val):
+        return {t: val for t in in_ids}
+
+    def mk_out(val):
+        return {t: val for t in out_ids}
+
+    for label, val, expect in (
+        ("exactly floor", 0.5, "rejected"),
+        ("exactly margin above floor", 0.75, "rejected"),
+        ("above margin", 0.875, "promoted"),
+    ):
+        name = f"auto-margin-floor-{label.replace(' ', '-')}"
+        cid = _cand_with_scores(db, cfg, name, 1, mk_in(val), mk_out(0.5), 0.0)
+        out = skills.decide_promotion(db, cfg, name, cid, "auto", label, "gate")
+        assert out["decision"] == expect, (label, out)

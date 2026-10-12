@@ -70,3 +70,15 @@ def new_exercise_id() -> str:
 
 def new_gap_id() -> str:
     return f"gap_{_ulidish()}"
+
+
+def new_evolution_line_id() -> str:
+    return f"elif_{_ulidish()}"
+
+
+def new_evolution_run_id() -> str:
+    return f"erun_{_ulidish()}"
+
+
+def new_evolution_feedback_id() -> str:
+    return f"efb_{_ulidish()}"

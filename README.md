@@ -50,7 +50,7 @@ Any MCP-capable agent or harness can spawn it over stdio:
   "env": { "SPARK_CONFIG": "/path/to/spark.yaml" } }
 ```
 
-28 tools, highlights:
+30 tools, highlights:
 
 - Ledger & memory: `register_hypothesis`, `hypothesis_propose`,
   `log_outcome`, `memory_recall`, `memory_promote`, `research_history`
@@ -60,9 +60,27 @@ Any MCP-capable agent or harness can spawn it over stdio:
   `backtest_run`, `causal_check`, `risk_decompose`
 - Skill evolution: `distill_skill`, `propose_skill_challenger`,
   `run_replay`, `decide_skill_promotion`, `approve`, `retire_skill`
+- Artifact evolution: `evolution_run`, `evolution_status` (bounded
+  hypothesis → backtest → DSR-gate → computed-promotion loop; the LLM
+  narrates but never decides; veto post-run via `approve`)
 - Peer seam: `run_summary_ingest` (QuantFlow Tier-2 hook),
   `report_write`, `consolidate`, `generate_exercise`,
   `spark_health`, `spark_doctor`
+
+## Artifact evolution
+
+`evolution_run` evolves research artifacts (hypotheses + backtest specs),
+scored by executed provider results through the existing gate stack — trial
+governor, DSR `significance_gate`, strict DSR/SR promotion margins,
+challenger/champion/rollback line heads, and human veto. GEPA stays scoped
+to skill/procedure text only. Knobs live under `research.evolution_*` in
+`config.example.yaml` (rounds, margins, first-promotion floor, SOTA-jump
+policy, render budget, level-2 spec template + grids). Runs are
+bit-reproducible given (seed, caps, provider): reruns agree on decisions
+and heads by hypothesis content + episode metrics. Held-out/OOS evidence
+never enters evolution feedback — it is promotion-time evidence only
+(`consolidate` also alarms while the replay fixture suite counts below
+`replay_min_fixtures`).
 
 ## Layout
 

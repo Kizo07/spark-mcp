@@ -6,7 +6,7 @@ from spark_mcp.storage import open_db
 def test_migrate_creates_meta_and_version(tmp_path):
     db = open_db(tmp_path / "spark.db")
     version = db.conn.execute("PRAGMA user_version").fetchone()[0]
-    assert version == 10  # v8 adds skill evolution tables; v10 adds challenger linkage
+    assert version == 11  # v8: skill evolution; v10: challenger linkage; v11: evolution lines
     name = db.conn.execute(
         "SELECT value FROM spark_meta WHERE key='schema_name'"
     ).fetchone()[0]
@@ -19,7 +19,7 @@ def test_migrations_are_idempotent(tmp_path):
     db = open_db(path)
     db.close()
     db2 = open_db(path)  # second open: no pending migrations, no error
-    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == 10
+    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == 11
     db2.close()
 
 
@@ -46,13 +46,13 @@ def test_migration_v6_episode_hook_columns(tmp_path):
 
 
 def test_migration_v6_upgrades_a_v5_database(tmp_path):
-    """The v5 -> ... -> v8 upgrade path applies cleanly over a pre-Phase-4
+    """The v5 -> ... -> v11 upgrade path applies cleanly over a pre-Phase-4
     database (v6 is the Phase-4 marker; v7 adds qd_cells; v8 adds the
-    Phase-6 skill-evolution tables)."""
+    Phase-6 skill-evolution tables; v11 adds the evolution-loop tables)."""
     from spark_mcp import storage
 
     path = tmp_path / "spark.db"
-    markers = {v: storage.MIGRATIONS.pop(v) for v in (6, 7, 8, 9, 10)}
+    markers = {v: storage.MIGRATIONS.pop(v) for v in (6, 7, 8, 9, 10, 11)}
     try:
         db = open_db(path)  # db frozen at v5 (Phase-3 state)
         assert db.conn.execute("PRAGMA user_version").fetchone()[0] == 5
@@ -61,15 +61,43 @@ def test_migration_v6_upgrades_a_v5_database(tmp_path):
         db.close()
     finally:
         storage.MIGRATIONS.update(markers)
-    db2 = open_db(path)  # reopen with v6/v7/v8 restored: all apply
-    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == 10
+    db2 = open_db(path)  # reopen with v6..v11 restored: all apply
+    assert db2.conn.execute("PRAGMA user_version").fetchone()[0] == 11
     tables = {
         r[0]
         for r in db2.conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
     }
     assert "qd_cells" in tables
     assert {"skill_candidates", "approvals", "replay_score_cache"} <= tables
+    assert {"evolution_lines", "evolution_runs", "evolution_feedback"} <= tables
     db2.close()
+
+
+def test_migration_v11_creates_evolution_tables(tmp_path):
+    """Evolution upgrade plan §2.C1: lineage lines + run audit + feedback."""
+    db = open_db(tmp_path / "spark.db")
+    lines = {r[1] for r in db.conn.execute("PRAGMA table_info(evolution_lines)")}
+    for name in (
+        "line_id", "family", "head_hypothesis_id", "head_episode_id",
+        "rollback_hypothesis_id", "rollback_episode_id", "status",
+        "created_at", "updated_at",
+    ):
+        assert name in lines, f"missing evolution_lines column {name}"
+    runs = {r[1] for r in db.conn.execute("PRAGMA table_info(evolution_runs)")}
+    for name in (
+        "run_id", "line_id", "seed", "caps_json", "status",
+        "head_before", "head_after", "started_at", "finished_at",
+    ):
+        assert name in runs, f"missing evolution_runs column {name}"
+    fb = {r[1] for r in db.conn.execute("PRAGMA table_info(evolution_feedback)")}
+    for name in (
+        "feedback_id", "run_id", "hypothesis_id", "episode_id",
+        "parent_ids_json", "observations", "hypothesis_evaluation",
+        "new_hypothesis", "metrics_json", "fitness_json", "decision",
+        "model_id", "prompt_sha", "as_of", "data_through", "created_at",
+    ):
+        assert name in fb, f"missing evolution_feedback column {name}"
+    db.close()
 
 
 def test_migration_v7_creates_qd_cells(tmp_path):

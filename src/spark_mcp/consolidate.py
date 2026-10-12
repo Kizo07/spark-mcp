@@ -2,7 +2,7 @@
 by the `consolidate` MCP tool and `spark consolidate --since …` (N13 — CLI and
 MCP never fork logic; intended for cron/systemd timers).
 
-One pass, five gap sources, every item emitted as
+One pass, six gap sources, every item emitted as
     {gap_id, kind, family?, severity, evidence, suggested_action}:
 
   (a) belief decay application (§12.3): effective_conf = confidence *
@@ -22,6 +22,9 @@ One pass, five gap sources, every item emitted as
       "enough trials" line).
   (e) skill-pipeline review: pending skill_candidates whose challenger row is
       older than skill_candidate_stale_days (stale evolution pipeline).
+  (f) fixture-suite review (evolution upgrade plan §2.F4): the replay suite
+      still counts below replay_min_fixtures (auto-promotion stays weak until
+      fixtures grow from real failures). Alarm only, never blocks promotion.
 
 Budget governance (§13/§14): the per-run cap cfg.budgets.per_consolidation_usd
 is enforced DURING the pass. LLM usage is the gap-annotation step (one
@@ -76,6 +79,7 @@ _GAP_KINDS = (
     "predictor_error_outlier",
     "family_posterior_weak",
     "skill_candidate_stale",
+    "fixture_suite_small",
 )
 
 
@@ -316,6 +320,31 @@ def _skill_pipeline_gaps(db: Database, cfg: Config, as_of: str, since: str | Non
     return gaps
 
 
+def _fixture_growth_gaps(cfg: Config) -> list[dict]:
+    """The F4 alarm hook: while the replay suite counts below
+    replay_min_fixtures, report fixture growth as an open gap (severity
+    medium, alarm only — the gate never reads this). The suite is global, so
+    the hook takes no scope/since filter. The skills import is function-local
+    to keep this module's import surface narrow."""
+    from .skills import load_fixtures
+
+    have = len(load_fixtures())
+    floor = int(cfg.research.replay_min_fixtures)
+    if have >= floor:
+        return []
+    return [
+        _gap(
+            "fixture_suite_small",
+            None,
+            "medium",
+            {"fixture_count": have, "min_fixtures": floor},
+            "grow the replay fixture suite from real failures (seed docstring's"
+            " own direction): auto-promotion stays weak on a hand-written suite"
+            " (evolution upgrade plan §2.F4)",
+        )
+    ]
+
+
 # ---------------------------------------------------------------------------
 # the pass
 
@@ -347,6 +376,7 @@ def consolidate(
         + _archive_gaps(db, cfg, as_of, since, scope)
         + _posterior_gaps(db, cfg, as_of, scope)
         + _skill_pipeline_gaps(db, cfg, as_of, since)
+        + _fixture_growth_gaps(cfg)
     )
     gaps.sort(key=lambda g: (-SEVERITY[g["severity"]], g["kind"], g["gap_id"]))
 
