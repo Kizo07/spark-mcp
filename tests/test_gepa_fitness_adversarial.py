@@ -485,6 +485,25 @@ def test_substance_filter_drops_keyword_only_and_keeps_legitimate():
         )
 
 
+def test_adaptive_soup_variants_score_zero_honest_unchanged():
+    """Adaptive stuffing must not revive the soup: a leading instruction
+    verb, splitting the word list across steps, or appending numbers all
+    still score 0.0, and the honest baseline keeps its pinned scores."""
+    fixtures = skills.load_fixtures()
+    words = _stuffed_steps(fixtures)[0].split()
+    variants = (
+        ["Check " + " ".join(words)],  # verb-led soup
+        ["Check " + " ".join(words[i::4]) for i in range(4)],  # split soup
+        [" ".join(words) + " 20 60 120"],  # numbers appended
+    )
+    for steps in variants:
+        assert all(not gepa._is_substantive_step(s) for s in steps), steps
+        assert all(gepa.fixture_score(steps, f) == 0.0 for f in fixtures), steps
+    h_in, h_out, _ = _replay_scores(HONEST_STEPS)
+    assert _mean(h_in) == pytest.approx(0.96875)
+    assert _mean(h_out) == pytest.approx(1.0)
+
+
 def test_keyword_soup_and_empty_lose_to_honest_at_gate(db, cfg):
     fixtures = skills.load_fixtures()
     stuffed = _stuffed_steps(fixtures)

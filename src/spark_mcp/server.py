@@ -14,9 +14,12 @@ defaults (db_path ~/.spark/spark.db, plan §16).
 
 from __future__ import annotations
 
+import functools
 import html
+import inspect
 import json
 import os
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -30,6 +33,7 @@ from . import skills as skills_service
 from . import trace as trace_service
 from .budgets import spend_summary
 from .config import Config
+from .dispatch import TOOL_CALL, DispatchContext, build_pipeline
 from .errors import ToolError
 from .evolve import run as evolution_service
 from .gates import service as gates_service
@@ -75,6 +79,103 @@ def _as_of_or_now(as_of: str | None) -> str:
     return validate_iso(as_of) if as_of else now_iso()
 
 
+# ---------------------------------------------------------------------------
+# dispatch routing: every MCP tool handler executes as the TOOL_CALL step of
+# its declared profile pipeline (dispatch.PROFILES). The tool profiles hold
+# ONLY that step — no tombstone/budget/trial side effects beyond what the
+# underlying service already performs — so routing is behaviour-identical.
+# A tool missing here cannot be registered: _route_tool_handler raises
+# KeyError at decoration time.
+
+TOOL_PROFILES: dict[str, str] = {
+    # tool-gated: gates-service tools (provider dispatch + DSR gate)
+    "backtest_run": "tool-gated",
+    "significance_gate": "tool-gated",
+    "causal_check": "tool-gated",
+    "risk_decompose": "tool-gated",
+    # tool-evolution: artifact evolution + skill lifecycle
+    "evolution_run": "tool-evolution",
+    "evolution_status": "tool-evolution",
+    "distill_skill": "tool-evolution",
+    "propose_skill_challenger": "tool-evolution",
+    "run_replay": "tool-evolution",
+    "approve": "tool-evolution",
+    "decide_skill_promotion": "tool-evolution",
+    "retire_skill": "tool-evolution",
+    # tool-standard: every other tool
+    "spark_health": "tool-standard",
+    "spark_doctor": "tool-standard",
+    "hypothesis_propose": "tool-standard",
+    "register_hypothesis": "tool-standard",
+    "log_outcome": "tool-standard",
+    "research_history": "tool-standard",
+    "memory_recall": "tool-standard",
+    "check_novelty": "tool-standard",
+    "explore_methods": "tool-standard",
+    "memory_promote": "tool-standard",
+    "run_summary_ingest": "tool-standard",
+    "suggest_next": "tool-standard",
+    "archive_status": "tool-standard",
+    "report_write": "tool-standard",
+    "find_analogies": "tool-standard",
+    "combine_methods": "tool-standard",
+    "consolidate": "tool-standard",
+    "generate_exercise": "tool-standard",
+    "trace_hypothesis": "tool-standard",
+    "sota_status": "tool-standard",
+    "debate_evidence": "tool-standard",
+}
+
+
+def _dispatch_tool_call(services: Services, tool_name: str, invoke: Callable[[], dict]) -> dict:
+    """Run one tool invocation as the TOOL_CALL step of its profile pipeline.
+
+    The handler result (or exception) passes through untouched; the pipeline
+    is non-transactional routing only.
+    """
+    try:
+        profile = TOOL_PROFILES[tool_name]
+    except KeyError:
+        raise KeyError(
+            f"tool {tool_name!r} has no dispatch profile (add it to TOOL_PROFILES)"
+        ) from None
+    holder: dict[str, dict] = {}
+
+    def _tool_step(ctx: DispatchContext) -> None:
+        holder["result"] = invoke()
+
+    def _resolve(name: str) -> Callable[[DispatchContext], None]:
+        if name != TOOL_CALL:
+            raise KeyError(f"tool profile step must be {TOOL_CALL!r} (got {name!r})")
+        return _tool_step
+
+    build_pipeline(profile, _resolve, transactional=lambda name: False).run(
+        DispatchContext(db=services.db, cfg=services.cfg)
+    )
+    return holder["result"]
+
+
+def _route_tool_handler(services: Services, fn: Callable) -> Callable:
+    """Wrap an MCP tool handler so it executes via its dispatch profile.
+
+    Raises KeyError at decoration time when the tool has no TOOL_PROFILES
+    entry. Preserves name, docstring and signature so the MCP schema is
+    unchanged.
+    """
+    tool_name = fn.__name__
+    if tool_name not in TOOL_PROFILES:
+        raise KeyError(
+            f"tool {tool_name!r} has no dispatch profile (add it to TOOL_PROFILES)"
+        )
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        return _dispatch_tool_call(services, tool_name, lambda: fn(*args, **kwargs))
+
+    wrapper.__signature__ = inspect.signature(fn)  # type: ignore[attr-defined]
+    return wrapper
+
+
 def create_server(
     config: Config | None = None,
     *,
@@ -98,7 +199,12 @@ def create_server(
 
     mcp = FastMCP("spark", version=__version__)
 
+    def _routed(fn):
+        """Route this tool handler through its dispatch profile pipeline."""
+        return _route_tool_handler(services, fn)
+
     @mcp.tool()
+    @_routed
     def spark_health() -> dict:
         """Liveness + storage readiness."""
         return {
@@ -110,6 +216,7 @@ def create_server(
         }
 
     @mcp.tool()
+    @_routed
     def spark_doctor() -> dict:
         """Config/capability report: degraded mode, FTS5, sqlite-vec, peers."""
         peers = {}
@@ -134,6 +241,7 @@ def create_server(
     # -- Phase 1: ledger & memory tools (plan §6) -----------------------------
 
     @mcp.tool()
+    @_routed
     def hypothesis_propose(
         idea: str,
         family: str,
@@ -187,6 +295,7 @@ def create_server(
         return (result)
 
     @mcp.tool()
+    @_routed
     def register_hypothesis(
         hypothesis_id: str,
         spec: dict,
@@ -202,6 +311,7 @@ def create_server(
         )
 
     @mcp.tool()
+    @_routed
     def log_outcome(
         episode_id: str,
         outcome: str,
@@ -234,6 +344,7 @@ def create_server(
         )
 
     @mcp.tool()
+    @_routed
     def research_history(
         query: str,
         as_of: str | None = None,
@@ -248,6 +359,7 @@ def create_server(
         return (memory.research_history(services.db, query, as_of, k, kinds))
 
     @mcp.tool()
+    @_routed
     def memory_recall(query: str, as_of: str | None = None, k: int = 10) -> dict:
         """PIT-filtered belief recall ordered by effective confidence
         (confidence x decay) descending; claims carry supporting/contradicting
@@ -257,6 +369,7 @@ def create_server(
         return ({"beliefs": memory.recall(services.db, query, as_of, k), "as_of": as_of})
 
     @mcp.tool()
+    @_routed
     def check_novelty(
         idea_or_code: str,
         family: str | None = None,
@@ -288,6 +401,7 @@ def create_server(
         )
 
     @mcp.tool()
+    @_routed
     def explore_methods(
         problem: str,
         k: int = 5,
@@ -314,6 +428,7 @@ def create_server(
         )
 
     @mcp.tool()
+    @_routed
     def memory_promote(
         episode_ids: list[str],
         claim: str,
@@ -347,6 +462,7 @@ def create_server(
     # -- Phase 3: gates & backtest seam (plan §6 tools 11-14, §9, §12.2, §15.2) --
 
     @mcp.tool()
+    @_routed
     def backtest_run(
         episode_id: str,
         spec: dict,
@@ -374,6 +490,7 @@ def create_server(
         )
 
     @mcp.tool()
+    @_routed
     def significance_gate(episode_id: str) -> dict:
         """Type-A gate (§9.1): DSR = PSR(SR_hat; E[max SR|H0, M_family, skew,
         kurt, T]) — no subtraction — on the episode's net-of-costs metrics,
@@ -386,6 +503,7 @@ def create_server(
         return gates_service.significance_gate(services.db, cfg, episode_id)
 
     @mcp.tool()
+    @_routed
     def causal_check(
         episode_id: str,
         spec: dict,
@@ -401,6 +519,7 @@ def create_server(
         )
 
     @mcp.tool()
+    @_routed
     def risk_decompose(
         episode_id: str,
         spec: dict,
@@ -416,6 +535,7 @@ def create_server(
         )
 
     @mcp.tool()
+    @_routed
     def run_summary_ingest(payload: dict) -> dict:
         """Ingest a QuantFlow Tier-2 run summary (plan §15.1 C9/C10): counts,
         failure sketches, skill activations, difficulty signals — not full
@@ -435,6 +555,7 @@ def create_server(
     # -- Phase 5: QD archive & exploration (plan §6.1 tool 6, §6.3 tool 19) ----
 
     @mcp.tool()
+    @_routed
     def suggest_next(
         n: int = 3,
         as_of: str | None = None,
@@ -457,6 +578,7 @@ def create_server(
         )
 
     @mcp.tool()
+    @_routed
     def archive_status(as_of: str | None = None) -> dict:
         """Archive + exploration status (§6.3 tool 19): coverage
         (occupied/total cells, per-family), top-N elites by cell score,
@@ -469,6 +591,7 @@ def create_server(
         return archive.status(services.db, cfg, as_of)
 
     @mcp.tool()
+    @_routed
     def report_write(
         hypothesis_id: str | None = None,
         episode_id: str | None = None,
@@ -510,6 +633,7 @@ def create_server(
     # -- Phase 6: skill evolution (plan §6.3 tools 16-18/22, §11, §19 M11) -----
 
     @mcp.tool()
+    @_routed
     def distill_skill(
         episode_ids: list[str],
         name: str,
@@ -540,6 +664,7 @@ def create_server(
         )
 
     @mcp.tool()
+    @_routed
     def propose_skill_challenger(
         skill_name: str,
         op: str,
@@ -564,6 +689,7 @@ def create_server(
         )
 
     @mcp.tool()
+    @_routed
     def run_replay(
         skill_name: str | None = None,
         suite: str | None = None,
@@ -590,6 +716,7 @@ def create_server(
         )
 
     @mcp.tool()
+    @_routed
     def approve(
         target_type: str,
         target_id: str,
@@ -617,6 +744,7 @@ def create_server(
         )
 
     @mcp.tool()
+    @_routed
     def decide_skill_promotion(
         skill_name: str,
         candidate_id: str,
@@ -646,6 +774,7 @@ def create_server(
         )
 
     @mcp.tool()
+    @_routed
     def retire_skill(
         name: str,
         version: int,
@@ -660,6 +789,7 @@ def create_server(
     # -- Artifact evolution (evolution upgrade plan §2.E, §3.3) ------------------
 
     @mcp.tool()
+    @_routed
     def evolution_run(
         family: str,
         seed_hypothesis_id: str | None = None,
@@ -698,6 +828,7 @@ def create_server(
         )
 
     @mcp.tool()
+    @_routed
     def evolution_status(run_id: str) -> dict:
         """Read-only evolution run report: the run record, per-round feedback
         (decisions with DSR/SR, model, prompt sha), the line's current head +
@@ -709,6 +840,7 @@ def create_server(
     # §6.3 tools 20-21, §12.3, §13, §18.1) ------------------------------------
 
     @mcp.tool()
+    @_routed
     def find_analogies(
         target_problem: str,
         mech_tags: list[str],
@@ -740,6 +872,7 @@ def create_server(
         )
 
     @mcp.tool()
+    @_routed
     def combine_methods(
         method_ids: list[str],
         target_problem: str,
@@ -767,6 +900,7 @@ def create_server(
         )
 
     @mcp.tool()
+    @_routed
     def consolidate(
         scope: str | None = None,
         as_of: str | None = None,
@@ -793,6 +927,7 @@ def create_server(
         )
 
     @mcp.tool()
+    @_routed
     def generate_exercise(
         gap_report_id: str | None = None,
         seed: int | None = None,
@@ -814,6 +949,7 @@ def create_server(
     # read it) -------------------------------------------------------------
 
     @mcp.tool()
+    @_routed
     def trace_hypothesis(hypothesis_id: str) -> dict:
         """Ordered trace for one hypothesis (P1-5): the hypothesis root plus
         its trial episodes and narrated evolution feedback, merged append-only
@@ -828,6 +964,7 @@ def create_server(
         }
 
     @mcp.tool()
+    @_routed
     def sota_status() -> dict:
         """Pointer to the best gated trial in the ledger (P1-5), or
         {sota: None} on an empty/ungated ledger. Pure ledger read — no LLM.
@@ -837,6 +974,7 @@ def create_server(
         return {"sota": trace_service.sota_pointer(services.db)}
 
     @mcp.tool()
+    @_routed
     def debate_evidence(
         hypothesis_id: str,
         client_id: str | None = None,

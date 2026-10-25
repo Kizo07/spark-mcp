@@ -6,12 +6,16 @@ against the same fixtures (adding an LLM judge and a persistence cache).
 Fixture scoring, deterministic mode (no LLM):
 - substance pre-filter: only steps with instruction substance enter the
   scored blob — a step must open with an instruction verb (imperative or
-  third-person, from a fixed verb set) and carry at least 3 tokens.
-  Empty, whitespace-only, and keyword-only steps (no leading instruction
-  verb) are dropped; with no substantive step left the score is 0.0.
-  This is the scorer-level anti-soup defence: a keyword dump matches no
-  rubric from a substantive step. The LLM-judge path is unfiltered — the
-  judge itself assesses substance per rubric item.
+  third-person, from a fixed verb set), carry at least 3 tokens, fit in
+  _MAX_SUBSTANTIVE_WORDS words, and not be an alphabetized word list
+  (complement _SALAD_SORTED_FRAC over _MIN_SALAD_COMPLEMENT_WORDS+
+  words). Empty, whitespace-only, keyword-only (no leading verb), and
+  verb-led salad steps ("Check <dump>", the dump split across verb-led
+  steps, the dump with numbers appended) are dropped; with no
+  substantive step left the score is 0.0. This is the scorer-level
+  anti-soup defence: a keyword dump matches no rubric from a
+  substantive step. The LLM-judge path is unfiltered — the judge itself
+  assesses substance per rubric item.
 - rubric item: tokenize the item ([a-z0-9]+, lowercase); keywords = tokens
   with len >= 4, stemmed by stripping one trailing "s" so basic inflections
   (check/checks, apply/applies) match; covered iff every stemmed keyword
@@ -45,6 +49,30 @@ _JUDGE_MAX_TOKENS = 400
 #: reflect._validate_steps_body the same), so substance is a content rule:
 #: empty/whitespace/keyword-only steps never enter the scored blob.
 _MIN_SUBSTANTIVE_TOKENS = 3
+
+#: Maximum whitespace-separated words for a substantive step. Natural
+#: procedure steps (honest baseline <= 12 words, guard sentences 15 words
+#: — the error class is one whitespace-free identifier) sit far below
+#: this; a keyword dump poured into one verb-led step (~90 words) trips
+#: it regardless of word order, so shuffling the soup or appending
+#: numbers does not evade the length half of the defence.
+_MAX_SUBSTANTIVE_WORDS = 40
+
+#: Alphabetical-salad rule: a step whose complement (whitespace words
+#: after the leading verb) holds at least _MIN_SALAD_COMPLEMENT_WORDS
+#: words with a non-decreasing-adjacent-pair fraction (case-insensitive)
+#: at or above _SALAD_SORTED_FRAC is an alphabetized word list, not a
+#: sentence. Sorted keyword chunks — whole or split across verb-led
+#: steps — score exactly 1.0 at any chunk size, while the honest /
+#: neutral / guard / AUDIT baseline peaks at 0.75, so 0.90 separates
+#: with margin on both sides. Deliberately order-based and
+#: fixture-free: it reads only the step text, never rubric vocabulary
+#: (the F1 routing rule forbids mutation paths from reading fixtures,
+#: and the scorer needs no fixture cheat to spot a sorted list).
+#: Known limits (named, not fixed): shuffled word salad and chunks
+#: below the 4-word floor (~3-word micro-chunks) pass this filter.
+_MIN_SALAD_COMPLEMENT_WORDS = 4
+_SALAD_SORTED_FRAC = 0.90
 
 #: Base instruction verbs opening a substantive procedure step. Matched
 #: against the step's first token plus its regular third-person forms
@@ -110,13 +138,33 @@ def _keywords(text: str) -> list[str]:
     return [_stem(t) for t in _tokens(text) if len(t) >= 4]
 
 
+def _sorted_frac(words: list[str]) -> float:
+    """Fraction of adjacent pairs in non-decreasing (case-insensitive)
+    alphabetical order. Caller guarantees at least 2 words."""
+    lowered = [w.lower() for w in words]
+    return sum(1 for a, b in zip(lowered, lowered[1:], strict=False) if b >= a) / (len(lowered) - 1)
+
+
 def _is_substantive_step(step: str) -> bool:
     """A step carries instruction substance iff it opens with an instruction
-    verb and has at least _MIN_SUBSTANTIVE_TOKENS tokens. Keyword dumps —
-    sorted word lists with no leading verb — fail the verb rule even when
-    they contain verb tokens mid-string."""
+    verb, has at least _MIN_SUBSTANTIVE_TOKENS tokens, and is not
+    keyword-salad: verb-led soup ("Check <dump>", the dump split across
+    verb-led steps, the dump with numbers appended) passes the verb rule,
+    so steps over _MAX_SUBSTANTIVE_WORDS words or with a near-perfectly
+    alphabetized complement are also dropped. Reads only the step text."""
     tokens = _tokens(step.strip())
-    return len(tokens) >= _MIN_SUBSTANTIVE_TOKENS and tokens[0] in _INSTRUCTION_VERBS
+    if len(tokens) < _MIN_SUBSTANTIVE_TOKENS or tokens[0] not in _INSTRUCTION_VERBS:
+        return False
+    words = step.split()
+    if len(words) > _MAX_SUBSTANTIVE_WORDS:
+        return False
+    complement = words[1:]
+    if (
+        len(complement) >= _MIN_SALAD_COMPLEMENT_WORDS
+        and _sorted_frac(complement) >= _SALAD_SORTED_FRAC
+    ):
+        return False
+    return True
 
 
 def _rubric_item_covered(steps_blob: str, item: str) -> bool:
