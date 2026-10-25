@@ -1,3 +1,6 @@
+# Example config. Every uncommented value mirrors the code default in
+# src/spark_mcp/config.py (the source of truth); tests/test_config_example_parity.py
+# fails on drift. Intentional deviations are allowlisted there with reasons.
 storage:
   db_path: ~/.spark/spark.db
   artifacts_dir: ~/.spark/artifacts
@@ -11,8 +14,8 @@ peers:
   alpha_engine:
     enabled: false
     transport: stdio
-    command: /path/to/alpha_engine/.venv/bin/python
-    args: ["-m", "alpha_engine.mcp_server"]
+    command: /path/to/alpha_engine/.venv/bin/python  # illustrative launch path (intentional override of the null default; allowlisted in tests/test_config_example_parity.py)
+    args: ["-m", "alpha_engine.mcp_server"]  # paired with command above; allowlisted override of the [] default
   documents:  { enabled: false }
   gateway:                       # QuantFlow skill-write API (plan §11 C7);
     enabled: false               # default absent -> promotion writes block
@@ -33,9 +36,9 @@ research:
   selection_score_band: 0.12   # defensible-set band for softmax pool (§8.2)
   selection_min_eligible: 24  # keep the pool stochastic (G1 repeat-overlap)
   selection_pool_extra: 0     # pool size = k + extra, drawn from eligible
-  selection_obvious_drop: 1   # exclude the top scorer (surface challengers)
+  selection_obvious_drop: 0   # default 0 = champion eligible; >0 excludes top scorers ("challenger mode") — see rationale in src/spark_mcp/config.py
   family_fit_factor_exponent: 0.5  # softened family factor on the fit channel
-  selection_pool_temp_multiplier: 3.0  # flatten pool draws (G1 exploration)
+  selection_pool_temp_multiplier: 6.0  # pool-draw temperature multiplier; 6.0 calibrated with the LLM scorer (G1) — see src/spark_mcp/config.py
   scoring_weights: [0.35, 0.20, 0.20, 0.15, 0.10]
   temperatures: { safe: 0.3, balanced: 0.7, exploratory: 1.2 }
   mmr_lambda: 0.5

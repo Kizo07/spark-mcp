@@ -26,6 +26,10 @@ spark serve            # MCP server over stdio (equivalent: python -m spark_mcp)
 python -m pytest -q    # test suite incl. the independence gate
 ```
 
+## Program gates
+
+G1 — judge RED [5,1,1,1,1] single-draw; GREEN only under Tier-3 union-of-5 amendment. The single-draw figure is the original §18.0 criterion result; the GREEN applies only to the amended distribution criterion. See [STATUS.md](STATUS.md) for the phase verdicts and [docs/gates.md](docs/gates.md) for the G1–G5 original vs amended/current criteria and evidence refs. Transport decision: [docs/adr/transport.md](docs/adr/transport.md).
+
 ## Configuration
 
 Copy `config.example.yaml` to your `SPARK_CONFIG` path or rely on

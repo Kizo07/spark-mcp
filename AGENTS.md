@@ -31,6 +31,11 @@ package; QuantFlow and alpha_engine are optional peers, never dependencies.
 5. **Milestones close only with a review.** Each phase: tests green → run the
    `milestone-review` skill (muse headless reviewer) → verdict recorded in
    STATUS.md → local git commit. Never mark a phase done on self-assessment.
+6. **G1 citation.** Never cite G1 as bare GREEN. The only correct form is:
+   G1 — judge RED [5,1,1,1,1] single-draw; GREEN only under Tier-3 union-of-5
+   amendment. The single-draw RED is the original §18.0 criterion result; the
+   GREEN applies only to the amended distribution criterion. See
+   `docs/gates.md` and STATUS.md.
 
 ## Commands
 

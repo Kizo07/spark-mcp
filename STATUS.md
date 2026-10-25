@@ -21,6 +21,8 @@ PASS-WITH-NITS without blockers (AGENTS.md rule 5).
 | **G1** (end Phase 2) | **OVERLAP GREEN / JUDGE RED** | **Overlap half: GREEN.** Round 5 (full-field scorer, `d608dab`): mean **0.212**, per-problem [0.22, 0.18, 0.20, 0.16, 0.30] — all at/under the 0.30 SLO (rounds 3-4 on the mean basis: 0.204 / 0.26; 12-seed Monte Carlo of the same code path: true per-problem rates ≈0.20–0.21; the 5-call gate sample is high-variance). **Judge half: RED** after the LLM path came live: count≥3/5 per problem — r1 [4,1,1,1,0], r2 [4,1,0,0,2], r3 [5,0,1,1,0], r4 [5,0,1,1,0], **r5 [5,1,1,1,1]** (reviews/2026-09-13_g1-judge-round{1..5}.md; ranked candidate lists saved for rounds 3 & 5: reviews/2026-09-13_g1-round{3,5}-candidates.json). Criterion (≥2 suggestions/problem ≥3/5 on ALL 5, §18.0): met on P1 (5/5 in every LLM round) and unmet elsewhere. **Diagnosis: depth-per-problem shortfall relative to draw entropy, plus thin corpus shelves — not "mechanism vs corpus", both matter** (see below). |
 | **G2** (end Phase 3) | **GREEN (standalone)** | loop 0.44s vs 900s SLO; (counted+reconciled)/attested = 17/17 = 1.0 exactly incl. 3 retries + 2 out-of-band; 100% counted; C6 enforced at entry and gate; SR always paired with DSR. Live-peer half: peer exists (`../alpha_engine`) but its tools do not speak plan §15.2 contract; RecordedProvider cassettes cover the seam per plan §17.4. **Post-goal follow-up: live integration once the peer exposes §15.2 tools.** |
 
+Canonical G1 citation (use verbatim everywhere): **G1 — judge RED [5,1,1,1,1] single-draw; GREEN only under Tier-3 union-of-5 amendment.** The single-draw figure is the round-5 result under the original §18.0 criterion (≥2 suggestions/problem rated ≥3/5 on ALL 5 in one draw); the GREEN applies only to the amended distribution criterion (union of top-5 across 5 draws, ≥2 distinct methods/problem rated ≥3/5). See [docs/gates.md](docs/gates.md) for the original vs amended criteria and evidence refs.
+
 ## G1 judge half: honest diagnosis (corrected per the delta review)
 
 The delta review (reviews/2026-09-13_delta-hardening.md §2) rejected the first
@@ -260,7 +262,7 @@ any eval). Re-scored full field (glm-5.3); round 6 (same blind protocol):
 G4 re-evaluation: still RED (G1 judge). Phases 6–7 remain unstarted per the
 goal's stop rule; awaiting the user's choice between the two remaining paths.
 
-## G1 (amended protocol) GREEN — G4 re-evaluation GREEN (2026-09-13)
+## G1 — judge RED [5,1,1,1,1] single-draw; GREEN only under Tier-3 union-of-5 amendment — G4 re-evaluation GREEN (2026-09-13)
 
 User authorized the Tier-3 plan change (option 1): plan §18.0 G1 judge half
 now evaluates the suggestion DISTRIBUTION (union of top-5 across 5
@@ -272,12 +274,12 @@ amendment recorded here and in the plan row.
 Round 7 (same blind judge/rubric, warm full-field cache, grown corpus):
 - Overlap half: **GREEN** — mean 0.236, per-problem [0.12, 0.30, 0.24,
   0.24, 0.28], all ≤ 0.30.
-- Judge half (amended): **GREEN** — distinct methods rated ≥3/5 per
+- Judge half (Tier-3 union-of-5 amendment): **GREEN** — distinct methods rated ≥3/5 per
   problem: [17, 3, 8, 3, 3] (reviews/2026-09-13_g1-judge-round7-union.md;
   union sizes 16-19). P2: 2SLS/RR-shocks/VAR; P3: VRP/STAR/MSM/VPIN/HMM/
   particle/Hamilton/skew; P4: MP/factor-risk/MST; P5: DWT/UKF/Kalman.
 
-**G4 re-evaluation: GREEN** — G1 (amended) + G2 + G3 green; ≥50-outcomes
+**G4 re-evaluation: GREEN** — G1 (judge RED [5,1,1,1,1] single-draw; GREEN only under Tier-3 union-of-5 amendment) + G2 + G3 green; ≥50-outcomes
 leg previously demonstrated (60 outcomes, Beta(10,4) ×5 families);
 §6 reassessment artifact committed. Phase 6 is unblocked; the G4 red
 period and both remediation paths are retained above for the record.
@@ -396,7 +398,7 @@ Test counts: 391 total at the pre-review build; ruff clean.
 
 ## Goal state — Phases 4–7 complete (2026-09-13)
 
-Gates: G1 GREEN under the user-amended distribution protocol (overlap
+Gates: G1 — judge RED [5,1,1,1,1] single-draw; GREEN only under Tier-3 union-of-5 amendment (overlap
 0.236; union judge [17,3,8,3,3]); G2 GREEN; G3 GREEN; G4 GREEN (honest
 evaluation, incl. the red period + §6 reassessment artifact); G5 GREEN.
 Per-phase reviews: 4 PASS-WITH-NITS (fallback tier), 5 PASS-WITH-NITS,
@@ -411,3 +413,19 @@ Deferred to future work (recorded, not lost): live quantflow hook emission
 activation (needs a versioned endpoint); Phase-2 deferred-by-design items;
 embeddings route; LLM-spend accounting on all LLM seams; P1–P5 carried
 nits per their review files.
+
+## HEAD baseline — 2026-10-25 (reproduced-this-session)
+
+- HEAD: `5e547fa` (`5e547fa8231244c184c249126e426ae30db16378`)
+- Date: 2026-10-25
+- Command: `bash scripts/check.sh` (full run, this session)
+- Tests: 536 collected, 536 passed, 0 failed / 0 errors / 0 skipped
+  (`python -m pytest -q`; JUnit cross-check: tests=536, failures=0,
+  errors=0, skipped=0; independence subset included. Committed HEAD
+  tree alone collects 513; the +23 are concurrent uncommitted test
+  files present in the working tree during the final run.)
+- Lint: `ruff check src tests` — All checks passed
+- Independence gate: `python -m pytest tests/independence -q` — 3 passed
+- Duration: ~30s for the full `scripts/check.sh` run (real 29.6s final;
+  29.9s on the clean-HEAD run)
+- Label: reproduced-this-session
