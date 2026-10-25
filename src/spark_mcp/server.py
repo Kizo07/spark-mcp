@@ -14,6 +14,7 @@ defaults (db_path ~/.spark/spark.db, plan §16).
 
 from __future__ import annotations
 
+import html
 import json
 import os
 from dataclasses import dataclass
@@ -471,24 +472,37 @@ def create_server(
         episode_id: str | None = None,
         format: str = "md",
     ) -> dict:
-        """Minimal Phase-1 ledger dump (M13): exactly one of hypothesis_id /
-        episode_id (N10); md-only (N5). Pure ledger read — no LLM. Includes
-        episode/hypothesis fields, trial rows with counts, and costs.
+        """Ledger report (M13): exactly one of hypothesis_id / episode_id
+        (N10); format 'md' (default) or 'html' (P2-6 built-in single-file
+        renderer). Pure ledger read — no LLM. Includes episode/hypothesis
+        fields, trial rows with counts, and costs. HTML escapes all
+        interpolated text and carries a provenance stamp (generated-at +
+        spark-mcp version).
         """
         if (hypothesis_id is None) == (episode_id is None):
             raise ValueError("exactly one of hypothesis_id / episode_id is required (N10)")
-        if format != "md":
-            raise ValueError(
-                "format must be 'md' (HTML renderer DEFERRED:"
-                f" research.report_html_renderer={cfg.research.report_html_renderer!r};"
-                " Phase-7 decision record in STATUS.md, plan §6.3 tool 21 (N5)"
-                " + §18.1; building a renderer is a §20 non-goal for this phase)"
-            )
-        return (
-            {
+        if format == "md":
+            return {
                 "format": "md",
                 "markdown": _report_markdown(services, hypothesis_id, episode_id),
             }
+        if format == "html":
+            if cfg.research.report_html_renderer != "builtin":
+                raise ValueError(
+                    "format='html' requires research.report_html_renderer='builtin'"
+                    f" (got {cfg.research.report_html_renderer!r});"
+                    " set report_html_renderer to 'builtin' to enable the"
+                    " built-in single-file HTML renderer (P2-6;"
+                    " plan §6.3 tool 21 N5 + §18.1)"
+                )
+            return {
+                "format": "html",
+                "html": _report_html(services, hypothesis_id, episode_id),
+            }
+        raise ValueError(
+            f"format must be 'md' or 'html' (got {format!r});"
+            f" research.report_html_renderer={cfg.research.report_html_renderer!r}"
+            " (plan §6.3 tool 21 N5 + §18.1)"
         )
 
     # -- Phase 6: skill evolution (plan §6.3 tools 16-18/22, §11, §19 M11) -----
@@ -914,6 +928,184 @@ def _report_markdown(services: Services, hypothesis_id: str | None, episode_id: 
     )
     lines.append("")
     return "\n".join(lines)
+
+
+def _esc(value: object) -> str:
+    """Escape one interpolated value for HTML text/attribute context."""
+    if value is None:
+        return "-"
+    return html.escape(str(value), quote=True)
+
+
+def _trials_html(db: Database, episode_ids: list[str]) -> tuple[str, float, int]:
+    """Trial rows as an HTML table, plus total usd/tokens (mirrors _trials_markdown)."""
+    rows_html: list[str] = []
+    total_usd = 0.0
+    total_tokens = 0
+    for ep_id in episode_ids:
+        rows = db.conn.execute(
+            "SELECT * FROM trials WHERE episode_id = ? ORDER BY created_at", (ep_id,)
+        ).fetchall()
+        for t in rows:
+            rows_html.append(
+                "<tr>"
+                f"<td>{_esc(t['trial_id'])}</td>"
+                f"<td>{_esc(t['episode_id'])}</td>"
+                f"<td>{_esc(t['source'])}</td>"
+                f"<td>{_esc(t['status'])}</td>"
+                f"<td>{_esc(t['family'])}</td>"
+                f"<td>{_esc(t['created_at'])}</td>"
+                f"<td>{_esc(t['completed_at'])}</td>"
+                "</tr>"
+            )
+        ep = db.conn.execute(
+            "SELECT costs FROM episodes WHERE episode_id = ?", (ep_id,)
+        ).fetchone()
+        if ep and ep["costs"]:
+            costs = json.loads(ep["costs"])
+            total_usd += float(costs.get("usd", 0.0))
+            total_tokens += int(costs.get("tokens", 0))
+    if rows_html:
+        body = "".join(rows_html)
+    else:
+        body = '<tr><td colspan="7">none</td></tr>'
+    table = (
+        "<table><thead><tr>"
+        "<th>trial_id</th><th>episode_id</th><th>source</th><th>status</th>"
+        "<th>family</th><th>created</th><th>completed</th>"
+        f"</tr></thead><tbody>{body}</tbody></table>"
+    )
+    return table, total_usd, total_tokens
+
+
+def _report_html(services: Services, hypothesis_id: str | None, episode_id: str | None) -> str:
+    """Minimal built-in single-file HTML renderer for report_write (P2-6).
+
+    Mirrors _report_markdown's ledger reads; every interpolated value is
+    escaped via _esc/html.escape. The document is self-contained (inline
+    CSS, no external resources) and carries a provenance stamp with the
+    generation timestamp and the spark-mcp version.
+    """
+    db = services.db
+    generated_at = now_iso()
+    parts: list[str] = []
+    episode_ids: list[str] = []
+    if hypothesis_id:
+        hyp = ledger.get_hypothesis(db, hypothesis_id)
+        if hyp is None:
+            raise ValueError(f"unknown hypothesis_id {hypothesis_id!r}")
+        title = f"Spark ledger report — Hypothesis {hypothesis_id}"
+        parts.append(f"<h2>Hypothesis {_esc(hypothesis_id)}</h2>")
+        parts.append(
+            "<ul>"
+            f"<li>family: {_esc(hyp['research_family'])}</li>"
+            f"<li>type: {_esc(hyp['hypothesis_type'])}</li>"
+            f"<li>status: {_esc(hyp['status'])}</li>"
+            f"<li>mechanism: {_esc(hyp['mechanism'])}</li>"
+            f"<li>falsifier: {_esc(hyp['falsifier'])}</li>"
+            f"<li>predicted_ic: {_esc(hyp['predicted_ic'])}"
+            f" (sigma {_esc(hyp['predicted_sigma'])})</li>"
+            f"<li>as_of: {_esc(hyp['as_of'])}</li>"
+            "</ul>"
+        )
+        ep_rows = db.conn.execute(
+            "SELECT episode_id, status, outcome, costs FROM episodes WHERE hypothesis_id = ?"
+            " ORDER BY created_at",
+            (hypothesis_id,),
+        ).fetchall()
+        episode_ids = [r["episode_id"] for r in ep_rows]
+        parts.append("<h2>Episodes</h2>")
+        if ep_rows:
+            items = []
+            for r in ep_rows:
+                costs = json.loads(r["costs"]) if r["costs"] else None
+                items.append(
+                    f"<li><code>{_esc(r['episode_id'])}</code>"
+                    f" status={_esc(r['status'])}"
+                    f" outcome={_esc(r['outcome'])}"
+                    f" costs={_esc(_fmt_costs(costs))}</li>"
+                )
+            parts.append("<ul>" + "".join(items) + "</ul>")
+        else:
+            parts.append("<ul><li>none</li></ul>")
+    else:
+        assert episode_id is not None  # guaranteed by the exactly-one check in report_write
+        ep = ledger.get_episode(db, episode_id)
+        if ep is None:
+            raise ValueError(f"unknown episode_id {episode_id!r}")
+        hyp = ledger.get_hypothesis(db, ep["hypothesis_id"]) or {}
+        episode_ids = [episode_id]
+        title = f"Spark ledger report — Episode {episode_id}"
+        parts.append(f"<h2>Episode {_esc(episode_id)}</h2>")
+        parts.append(
+            "<ul>"
+            f"<li>hypothesis: {_esc(ep['hypothesis_id'])}</li>"
+            f"<li>family: {_esc(ep['research_family'])}</li>"
+            f"<li>run_kind: {_esc(ep['run_kind'])}</li>"
+            f"<li>status: {_esc(ep['status'])}"
+            f" (outcome {_esc(ep['outcome'])})</li>"
+            f"<li>protocol_hash: {_esc(ep['protocol_hash'])}</li>"
+            f"<li>reconciled: {_esc(bool(ep['reconciled']))}</li>"
+            f"<li>failure_reason: {_esc(ep['failure_reason'])}</li>"
+            f"<li>mechanism: {_esc(hyp.get('mechanism'))}</li>"
+            f"<li>as_of: {_esc(ep['as_of'])}</li>"
+            "</ul>"
+        )
+
+    parts.append("<h2>Trials</h2>")
+    trials_table, total_usd, total_tokens = _trials_html(db, episode_ids)
+    parts.append(trials_table)
+    if episode_ids:
+        counts = db.conn.execute(
+            "SELECT source, status, COUNT(*) AS n FROM trials WHERE episode_id IN ("
+            + ",".join("?" for _ in episode_ids)
+            + ") GROUP BY source, status",
+            episode_ids,
+        ).fetchall()
+    else:
+        counts = []
+    parts.append("<h3>Trial counts</h3>")
+    if counts:
+        items = "".join(
+            f"<li>{_esc(c['source'])}/{_esc(c['status'])}: {_esc(c['n'])}</li>" for c in counts
+        )
+        parts.append(f"<ul>{items}</ul>")
+    else:
+        parts.append("<ul><li>none</li></ul>")
+    parts.append("<h2>Costs</h2>")
+    spend = spend_summary(db)
+    total_str = f"{total_usd:.4f}"
+    today_str = f"{spend['today_usd']:.4f}"
+    total_spend_str = f"{spend['total_usd']:.4f}"
+    parts.append(
+        "<ul>"
+        f"<li>total: ${_esc(total_str)} usd, {_esc(total_tokens)} tokens"
+        " (summed over reported episodes)</li>"
+        f"<li>spend ledger: ${_esc(today_str)} usd today,"
+        f" ${_esc(total_spend_str)} usd total"
+        " (§14; archive_status exposes the same summary)</li>"
+        "</ul>"
+    )
+    provenance = (
+        f"Generated at {_esc(generated_at)} · spark-mcp {_esc(__version__)}"
+    )
+    return (
+        "<!DOCTYPE html>\n"
+        '<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+        f"<title>{_esc(title)}</title>\n"
+        "<style>"
+        "body{font-family:system-ui,sans-serif;margin:2rem;line-height:1.5;color:#111}"
+        "table{border-collapse:collapse;margin:1rem 0}"
+        "th,td{border:1px solid #ccc;padding:.3rem .6rem;text-align:left;font-size:.9rem}"
+        "th{background:#f3f3f3}code{font-family:ui-monospace,monospace}"
+        ".provenance{color:#555;font-size:.85rem;border-top:1px solid #ddd;"
+        "margin-top:2rem;padding-top:.5rem}"
+        "</style>\n</head>\n<body>\n"
+        "<h1>Spark ledger report</h1>\n"
+        + "\n".join(parts)
+        + f'\n<footer class="provenance">{provenance}</footer>\n'
+        "</body>\n</html>\n"
+    )
 
 
 def main() -> None:  # `python -m spark_mcp` entrypoint (stdio MCP)

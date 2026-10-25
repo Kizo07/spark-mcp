@@ -2,9 +2,10 @@
 
 suggest_next (plan §6.1 tool 6, §13/G5): consuming a consolidation gap report
 by id boosts the named families' utility and records the report id on the
-trajectory + result. report_write (plan §6.3 tool 21, N5): format != 'md' is
-rejected with a message citing the Phase-7 decision record
-(research.report_html_renderer, STATUS.md)."""
+trajectory + result. report_write (plan §6.3 tool 21, N5): HTML is served
+by the built-in renderer; a config pinning
+research.report_html_renderer != 'builtin' still rejects format='html'
+with a message citing the decision record."""
 
 from __future__ import annotations
 
@@ -116,8 +117,16 @@ def _server(tmp_path):
 
 
 def test_report_write_rejection_names_the_decision_record(tmp_path):
+    deferred = Config(
+        storage={
+            "db_path": f"{tmp_path}/spark.db",
+            "artifacts_dir": f"{tmp_path}/art",
+        },
+        research={"report_html_renderer": "deferred"},
+    )
+
     async def run():
-        async with Client(_server(tmp_path)) as client:
+        async with Client(create_server(deferred, seeds=False)) as client:
             with pytest.raises(ClientToolError) as excinfo:
                 await client.call_tool(
                     "report_write", {"episode_id": "ep_x", "format": "html"}
@@ -125,7 +134,7 @@ def test_report_write_rejection_names_the_decision_record(tmp_path):
             message = str(excinfo.value)
             assert "report_html_renderer" in message
             assert "deferred" in message.lower()
-            assert "STATUS" in message  # the Phase-7 decision record location
+            assert "builtin" in message  # names the enabling value
             assert "N5" in message  # plan §6.3 tool 21 N5
 
     asyncio.run(run())

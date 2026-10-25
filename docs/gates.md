@@ -37,3 +37,13 @@ Canonical G1 citation (use verbatim): **G1 — judge RED [5,1,1,1,1] single-draw
 - **Amended/current criterion:** unchanged; no amendment recorded for G5.
 - **Current status:** GREEN.
 - **Evidence:** STATUS.md Phase 7 (analogy-derived hypothesis validated through the DSR gate; gap report consumed by id; curriculum exercise from a real gap replay-scored); `tests/test_g5_scenario.py`; `reviews/2026-09-13_phase-7.md` (PASS-WITH-NITS, GO).
+
+## Concurrency envelope (measured 2026-10-25)
+
+Probe: `tests/test_concurrency_probe.py` (P2-5), N=4 barrier-synchronized threads, tool-level ledger operations (propose/register/log_outcome + reads) against one temp SQLite DB per pattern, distinct client_ids/seeds, runtime ~0.6s per full file run. Measured over 10 consecutive `pytest tests/test_concurrency_probe.py -q` runs (all green, final state asserted exactly-once in every run):
+
+- **Shared handle — locked paths (production pattern):** ONE `Database` shared across threads (as `Services.db` in server.py), workers running `log_outcome` (self-serializes via `Database.locked()`) on distinct episodes plus reads wrapped in `db.locked()`. Outcome: 0 errors, 0 SQLITE_BUSY in 10/10 runs; 4 episodes / 4 trials, exactly once, all `validated`.
+- **Shared handle — `register_hypothesis`:** concurrent registrations originally raced (bare pre-reads outside the lock; `InterfaceError` / spurious unknown-hypothesis in characterization runs). Fixed 2026-10-25: `propose_hypothesis`/`register_hypothesis` now serialise on `Database.locked()`; the probe asserts 4/4 concurrent registrations succeed exactly-once.
+- **Separate connections:** one `Database` per thread on the same file, each running propose→register→read→log_outcome. Outcome: 0 SQLITE_BUSY (WAL + `busy_timeout=5000`); the `vec_embeddings` check-then-create race on simultaneous first embeds is fixed in `ensure_vec_embeddings` (an `already exists` loser proceeds).
+
+**Envelope summary (2026-10-25, post-fix):** safe under N=4 for tool-level ledger operations on the shared handle (all access via `Database.locked()`/`transaction()`/`execute()`) and for separate connections including first embeds. Bare `db.conn.execute` reads outside the lock remain outside the envelope.

@@ -154,12 +154,89 @@ class OpenAICompatibleLLM:
         raise last_exc
 
 
+class OpenAICompatibleEmbedder:
+    """Embeddings client for any OpenAI-compatible endpoint (plan §4.3/M4).
+
+    POST {base}/embeddings with Bearer auth; transient transport/5xx/429
+    errors retry with linear backoff like OpenAICompatibleLLM, anything else
+    raises. `model_id()` is the configured embedder model string; it enters
+    every embedding cache key so a model swap can never silently re-scale
+    cached vectors. `transport`/`client` are injectable for tests
+    (httpx.MockTransport).
+    """
+
+    def __init__(
+        self,
+        base_url: str,
+        api_key: str,
+        model: str,
+        *,
+        timeout: float = 90.0,
+        max_retries: int = 2,
+        transport=None,
+        client=None,
+    ):
+        import httpx
+
+        self._base = base_url.rstrip("/")
+        self._key = api_key
+        self._model = model
+        self._timeout = timeout
+        self._max_retries = max_retries
+        if client is not None:
+            self._client = client
+        elif transport is not None:
+            self._client = httpx.Client(timeout=timeout, transport=transport)
+        else:
+            self._client = httpx.Client(timeout=timeout)
+
+    def model_id(self) -> str:
+        return self._model
+
+    def embed(self, texts: list[str]) -> np.ndarray:
+        import time
+
+        import httpx
+
+        if not texts:
+            return np.empty((0, 0), dtype=np.float64)
+        payload: dict = {"model": self._model, "input": list(texts)}
+        headers = {"Authorization": f"Bearer {self._key}"}
+        last_exc: Exception | None = None
+        for attempt in range(self._max_retries + 1):
+            try:
+                resp = self._client.post(
+                    f"{self._base}/embeddings", json=payload, headers=headers
+                )
+                if resp.status_code in (429, 500, 502, 503, 504):
+                    raise httpx.HTTPStatusError(
+                        f"transient {resp.status_code}",
+                        request=resp.request,
+                        response=resp,
+                    )
+                resp.raise_for_status()
+                data = resp.json()
+                items = sorted(data["data"], key=lambda x: x["index"])
+                vectors = [item["embedding"] for item in items]
+                return np.array(vectors, dtype=np.float64)
+            except (httpx.TransportError, httpx.HTTPStatusError) as exc:
+                last_exc = exc
+                if attempt < self._max_retries:
+                    time.sleep(0.5 * (attempt + 1))
+        assert last_exc is not None
+        raise last_exc
+
+    def embed_one(self, text: str) -> np.ndarray:
+        return self.embed([text])[0]
+
+
 def build_embedder(cfg) -> Embedder | None:
     """Embedder for the given config; None when degraded (plan §4.3/M4).
 
     The z.ai coding-plan endpoint exposes no embeddings route (chat models
-    only), so a key alone does not produce an embedder: FTS5-only retrieval
-    and lexical novelty remain the degraded path until an embedding endpoint
+    only), so a chat `base_url` + key alone does not produce an embedder:
+    a distinct `embeddings_base_url` is required. FTS5-only retrieval and
+    lexical novelty remain the degraded path until an embedding endpoint
     (or local sentence-transformers extra) is configured.
     """
     from .config import Config
@@ -167,9 +244,13 @@ def build_embedder(cfg) -> Embedder | None:
     assert isinstance(cfg, Config)
     if cfg.llm.degraded_mode == "never-llm":
         return None
+    if not cfg.llm.embeddings_base_url:
+        return None
     if not cfg.llm_api_key():
         return None
-    return None  # OpenAICompatibleEmbedder lands with the Phase 5 model plumbing
+    return OpenAICompatibleEmbedder(
+        cfg.llm.embeddings_base_url, cfg.llm_api_key(), cfg.llm.embedder_model
+    )
 
 
 def build_llm(cfg) -> LLMClient | None:

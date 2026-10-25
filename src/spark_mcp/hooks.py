@@ -27,12 +27,14 @@ Payload contract (schema_version 1, extra keys ignored for forward compat):
 from __future__ import annotations
 
 import json
+import uuid
 from typing import Any
 
 from . import trajectory
 from .config import Config
 from .errors import ToolError
 from .storage import Database
+from .timeutil import now_iso
 
 RUN_SUMMARY_SCHEMA_VERSION = 1
 # Tier-2 markers (plan §5.1 trajectory_events DDL comments): the actor/kind
@@ -266,14 +268,76 @@ def ingest_run_summary(db: Database, cfg: Config, payload: dict) -> dict:
     return result
 
 
-def telemetry_push(db: Database, cfg: Config, payload: dict) -> dict:
-    """Extension point for the §15.2 optional alpha_engine telemetry row.
+TELEMETRY_TOOL = "telemetry_push"
+_SECRET_SUBSTRINGS = ("token", "key", "secret", "password")
 
-    Deferred explicitly: the alpha_engine peer on this machine does not speak
-    the §15.2 telemetry contract yet (recorded in STATUS.md), so Phase 4 ships
-    the hook adapter only. Implement the push here once the peer exposes the
-    contract; both the CLI and MCP paths must call this one function (N13).
+
+def _strip_secrets(value: Any) -> Any:
+    """Recursively drop dict keys whose lowercase name contains token/key/
+    secret/password. Lists/tuples are walked; other values pass through."""
+    if isinstance(value, dict):
+        cleaned: dict[Any, Any] = {}
+        for k, v in value.items():
+            if isinstance(k, str) and any(s in k.lower() for s in _SECRET_SUBSTRINGS):
+                continue
+            cleaned[k] = _strip_secrets(v)
+        return cleaned
+    if isinstance(value, (list, tuple)):
+        return [_strip_secrets(item) for item in value]
+    return value
+
+
+def telemetry_push(db: Database, cfg: Config, payload: dict) -> dict:
+    """Queue one §15.2 telemetry payload in the durable local outbox.
+
+    There is no peer telemetry sink to push to — the local alpha_engine
+    spark_bridge exposes only backtest/causal/risk — so this never invents
+    a peer call. The sanitized payload is inserted into tool_effects
+    (client_id PK, tool, subject_id, result JSON, created_at) under
+    tool='telemetry_push' with a fresh effect_id as client_id, following
+    the existing _record_effect convention. Payload tool/episode/trial/
+    verdict fields are stored as given (JSON); secret-bearing keys are
+    stripped first. Telemetry must not fail callers: for any dict payload
+    this queues and returns {"queued": True, "effect_id": ...}; on any
+    failure (including a non-dict payload or a storage error) it returns
+    {"queued": False, "effect_id": None, "error": ...} instead of raising.
+    Both the CLI and MCP paths must call this one function (N13).
     """
-    raise NotImplementedError(
-        "telemetry_push is deferred until alpha_engine speaks the §15.2 contract"
-    )
+    _ = cfg  # kept for the shared (db, cfg, payload) service signature
+    try:
+        if not isinstance(payload, dict):
+            return {
+                "queued": False,
+                "effect_id": None,
+                "error": f"payload must be a dict, got {type(payload).__name__}",
+            }
+        clean = _strip_secrets(payload)
+        effect_id = f"tel_{uuid.uuid4().hex}"
+        subject = "telemetry"
+        for field in ("episode_id", "episode", "trial_id", "trial", "subject_id", "run_id"):
+            raw = clean.get(field)
+            if raw is not None and str(raw).strip():
+                subject = str(raw).strip()
+                break
+        db.execute(
+            "INSERT INTO tool_effects (client_id, tool, subject_id, result, created_at)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (
+                effect_id,
+                TELEMETRY_TOOL,
+                subject,
+                json.dumps(clean, sort_keys=True, default=str),
+                now_iso(),
+            ),
+        )
+        return {"queued": True, "effect_id": effect_id}
+    except Exception as exc:  # telemetry must never fail its caller
+        return {"queued": False, "effect_id": None, "error": f"{type(exc).__name__}: {exc}"}
+
+
+def telemetry_outbox_count(db: Database) -> int:
+    """Number of telemetry rows currently queued in the local outbox."""
+    row = db.conn.execute(
+        "SELECT COUNT(*) AS n FROM tool_effects WHERE tool = ?", (TELEMETRY_TOOL,)
+    ).fetchone()
+    return int(row["n"] if row is not None else 0)

@@ -711,6 +711,68 @@ def test_approve_belief_refuses_auto_promoted(db, cfg):
         skills.approve(db, cfg, "belief", promoted["belief_id"], "approved", "x")
 
 
+def test_approve_persists_structured_evidence_in_trajectory(db, cfg):
+    _promoted(db, cfg)
+    row = db.conn.execute(
+        "SELECT skill_id FROM skills WHERE name = 'cost-audit' AND version = 2"
+    ).fetchone()
+    evidence = {"reviewer": "desk", "checks": ["sharpe", "pit"], "score": 0.9}
+    ok = skills.approve(
+        db, cfg, "adoption", row["skill_id"], "approved",
+        "deploy to book X", decided_by="human:desk", evidence=evidence,
+    )
+    assert ok["evidence"] == evidence
+    traj = db.conn.execute(
+        "SELECT payload FROM trajectory_events WHERE run_id = ? AND kind = 'tool_call'"
+        " ORDER BY seq DESC LIMIT 1",
+        (row["skill_id"],),
+    ).fetchone()
+    payload = json.loads(traj["payload"])
+    assert payload["tool"] == "approve"
+    assert payload["evidence"] == evidence
+
+
+def test_approve_rejects_oversized_evidence(db, cfg):
+    _promoted(db, cfg)
+    row = db.conn.execute(
+        "SELECT skill_id FROM skills WHERE name = 'cost-audit' AND version = 2"
+    ).fetchone()
+    oversized = {f"k{i}": i for i in range(17)}
+    with pytest.raises(ToolError, match="at most 16 keys"):
+        skills.approve(
+            db, cfg, "adoption", row["skill_id"], "approved",
+            "x", decided_by="human:desk", evidence=oversized,
+        )
+    # no approval side effect from the rejected call
+    n = db.conn.execute(
+        "SELECT COUNT(*) AS n FROM approvals WHERE target_type = 'adoption'"
+        " AND target_id = ?",
+        (row["skill_id"],),
+    ).fetchone()
+    assert n["n"] == 0
+
+
+def test_approve_duplicate_unchanged_with_evidence(db, cfg):
+    ch3, _ = _two_champion_setup(db, cfg)
+    first = skills.approve(
+        db, cfg, "skill", ch3["candidate_id"], "approved",
+        "looks right", decided_by="human:a", evidence={"a": 1},
+    )
+    second = skills.approve(
+        db, cfg, "skill", ch3["candidate_id"], "approved",
+        "looks right", decided_by="human:b", evidence={"b": 2},
+    )
+    assert second["duplicated"] is True
+    assert second["approval_id"] == first["approval_id"]
+    assert "evidence" not in second
+    n = db.conn.execute(
+        "SELECT COUNT(*) AS n FROM approvals WHERE target_type = 'skill'"
+        " AND target_id = ? AND decision = 'approved' AND decided_by != 'gate'",
+        (ch3["candidate_id"],),
+    ).fetchone()
+    assert n["n"] == 1
+
+
 # -- Gateway write-path (C7) -------------------------------------------------------------
 
 
@@ -781,9 +843,10 @@ def test_gateway_happy_path_posts_manifest_and_acks(db, cfg, monkeypatch):
     assert skill["promotion_status"] == "deployed_to_gateway"
 
 
-def test_gateway_blocks_on_wrong_contract(db, cfg):
+def test_gateway_blocks_on_wrong_contract(db, cfg, monkeypatch):
     _promoted(db, cfg)
     cfg = _with_gateway(cfg)
+    monkeypatch.setenv("QUANTFLOW_GATEWAY_TOKEN", "tok-123")
     row = db.conn.execute("SELECT * FROM skill_candidates WHERE verdict = 'promoted'").fetchone()
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -798,9 +861,10 @@ def test_gateway_blocks_on_wrong_contract(db, cfg):
     assert skill["promotion_status"] == "staged_in_spark"
 
 
-def test_gateway_blocks_on_transport_error_and_bad_status(db, cfg):
+def test_gateway_blocks_on_transport_error_and_bad_status(db, cfg, monkeypatch):
     _promoted(db, cfg)
     cfg = _with_gateway(cfg)
+    monkeypatch.setenv("QUANTFLOW_GATEWAY_TOKEN", "tok-123")
     row = db.conn.execute("SELECT * FROM skill_candidates WHERE verdict = 'promoted'").fetchone()
 
     def boom(request: httpx.Request) -> httpx.Response:
@@ -817,6 +881,46 @@ def test_gateway_blocks_on_transport_error_and_bad_status(db, cfg):
         skills.promote_via_gateway(db, cfg, row, transport=httpx.MockTransport(not_found))
     assert excinfo.value.payload["reason"] == "unexpected_status"
     assert excinfo.value.payload["status_code"] == 404
+
+
+def test_gateway_token_missing_blocks_and_stays_staged(db, cfg, monkeypatch):
+    _promoted(db, cfg)
+    cfg = _with_gateway(cfg)
+    assert cfg.peers.gateway.require_token is True
+    monkeypatch.delenv("QUANTFLOW_GATEWAY_TOKEN", raising=False)
+    row = db.conn.execute("SELECT * FROM skill_candidates WHERE verdict = 'promoted'").fetchone()
+    called = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        called.append(request)
+        return httpx.Response(200, json={"manifest_ack": True, "manifest": {}})
+
+    with pytest.raises(skills.GatewayWriteBlocked) as excinfo:
+        skills.promote_via_gateway(db, cfg, row, transport=httpx.MockTransport(handler))
+    assert excinfo.value.payload["reason"] == "gateway_token_missing"
+    assert called == []  # never send unauthenticated POST
+    skill = db.conn.execute(
+        "SELECT promotion_status FROM skills WHERE name = 'cost-audit' AND version = 2"
+    ).fetchone()
+    assert skill["promotion_status"] == "staged_in_spark"
+
+
+def test_gateway_empty_token_blocks_and_stays_staged(db, cfg, monkeypatch):
+    _promoted(db, cfg)
+    cfg = _with_gateway(cfg)
+    monkeypatch.setenv("QUANTFLOW_GATEWAY_TOKEN", "")
+    row = db.conn.execute("SELECT * FROM skill_candidates WHERE verdict = 'promoted'").fetchone()
+
+    def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover
+        raise AssertionError("must not POST without token")
+
+    with pytest.raises(skills.GatewayWriteBlocked) as excinfo:
+        skills.promote_via_gateway(db, cfg, row, transport=httpx.MockTransport(handler))
+    assert excinfo.value.payload["reason"] == "gateway_token_missing"
+    skill = db.conn.execute(
+        "SELECT promotion_status FROM skills WHERE name = 'cost-audit' AND version = 2"
+    ).fetchone()
+    assert skill["promotion_status"] == "staged_in_spark"
 
 
 # -- retirement + rollback ---------------------------------------------------------------

@@ -441,12 +441,77 @@ def test_closeout_cli(tmp_path, cfg):
     assert isinstance(rejected.exception, HookSchemaError)
 
 
-# -- deferred §15.2 telemetry push ----------------------------------------------
+# -- §15.2 telemetry outbox (durable local queue; no peer push) -------------------
 
 
-def test_telemetry_push_is_an_explicit_deferral(db, cfg):
-    with pytest.raises(NotImplementedError, match="deferred"):
-        hooks.telemetry_push(db, cfg, {})
+def test_telemetry_push_queues_and_persists(db, cfg):
+    payload = {
+        "tool": "backtest_run",
+        "episode_id": "ep_tel_1",
+        "trial_id": "trial_tel_1",
+        "verdict": "pass",
+        "sharpe": 1.25,
+    }
+    result = hooks.telemetry_push(db, cfg, payload)
+    assert result["queued"] is True
+    assert result["effect_id"]
+    row = db.conn.execute(
+        "SELECT tool, subject_id, result FROM tool_effects WHERE client_id = ?",
+        (result["effect_id"],),
+    ).fetchone()
+    assert row is not None
+    assert row["tool"] == "telemetry_push"
+    assert row["subject_id"] == "ep_tel_1"
+    stored = json.loads(row["result"])
+    assert stored["tool"] == "backtest_run"
+    assert stored["episode_id"] == "ep_tel_1"
+    assert stored["trial_id"] == "trial_tel_1"
+    assert stored["verdict"] == "pass"
+    assert stored["sharpe"] == 1.25
+
+
+def test_telemetry_push_never_raises_for_dict_payloads(db, cfg):
+    for payload in ({}, {"tool": "risk_decompose"}, {"episode_id": 123, "verdict": None}):
+        result = hooks.telemetry_push(db, cfg, payload)
+        assert result["queued"] is True
+        assert result["effect_id"]
+
+
+def test_telemetry_push_strips_secrets(db, cfg):
+    payload = {
+        "tool": "causal_test",
+        "episode_id": "ep_tel_secret",
+        "verdict": "fail",
+        "api_key": "sk-live-123",
+        "auth_token": "tok-abc",
+        "client_secret": "shh",
+        "db_password": "hunter2",
+        "nested": {"access_token": "nested-tok", "note": "keep-me"},
+        "items": [{"private_key": "pem-body", "label": "keep-too"}],
+    }
+    result = hooks.telemetry_push(db, cfg, payload)
+    assert result["queued"] is True
+    row = db.conn.execute(
+        "SELECT result FROM tool_effects WHERE client_id = ?", (result["effect_id"],)
+    ).fetchone()
+    raw = row["result"]
+    for leaked in ("sk-live-123", "tok-abc", "shh", "hunter2", "nested-tok", "pem-body"):
+        assert leaked not in raw
+    stored = json.loads(raw)
+    assert "api_key" not in stored and "auth_token" not in stored
+    assert "client_secret" not in stored and "db_password" not in stored
+    assert stored["nested"] == {"note": "keep-me"}
+    assert stored["items"] == [{"label": "keep-too"}]
+    assert stored["tool"] == "causal_test"
+    assert stored["verdict"] == "fail"
+
+
+def test_telemetry_outbox_count(db, cfg):
+    assert hooks.telemetry_outbox_count(db) == 0
+    hooks.telemetry_push(db, cfg, {"tool": "backtest_run", "verdict": "pass"})
+    assert hooks.telemetry_outbox_count(db) == 1
+    hooks.telemetry_push(db, cfg, {"tool": "risk_decompose", "verdict": "fail"})
+    assert hooks.telemetry_outbox_count(db) == 2
 
 
 def test_empty_skills_preserve_prior_enrichment(db, cfg):

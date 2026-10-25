@@ -573,24 +573,30 @@ class Database:
             "SELECT 1 FROM sqlite_master WHERE name = 'vec_embeddings'"
         ).fetchone()
         if row is None:
-            with self.conn:
-                if self._vec_available:
-                    self.conn.execute(
-                        "CREATE VIRTUAL TABLE vec_embeddings USING vec0("
-                        " subject_type TEXT, subject_id TEXT, model TEXT,"
-                        f" model_version TEXT, embedding FLOAT[{dim}])"
-                    )
-                else:
-                    self.conn.execute(
-                        "CREATE TABLE vec_embeddings ("
-                        " subject_type TEXT NOT NULL, subject_id TEXT NOT NULL,"
-                        " model TEXT NOT NULL, model_version TEXT NOT NULL,"
-                        " embedding BLOB NOT NULL)"
-                    )
-                    self.conn.execute(
-                        "CREATE INDEX IF NOT EXISTS idx_vec_embeddings_subject"
-                        " ON vec_embeddings(subject_type, subject_id)"
-                    )
+            try:
+                with self.conn:
+                    if self._vec_available:
+                        self.conn.execute(
+                            "CREATE VIRTUAL TABLE vec_embeddings USING vec0("
+                            " subject_type TEXT, subject_id TEXT, model TEXT,"
+                            f" model_version TEXT, embedding FLOAT[{dim}])"
+                        )
+                    else:
+                        self.conn.execute(
+                            "CREATE TABLE vec_embeddings ("
+                            " subject_type TEXT NOT NULL, subject_id TEXT NOT NULL,"
+                            " model TEXT NOT NULL, model_version TEXT NOT NULL,"
+                            " embedding BLOB NOT NULL)"
+                        )
+                        self.conn.execute(
+                            "CREATE INDEX IF NOT EXISTS idx_vec_embeddings_subject"
+                            " ON vec_embeddings(subject_type, subject_id)"
+                        )
+            except sqlite3.OperationalError as exc:
+                # Separate connections racing the first embed: the winner
+                # created the table between our check and CREATE.
+                if "already exists" not in str(exc):
+                    raise
         self._vec_table_ready = True
 
     def close(self) -> None:

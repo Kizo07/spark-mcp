@@ -22,6 +22,7 @@ class LLMConfig(BaseModel):
     model: str = "your-model-id"
     embedder_model: str = "your-embedder-id"
     base_url: str | None = None
+    embeddings_base_url: str | None = None
     api_key_env: str = "OPENAI_API_KEY"
     degraded_mode: str = "auto"  # auto | require-key | never-llm
 
@@ -42,6 +43,7 @@ class GatewayConfig(BaseModel):
     enabled: bool = False
     url: str | None = None
     token_env: str = "QUANTFLOW_GATEWAY_TOKEN"
+    require_token: bool = True
 
 
 class PeersConfig(BaseModel):
@@ -160,11 +162,11 @@ class ResearchConfig(BaseModel):
     # Consolidate archive-gap analysis: a family whose mean |predicted -
     # realized| predictor error exceeds this is an outlier gap (plan §21).
     predictor_error_outlier: float = 0.05
-    # Phase-7 decision record (plan §6.3 tool 21 N5 + §18.1): the report_write
-    # HTML renderer is DEFERRED — md-only output until a renderer is named by
-    # a later phase. The flag pins the decision in config; report_write
-    # rejects format != 'md' citing this record (STATUS.md, Phase 7).
-    report_html_renderer: str = "deferred"
+    # report_write HTML renderer (plan §6.3 tool 21 N5 + §18.1; P2-6):
+    # 'builtin' enables the minimal built-in single-file HTML renderer in
+    # report_write (format='html'); 'deferred' keeps md-only and rejects
+    # format='html'. Default is 'builtin'.
+    report_html_renderer: str = "builtin"
     ucb_c: float = 1.4
     tombstone_block: float = 0.85
     tombstone_review_low: float = 0.70

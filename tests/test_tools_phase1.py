@@ -150,7 +150,7 @@ def test_tool_refusals_and_error_paths(tmp_path):
                     "report_write",
                     {"hypothesis_id": "hyp_x", "episode_id": "ep_x"},
                 )
-            with pytest.raises(ToolError, match="md"):
+            with pytest.raises(ToolError, match="unknown hypothesis_id"):
                 await client.call_tool(
                     "report_write", {"hypothesis_id": "hyp_x", "format": "html"}
                 )

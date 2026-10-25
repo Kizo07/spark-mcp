@@ -53,7 +53,7 @@ research:
   gap_boost_factor: 1.5      # §13/G5: utility boost for gap-report families
   skill_candidate_stale_days: 14  # §13: pending candidates older than this gap
   predictor_error_outlier: 0.05    # §21: family mean |pred-realized| outlier floor
-  report_html_renderer: deferred  # §18.1 decision: HTML renderer DEFERRED (md-only)
+  report_html_renderer: builtin  # §18.1/P2-6: built-in single-file HTML renderer (md also available)
   ucb_c: 1.4
   tombstone_block: 0.85
   tombstone_review_low: 0.70

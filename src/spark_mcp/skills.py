@@ -770,6 +770,11 @@ def promote_via_gateway(
         raise _block_and_stage(
             db, row, {**base_payload, "reason": "no_gateway_endpoint_configured"}
         )
+    token = os.environ.get(gw.token_env)
+    if getattr(gw, "require_token", True) and (token is None or not str(token).strip()):
+        raise _block_and_stage(
+            db, row, {**base_payload, "reason": "gateway_token_missing"}
+        )
 
     lineage = _lineage(row)
     manifest = {
@@ -790,7 +795,6 @@ def promote_via_gateway(
         "staged_at": now_iso(),
     }
     headers: dict[str, str] = {}
-    token = os.environ.get(gw.token_env)
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
@@ -1092,6 +1096,7 @@ def approve(
     decision: str,
     rationale: str,
     decided_by: str = "human:operator",
+    evidence: dict | None = None,
 ) -> dict:
     """Human gate (plan §6.3 tool 22, M11). target_type in {belief, skill,
     adoption, evolution}; decision in {approved, rejected}. Idempotent per
@@ -1120,6 +1125,11 @@ def approve(
         raise ToolError("decision must be 'approved' or 'rejected'")
     if not rationale or not rationale.strip():
         raise ToolError("rationale is required")
+    if evidence is not None:
+        if not isinstance(evidence, dict):
+            raise ToolError("evidence must be a dict")
+        if len(evidence) > 16:
+            raise ToolError("evidence must have at most 16 keys")
 
     # Idempotency is matched per actor class ('gate' vs human): a human
     # ratification is recorded alongside the gate's auto-notify row rather
@@ -1287,9 +1297,10 @@ def approve(
                 "target_id": target_id,
                 "decision": decision,
                 "decided_by": decided_by,
+                **({"evidence": evidence} if evidence is not None else {}),
             },
         )
-    return {
+    result: dict[str, Any] = {
         "approval_id": approval_id,
         "target_type": target_type,
         "target_id": target_id,
@@ -1299,6 +1310,9 @@ def approve(
         "duplicated": False,
         "applied": applied,
     }
+    if evidence is not None:
+        result["evidence"] = evidence
+    return result
 
 
 # -- retirement + rollback -------------------------------------------------------

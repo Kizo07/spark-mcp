@@ -109,7 +109,15 @@ def _replay_effect(db: Database, tool: str, client_id: str) -> dict | None:
     return json.loads(row["result"]) if row else None
 
 
-def propose_hypothesis(
+def propose_hypothesis(db: Database, cfg: Config, **kwargs: Any) -> dict:
+    """Thread-safe wrapper: the impl does bare reads on the shared
+    connection, so the whole call is serialised on the instance lock
+    (re-entrant with transaction())."""
+    with db.locked():
+        return _propose_hypothesis_impl(db, cfg, **kwargs)
+
+
+def _propose_hypothesis_impl(
     db: Database,
     cfg: Config,
     *,
@@ -259,7 +267,14 @@ def propose_hypothesis(
     return result
 
 
-def register_hypothesis(
+def register_hypothesis(db: Database, cfg: Config, *args: Any, **kwargs: Any) -> dict:
+    """Thread-safe wrapper: serialised on the instance lock (see
+    propose_hypothesis)."""
+    with db.locked():
+        return _register_hypothesis_impl(db, cfg, *args, **kwargs)
+
+
+def _register_hypothesis_impl(
     db: Database,
     cfg: Config,
     hypothesis_id: str,
