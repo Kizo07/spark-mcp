@@ -28,6 +28,7 @@ from pydantic import ValidationError
 
 from .. import budgets, graph, ledger, memory, trajectory
 from ..config import Config
+from ..dispatch import DispatchContext, build_pipeline
 from ..errors import ToolError
 from ..ids import new_trial_id
 from ..providers.protocols import BacktestSpec, BookSpec, CausalSpec
@@ -365,6 +366,271 @@ def _record_family_outcome_impl(
 
 
 # ---------------------------------------------------------------------------
+# dispatch pipeline steps (Fix D): the _backtest_run_impl sequence factored
+# into the canonical dispatch chain — TombstonePreCheck -> BudgetCheck ->
+# TrialInsert -> ProviderDispatch -> VerdictRecord — executed via
+# dispatch.Pipeline. Each step delegates to the existing helpers above
+# (tombstone_precheck, budgets.*, _replay_trial, provider.backtest); no
+# ledger or budget logic is duplicated here.
+#
+# Two deliberate order notes vs the pre-pipeline body:
+# - BudgetCheck runs before TrialInsert as a read-only enforce (no spend
+#   row yet). backtest_run's own spend is always a $0.0 estimate, so the
+#   pre-check is exactly equivalent to the old post-spend enforce, and the
+#   fail_closed end state still matches a pre-check (no trial, no spend,
+#   no dispatch). The spend row still lands in TrialInsert right after the
+#   pending insert, inside the same transaction as dispatch.
+# - The tombstone step is non-transactional: its episode write must
+#   persist even when it blocks. The other four steps share one
+#   transaction (pending-row-before-dispatch exactly-once, §9.2).
+
+
+TOMBSTONE_STEP = "tombstone_precheck"
+BUDGET_STEP = "budget_check"
+TRIAL_STEP = "trial_insert"
+DISPATCH_STEP = "provider_dispatch"
+VERDICT_STEP = "verdict_record"
+
+
+def _dispatch_text(hypothesis: dict, bt: BacktestSpec) -> str:
+    return " ".join(
+        str(p)
+        for p in (
+            hypothesis.get("mechanism"),
+            hypothesis.get("scope"),
+            bt.signal_ref,
+            json.dumps(bt.params, sort_keys=True),
+        )
+        if p
+    )
+
+
+def _step_tombstone_precheck(ctx: DispatchContext) -> None:
+    """§12.2 pre-check (always logged on the episode in enforce mode)."""
+    db, cfg = ctx.db, ctx.cfg
+    llm = None if ctx.mode != "enforce" else ctx.llm  # assess: no external calls
+    check, block_error = tombstone_precheck(
+        db,
+        cfg,
+        _dispatch_text(ctx.hypothesis, ctx.bt),
+        embedder=ctx.embedder,
+        llm=llm,
+        acknowledge_tombstone=ctx.acknowledge_tombstone,
+    )
+    ctx.check = check
+    if ctx.mode != "enforce":
+        ctx.would_block[TOMBSTONE_STEP] = block_error is not None
+        return
+    _write_tombstone_check(db, ctx.episode_id, check)
+    if block_error is not None:
+        trajectory.record(
+            db,
+            ctx.episode_id,
+            "spark",
+            "gate",
+            {
+                "kind": "tombstone_block",
+                "matched_id": check["matched_id"],
+                "cosine": check["cosine"],
+                "status": check["status"],
+            },
+        )
+        raise block_error
+
+
+def _step_budget_check(ctx: DispatchContext) -> None:
+    """§14 enforcement before any write (fail_closed raises: no trial,
+    no spend, no dispatch). Warn policy logs trajectory events and the
+    warnings ride on ctx."""
+    db, cfg = ctx.db, ctx.cfg
+    if ctx.mode != "enforce":
+        over_day = budgets.spend_summary(db)["today_usd"] > float(cfg.budgets.daily_usd)
+        over_ep = budgets.run_spend(db, ctx.episode_id) > float(cfg.budgets.per_episode_usd)
+        ctx.would_block[BUDGET_STEP] = bool(over_day or over_ep)
+        return
+    hard = cfg.budgets.policy == "fail_closed"
+    ctx.warnings.extend(
+        budgets.enforce_daily_budget(
+            db, cfg, run_id=ctx.episode_id, source="backtest_run", hard=hard
+        )
+    )
+    ctx.warnings.extend(
+        budgets.enforce_episode_budget(
+            db, cfg, episode_id=ctx.episode_id, source="backtest_run", hard=hard
+        )
+    )
+
+
+def _step_trial_insert(ctx: DispatchContext) -> None:
+    """§9.2 pending trial row before dispatch; UNIQUE(episode_id, idem_key)
+    makes retries replay the winner (ctx.halted short-circuits dispatch).
+    The spend row lands right after the insert, same transaction."""
+    db, cfg = ctx.db, ctx.cfg
+    bt = ctx.bt
+    ctx.hash_of_spec = spec_hash(bt)
+    ctx.idem_key = _idem_key(ctx.episode_id, ctx.hash_of_spec, bt.seed)
+    ctx.trial_id = new_trial_id()
+    now = now_iso()
+    ctx.family = ctx.episode["research_family"]
+    try:
+        db.execute(
+            "INSERT INTO trials ("
+            " trial_id, episode_id, idem_key, family, source, status, provider,"
+            " created_at"
+            ") VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)",
+            (
+                ctx.trial_id,
+                ctx.episode_id,
+                ctx.idem_key,
+                ctx.family,
+                ctx.source,
+                _provider_name(ctx.provider),
+                now,
+            ),
+        )
+    except sqlite3.IntegrityError:
+        # §9.2: racing writers resolve to one winner; losers read its row.
+        winner = db.conn.execute(
+            "SELECT * FROM trials WHERE episode_id = ? AND idem_key = ?",
+            (ctx.episode_id, ctx.idem_key),
+        ).fetchone()
+        if winner is None:
+            raise
+        result = _replay_trial(db, ctx.episode_id, winner)
+        if ctx.client_id:
+            _record_effect(db, "backtest_run", ctx.client_id, ctx.episode_id, result)
+        ctx.result = result
+        ctx.halted = True
+        return
+    budgets.record_spend(
+        db,
+        cfg,
+        family=ctx.family,
+        source="backtest_run",
+        usd=None,
+        tokens=0,
+        estimated=True,
+        run_id=ctx.episode_id,
+    )
+
+
+def _step_provider_dispatch(ctx: DispatchContext) -> None:
+    """Provider backtest inside the trial transaction (the pending row is
+    visible to the call). Failures persist the failed trial (§9.2) and are
+    captured in ctx.error, raised only after the transaction commits —
+    raising here would roll the failure update back. N6: provider errors
+    are infra, never kill-rule evidence."""
+    db = ctx.db
+    try:
+        ctx.metrics = ctx.provider.backtest(ctx.bt)
+    except NotImplementedError as e:
+        # a provider without backtest support is a config error, not a
+        # deflated hypothesis: the trial fails but the kill rule does not tick.
+        db.execute(
+            "UPDATE trials SET status = 'failed', completed_at = ? WHERE trial_id = ?",
+            (now_iso(), ctx.trial_id),
+        )
+        trajectory.record(
+            db, ctx.episode_id, "spark", "tool_call",
+            {"tool": "backtest_run", "trial_id": ctx.trial_id, "error": "not_implemented"},
+        )
+        ctx.error = ToolError(
+            f"provider {_provider_name(ctx.provider)!r} does not support backtest: {e}"
+        )
+    except Exception as e:
+        db.execute(
+            "UPDATE trials SET status = 'failed', completed_at = ? WHERE trial_id = ?",
+            (now_iso(), ctx.trial_id),
+        )
+        trajectory.record(
+            db, ctx.episode_id, "spark", "tool_call",
+            {"tool": "backtest_run", "trial_id": ctx.trial_id, "error": repr(e)},
+        )
+        ctx.error = ToolError(f"provider {_provider_name(ctx.provider)!r} backtest failed: {e}")
+
+
+def _step_verdict_record(ctx: DispatchContext) -> None:
+    """On success: close the trial, flip the episode to testing, record
+    metrics + family outcome. Skipped when dispatch captured an error."""
+    if ctx.error is not None:
+        return
+    db, cfg = ctx.db, ctx.cfg
+    bt = ctx.bt
+    metrics = ctx.metrics or {}
+    completed = now_iso()
+    costs = {
+        "bps": bt.costs.bps,
+        "slippage": bt.costs.slippage,
+        "borrow": bt.costs.borrow,
+        "usd": 0.0,
+        "tokens": 0,
+        "estimated": True,
+    }
+    db.execute(
+        "UPDATE trials SET status = 'completed', completed_at = ? WHERE trial_id = ?",
+        (completed, ctx.trial_id),
+    )
+    db.execute(
+        "UPDATE episodes SET"
+        " status = 'testing', metrics = ?, corrected_metrics = ?,"
+        " costs = ?, spec_hash = ?, seed = ?, params = ?"
+        " WHERE episode_id = ?",
+        (
+            json.dumps(metrics, sort_keys=True),
+            json.dumps(
+                {"psr": None, "dsr": None, "p_value": None, "status": "pending_gate"},
+                sort_keys=True,
+            ),
+            json.dumps(costs, sort_keys=True),
+            ctx.hash_of_spec,
+            bt.seed,
+            json.dumps(bt.params, sort_keys=True),
+            ctx.episode_id,
+        ),
+    )
+    _record_family_outcome_impl(db, cfg, ctx.family, success=True, episode_id=ctx.episode_id)
+    trajectory.record(
+        db,
+        ctx.episode_id,
+        "spark",
+        "tool_call",
+        {
+            "tool": "backtest_run",
+            "trial_id": ctx.trial_id,
+            "provider": _provider_name(ctx.provider),
+            "sr": metrics.get("sr"),
+            "simulated": metrics.get("simulated", False),
+            "client_id": ctx.client_id,
+        },
+    )
+
+
+_DISPATCH_STEPS = {
+    TOMBSTONE_STEP: _step_tombstone_precheck,
+    BUDGET_STEP: _step_budget_check,
+    TRIAL_STEP: _step_trial_insert,
+    DISPATCH_STEP: _step_provider_dispatch,
+    VERDICT_STEP: _step_verdict_record,
+}
+
+
+def resolve_dispatch_step(name: str):
+    """Bind a dispatch step name to its service callable (KeyError if unknown)."""
+    try:
+        return _DISPATCH_STEPS[name]
+    except KeyError:
+        raise KeyError(
+            f"unknown dispatch step {name!r} (have {sorted(_DISPATCH_STEPS)})"
+        ) from None
+
+
+def build_dispatch_pipeline(profile: str = "gated-backtest"):
+    """Compose the dispatch Pipeline for `profile` with the real service
+    steps (KeyError on unknown profile or step)."""
+    return build_pipeline(profile, resolve_dispatch_step)
+
+
+# ---------------------------------------------------------------------------
 # tools
 
 
@@ -382,13 +648,12 @@ def _backtest_run_impl(
 ) -> dict:
     """Dispatch a backtest under the trial governor (§9.2 + §12.2 + §14).
 
-    Order: validate BacktestSpec -> tombstone pre-check (mandatory, logged) ->
-    PENDING trial row -> spend row -> budget enforcement (daily + per-episode;
-    fail_closed raises here, rolling trial + spend back before any dispatch) ->
-    provider dispatch -> completed trial + episode 'testing' + metrics. All
-    writes and the dispatch share one transaction: exactly one winner per idem
-    key, one
-    provider call, losers read the winner's committed row.
+    Order: validate BacktestSpec -> dispatch pipeline (TombstonePreCheck ->
+    BudgetCheck -> TrialInsert -> ProviderDispatch -> VerdictRecord). The
+    budget pre-check raises fail_closed before any write; the pending trial
+    row + spend row land before dispatch inside one transaction with the
+    dispatch itself: exactly one winner per idem key, one provider call,
+    losers read the winner's committed row.
     """
     if client_id:
         row = db.conn.execute(
@@ -415,186 +680,40 @@ def _backtest_run_impl(
     if hypothesis is None:
         raise ToolError(f"unknown hypothesis_id {bt.hypothesis_id!r}")
 
-    # -- §12.2 tombstone pre-check (always logged on the episode) --------------
-    text = " ".join(
-        str(p)
-        for p in (
-            hypothesis.get("mechanism"),
-            hypothesis.get("scope"),
-            bt.signal_ref,
-            json.dumps(bt.params, sort_keys=True),
-        )
-        if p
+    # -- dispatch pipeline: TombstonePreCheck -> BudgetCheck -> TrialInsert
+    # -> ProviderDispatch -> VerdictRecord (steps above; the tombstone step
+    # runs outside the transaction so its episode write survives a block,
+    # the rest share one transaction for §9.2 exactly-once).
+    ctx = DispatchContext(
+        db=db,
+        cfg=cfg,
+        provider=provider,
+        episode_id=episode_id,
+        bt=bt,
+        episode=episode,
+        hypothesis=hypothesis,
+        client_id=client_id,
+        acknowledge_tombstone=acknowledge_tombstone,
+        embedder=embedder,
+        llm=llm,
     )
-    check, block_error = tombstone_precheck(
-        db, cfg, text, embedder=embedder, llm=llm, acknowledge_tombstone=acknowledge_tombstone
-    )
-    _write_tombstone_check(db, episode_id, check)
-    if block_error is not None:
-        trajectory.record(
-            db,
-            episode_id,
-            "spark",
-            "gate",
-            {
-                "kind": "tombstone_block",
-                "matched_id": check["matched_id"],
-                "cosine": check["cosine"],
-                "status": check["status"],
-            },
-        )
-        raise block_error
-
-    # -- §9.2 pending trial before dispatch ------------------------------------
-    hash_of_spec = spec_hash(bt)
-    idem = _idem_key(episode_id, hash_of_spec, bt.seed)
-    trial_id = new_trial_id()
-    now = now_iso()
-    family = episode["research_family"]
-    with db.transaction():
-        try:
-            db.execute(
-                "INSERT INTO trials ("
-                " trial_id, episode_id, idem_key, family, source, status, provider,"
-                " created_at"
-                ") VALUES (?, ?, ?, ?, 'spark', 'pending', ?, ?)",
-                (trial_id, episode_id, idem, family, _provider_name(provider), now),
-            )
-        except sqlite3.IntegrityError:
-            # §9.2: racing writers resolve to one winner; losers read its row.
-            winner = db.conn.execute(
-                "SELECT * FROM trials WHERE episode_id = ? AND idem_key = ?",
-                (episode_id, idem),
-            ).fetchone()
-            if winner is None:
-                raise
-            result = _replay_trial(db, episode_id, winner)
-            if client_id:
-                _record_effect(db, "backtest_run", client_id, episode_id, result)
-            return result
-
-        # -- §14 budget v1: the spend row lands first so a run that pushes the
-        # day (or this episode) over the limit triggers on itself;
-        # fail-closed raises here -> the whole transaction (trial + spend)
-        # rolls back, before any dispatch.
-        budgets.record_spend(
-            db,
-            cfg,
-            family=family,
-            source="backtest_run",
-            usd=None,
-            tokens=0,
-            estimated=True,
-            run_id=episode_id,
-        )
-        hard = cfg.budgets.policy == "fail_closed"
-        budgets.enforce_daily_budget(db, cfg, run_id=episode_id, source="backtest_run", hard=hard)
-        budgets.enforce_episode_budget(
-            db, cfg, episode_id=episode_id, source="backtest_run", hard=hard
-        )
-
-        # -- dispatch ------------------------------------------------------------
-        # Provider failures must PERSIST the failed trial (§9.2: completion or
-        # failure updates the row), so the error is captured and raised after
-        # the transaction commits — raising inside would roll the update back.
-        error: ToolError | None = None
-        metrics: dict | None = None
-        try:
-            metrics = provider.backtest(bt)
-        except NotImplementedError as e:
-            # a provider without backtest support is a config error, not a
-            # deflated hypothesis: the trial fails but the kill rule does not tick.
-            db.execute(
-                "UPDATE trials SET status = 'failed', completed_at = ? WHERE trial_id = ?",
-                (now_iso(), trial_id),
-            )
-            trajectory.record(
-                db, episode_id, "spark", "tool_call",
-                {"tool": "backtest_run", "trial_id": trial_id, "error": "not_implemented"},
-            )
-            error = ToolError(
-                f"provider {_provider_name(provider)!r} does not support backtest: {e}"
-            )
-        except Exception as e:
-            # N6: provider/transport errors are infra, not hypothesis evidence.
-            # The trial still fails (§9.2: completion or failure updates the
-            # row), but the kill rule must not tick — a flaky endpoint says
-            # nothing about the family's deflated failures. Same treatment as
-            # NotImplementedError above; genuine evaluation/gate failures tick
-            # via significance_gate / log_outcome only.
-            db.execute(
-                "UPDATE trials SET status = 'failed', completed_at = ? WHERE trial_id = ?",
-                (now_iso(), trial_id),
-            )
-            trajectory.record(
-                db, episode_id, "spark", "tool_call",
-                {"tool": "backtest_run", "trial_id": trial_id, "error": repr(e)},
-            )
-            error = ToolError(f"provider {_provider_name(provider)!r} backtest failed: {e}")
-
-        if error is None:
-            # -- success: close the trial, update the episode ----------------------
-            completed = now_iso()
-            costs = {
-                "bps": bt.costs.bps,
-                "slippage": bt.costs.slippage,
-                "borrow": bt.costs.borrow,
-                "usd": 0.0,
-                "tokens": 0,
-                "estimated": True,
-            }
-            db.execute(
-                "UPDATE trials SET status = 'completed', completed_at = ? WHERE trial_id = ?",
-                (completed, trial_id),
-            )
-            db.execute(
-                "UPDATE episodes SET"
-                " status = 'testing', metrics = ?, corrected_metrics = ?,"
-                " costs = ?, spec_hash = ?, seed = ?, params = ?"
-                " WHERE episode_id = ?",
-                (
-                    json.dumps(metrics, sort_keys=True),
-                    json.dumps(
-                        {"psr": None, "dsr": None, "p_value": None, "status": "pending_gate"},
-                        sort_keys=True,
-                    ),
-                    json.dumps(costs, sort_keys=True),
-                    hash_of_spec,
-                    bt.seed,
-                    json.dumps(bt.params, sort_keys=True),
-                    episode_id,
-                ),
-            )
-            _record_family_outcome_impl(db, cfg, family, success=True, episode_id=episode_id)
-            trajectory.record(
-                db,
-                episode_id,
-                "spark",
-                "tool_call",
-                {
-                    "tool": "backtest_run",
-                    "trial_id": trial_id,
-                    "provider": _provider_name(provider),
-                    "sr": metrics.get("sr"),
-                    "simulated": metrics.get("simulated", False),
-                    "client_id": client_id,
-                },
-            )
-
-    if error is not None:
-        raise error
+    build_dispatch_pipeline("gated-backtest").run(ctx)
+    if ctx.halted:
+        return ctx.result  # idempotent replay: winner's row, no new dispatch
+    if ctx.error is not None:
+        raise ctx.error
 
     result = {
-        "trial_id": trial_id,
+        "trial_id": ctx.trial_id,
         "episode_id": episode_id,
         "status": "testing",
         "provider": _provider_name(provider),
-        "metrics": metrics,
-        "spec_hash": hash_of_spec,
-        "idem_key": idem,
+        "metrics": ctx.metrics,
+        "spec_hash": ctx.hash_of_spec,
+        "idem_key": ctx.idem_key,
         "reused": False,
-        "tombstone_check": check,
-        "M_family": M_family(db, family),
+        "tombstone_check": ctx.check,
+        "M_family": M_family(db, ctx.family),
     }
     if client_id:
         _record_effect(db, "backtest_run", client_id, episode_id, result)

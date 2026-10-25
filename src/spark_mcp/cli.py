@@ -13,7 +13,7 @@ from . import consolidate as consolidate_service
 from . import hooks
 from . import skills as skills_service
 from .config import Config
-from .graph import import_seeds
+from .graph import backfill_embeddings, import_seeds
 from .llm import build_embedder, build_llm
 from .server import create_server
 from .storage import open_db
@@ -144,6 +144,23 @@ def seed_import(
     )
     db.close()
     print(stats)
+
+
+@seed_app.command("backfill")
+def seed_backfill(
+    config: str | None = typer.Option(None, "--config", "-c"),
+) -> None:
+    """Embed existing graph-node + hypothesis subjects that lack
+    vec_embeddings rows for the configured embedder (idempotent: a second
+    run embeds 0 new). Degraded (no embedder configured): reports degraded
+    and writes nothing, exiting non-zero."""
+    cfg = _load(config)
+    db = open_db(cfg.db_path())
+    stats = backfill_embeddings(db, build_embedder(cfg))
+    db.close()
+    print(stats)
+    if stats.get("degraded"):
+        raise typer.Exit(code=1)
 
 
 # -- skills subgroup (plan §11; same service functions the MCP tools call, N13) --

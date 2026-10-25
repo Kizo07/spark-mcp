@@ -773,6 +773,74 @@ def test_approve_duplicate_unchanged_with_evidence(db, cfg):
     assert n["n"] == 1
 
 
+def _adoptable_skill_id(db, cfg):
+    _promoted(db, cfg)
+    return db.conn.execute(
+        "SELECT skill_id FROM skills WHERE name = 'cost-audit' AND version = 2"
+    ).fetchone()["skill_id"]
+
+
+def _adoption_count(db, skill_id) -> int:
+    return db.conn.execute(
+        "SELECT COUNT(*) AS n FROM approvals WHERE target_type = 'adoption'"
+        " AND target_id = ?",
+        (skill_id,),
+    ).fetchone()["n"]
+
+
+def test_approve_rejects_oversize_evidence_bytes(db, cfg):
+    skill_id = _adoptable_skill_id(db, cfg)
+    oversized = {f"k{i}": "v" * 600 for i in range(16)}  # ~9.6KB, keys OK
+    with pytest.raises(ToolError, match="8192"):
+        skills.approve(
+            db, cfg, "adoption", skill_id, "approved",
+            "x", decided_by="human:desk", evidence=oversized,
+        )
+    assert _adoption_count(db, skill_id) == 0
+
+
+def test_approve_rejects_deep_evidence(db, cfg):
+    skill_id = _adoptable_skill_id(db, cfg)
+    deep = {"l1": {"l2": {"l3": {"l4": {"l5": 1}}}}}
+    with pytest.raises(ToolError, match="depth"):
+        skills.approve(
+            db, cfg, "adoption", skill_id, "approved",
+            "x", decided_by="human:desk", evidence=deep,
+        )
+    assert _adoption_count(db, skill_id) == 0
+
+
+def test_approve_rejects_long_string_evidence(db, cfg):
+    skill_id = _adoptable_skill_id(db, cfg)
+    with pytest.raises(ToolError, match="1024"):
+        skills.approve(
+            db, cfg, "adoption", skill_id, "approved",
+            "x", decided_by="human:desk", evidence={"note": "y" * 1025},
+        )
+    assert _adoption_count(db, skill_id) == 0
+
+
+def test_approve_accepts_evidence_at_caps(db, cfg):
+    skill_id = _adoptable_skill_id(db, cfg)
+    evidence = {
+        "a": {"b": {"c": {"d": "leaf"}}},  # depth 4: allowed
+        "note": "n" * 1024,  # max string: allowed
+        "reviewer": "desk",
+    }
+    ok = skills.approve(
+        db, cfg, "adoption", skill_id, "approved",
+        "deploy to book X", decided_by="human:desk", evidence=evidence,
+    )
+    assert ok["evidence"] == evidence
+    assert _adoption_count(db, skill_id) == 1
+    traj = db.conn.execute(
+        "SELECT payload FROM trajectory_events WHERE run_id = ? AND kind = 'tool_call'"
+        " ORDER BY seq DESC LIMIT 1",
+        (skill_id,),
+    ).fetchone()
+    assert json.loads(traj["payload"])["evidence"] == evidence
+
+
 # -- Gateway write-path (C7) -------------------------------------------------------------
 
 

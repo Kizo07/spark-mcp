@@ -440,3 +440,132 @@ def test_parse_score_reply_two_blocks_takes_first_valid():
 
     two = '{"relevance": 0.6, "structural_fit": 0.3} then {"relevance": broken'
     assert _parse_score_reply(two) == (0.6, 0.3)
+
+
+# ---------------------------------------------------------------------------
+# suggest_next step-type bandit (P1-5): Thompson choice over DSR-gated
+# posteriors keyed to the evolution signal grid.
+
+
+def _gated_episode(db, cfg, step_type, *, sr, T, idea, family="quant"):
+    """Register one episode keyed to a step type and run the REAL
+    significance_gate, so corrected_metrics.pass is gate-written (not
+    hand-stamped): sr=3.5/T=1200 passes, sr=0.0/T=500 fails (§9.1)."""
+    from spark_mcp import ledger
+    from spark_mcp.gates import service as gates
+
+    hyp = ledger.propose_hypothesis(
+        db,
+        cfg,
+        research_family=family,
+        hypothesis_type="predictive",
+        mechanism="step-type bandit probe",
+        expected_direction="positive",
+        horizon="20d",
+        scope="cross_section",
+        falsifier="no effect",
+        predicted_ic=0.02,
+        predicted_sigma=0.01,
+        universe="us_equity",
+        idea=idea,
+    )
+    reg = ledger.register_hypothesis(db, cfg, hyp["hypothesis_id"], {"signal": "t"}, 7)
+    db.execute(
+        "UPDATE episodes SET params = ?, metrics = ? WHERE episode_id = ?",
+        (
+            json.dumps({"type": step_type, "lookback": 20, "turnover": 0.1}),
+            json.dumps({"sr": sr, "T": T, "skew": 0.0, "kurt": 3.0}),
+            reg["episode_id"],
+        ),
+    )
+    return gates.significance_gate(db, cfg, reg["episode_id"])
+
+
+def test_suggest_next_step_type_bandit_shifts_toward_dsr_passing_kind(db, cfg):
+    """Seeded simulation: 8 gate-passing momentum episodes + 8 gate-failing
+    reversal episodes -> posteriors key off pass=true and the Thompson
+    choice recommends momentum on ~every seed; the loser stays explorable."""
+    from spark_mcp.explore import suggest_next
+
+    cfg.research.kill_rule_failures = 1000  # failures are the seeded signal here
+    for i in range(8):
+        assert _gated_episode(db, cfg, "momentum", sr=3.5, T=1200, idea=f"mom {i}")["pass"] is True
+    for i in range(8):
+        assert _gated_episode(db, cfg, "reversal", sr=0.0, T=500, idea=f"rev {i}")["pass"] is False
+
+    probe = suggest_next(db, cfg, n=2, seed=0)
+    posts = probe["step_type_posteriors"]
+    assert set(posts) == set(cfg.research.evolution_type_grid)
+    assert (posts["momentum"]["trials"], posts["momentum"]["wins"]) == (8, 8)
+    assert (posts["reversal"]["trials"], posts["reversal"]["wins"]) == (8, 0)
+    assert posts["momentum"]["posterior_source"] == "episodes"
+    assert posts["momentum"]["mean"] > posts["reversal"]["mean"]
+    assert probe["step_type_unkeyed_gated_episodes"] == 0
+
+    votes = [
+        suggest_next(db, cfg, n=2, seed=s)["recommended_step_type"] for s in range(50)
+    ]
+    assert votes.count("momentum") >= 45, f"bandit failed to shift: {votes.count('momentum')}/50"
+
+    for s in (0, 1, 2):
+        out = suggest_next(db, cfg, n=2, seed=s)
+        probs = out["step_type_selection_probabilities"]
+        assert sum(probs.values()) == pytest.approx(1.0)
+        assert all(p > 0 for p in probs.values())  # loser stays explorable
+        assert all(
+            sg["step_type"] == out["recommended_step_type"] for sg in out["suggestions"]
+        )
+
+
+def test_suggest_next_step_type_prior_and_raw_metrics_ignored(db, cfg):
+    """Unsupported kinds keep the (1,1) prior and stay explorable; an episode
+    with blockbuster raw metrics closed out as a log_outcome 'success' — but
+    never gate-verdicted — moves no posterior (raw returns/ARR never used)."""
+    from spark_mcp import ledger
+    from spark_mcp.explore import suggest_next
+
+    out = suggest_next(db, cfg, n=2, seed=5)
+    for post in out["step_type_posteriors"].values():
+        assert (post["alpha"], post["beta"]) == (1.0, 1.0)
+        assert post["posterior_source"] == "prior"
+        assert post["trials"] == 0
+    assert out["recommended_step_type"] in cfg.research.evolution_type_grid
+    assert sum(out["step_type_selection_probabilities"].values()) == pytest.approx(1.0)
+    assert all(p > 0 for p in out["step_type_selection_probabilities"].values())
+
+    hyp = ledger.propose_hypothesis(
+        db,
+        cfg,
+        research_family="quant",
+        hypothesis_type="predictive",
+        mechanism="raw blockbuster",
+        expected_direction="positive",
+        horizon="20d",
+        scope="cross_section",
+        falsifier="no effect",
+        predicted_ic=0.02,
+        predicted_sigma=0.01,
+        universe="us_equity",
+        idea="raw blockbuster",
+    )
+    reg = ledger.register_hypothesis(db, cfg, hyp["hypothesis_id"], {"signal": "t"}, 9)
+    db.execute(
+        "UPDATE episodes SET params = ?, metrics = ? WHERE episode_id = ?",
+        (
+            json.dumps({"type": "momentum", "lookback": 20, "turnover": 0.1}),
+            json.dumps({"sr": 9.9, "T": 5000, "skew": 0.0, "kurt": 3.0}),
+            reg["episode_id"],
+        ),
+    )
+    ledger.log_outcome(
+        db,
+        cfg,
+        reg["episode_id"],
+        "success",
+        metrics={"arr": 2.5},
+        costs={"usd": 0.0, "tokens": 0},
+    )
+    out2 = suggest_next(db, cfg, n=2, seed=5)
+    assert out2["step_type_posteriors"]["momentum"]["trials"] == 0
+    assert out2["step_type_posteriors"]["momentum"]["posterior_source"] == "prior"
+    assert out2["step_type_unkeyed_gated_episodes"] == 0

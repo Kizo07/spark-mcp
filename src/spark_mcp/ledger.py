@@ -81,17 +81,19 @@ def _episode_dict(row: Any) -> dict:
 
 
 def get_hypothesis(db: Database, hypothesis_id: str) -> dict | None:
-    row = db.conn.execute(
-        "SELECT * FROM hypotheses WHERE hypothesis_id = ?", (hypothesis_id,)
-    ).fetchone()
-    return _hypothesis_dict(row) if row else None
+    with db.locked():
+        row = db.conn.execute(
+            "SELECT * FROM hypotheses WHERE hypothesis_id = ?", (hypothesis_id,)
+        ).fetchone()
+        return _hypothesis_dict(row) if row else None
 
 
 def get_episode(db: Database, episode_id: str) -> dict | None:
-    row = db.conn.execute(
-        "SELECT * FROM episodes WHERE episode_id = ?", (episode_id,)
-    ).fetchone()
-    return _episode_dict(row) if row else None
+    with db.locked():
+        row = db.conn.execute(
+            "SELECT * FROM episodes WHERE episode_id = ?", (episode_id,)
+        ).fetchone()
+        return _episode_dict(row) if row else None
 
 
 def _record_effect(db: Database, tool: str, client_id: str, subject_id: str, result: dict) -> None:
@@ -103,10 +105,12 @@ def _record_effect(db: Database, tool: str, client_id: str, subject_id: str, res
 
 
 def _replay_effect(db: Database, tool: str, client_id: str) -> dict | None:
-    row = db.conn.execute(
-        "SELECT result FROM tool_effects WHERE client_id = ? AND tool = ?", (client_id, tool)
-    ).fetchone()
-    return json.loads(row["result"]) if row else None
+    with db.locked():
+        row = db.conn.execute(
+            "SELECT result FROM tool_effects WHERE client_id = ? AND tool = ?",
+            (client_id, tool),
+        ).fetchone()
+        return json.loads(row["result"]) if row else None
 
 
 def propose_hypothesis(db: Database, cfg: Config, **kwargs: Any) -> dict:

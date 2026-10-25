@@ -27,6 +27,7 @@ Payload contract (schema_version 1, extra keys ignored for forward compat):
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from typing import Any
 
@@ -269,21 +270,64 @@ def ingest_run_summary(db: Database, cfg: Config, payload: dict) -> dict:
 
 
 TELEMETRY_TOOL = "telemetry_push"
-_SECRET_SUBSTRINGS = ("token", "key", "secret", "password")
+# Whole-token secret markers: a key is stripped iff any normalized token
+# matches (monkey/keyboard safe — 'keyboard' is one token, not 'key').
+_SECRET_TOKENS = frozenset(
+    {
+        "token",
+        "secret",
+        "password",
+        "passwd",
+        "authorization",
+        "credential",
+        "credentials",
+        "auth",
+        "apikey",
+        "key",
+        "private",
+        "bearer",
+        "session",
+    }
+)
+_CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
+_NON_ALNUM = re.compile(r"[^a-z0-9]+")
+# Secret-shaped string values, stripped regardless of key name.
+_SECRET_VALUE_PATTERNS = (
+    re.compile(r"Bearer\s+[A-Za-z0-9\-._~+/=]{4,}", re.IGNORECASE),
+    re.compile(r"sk-[A-Za-z0-9\-_]{8,}"),
+)
+
+
+def _key_is_secret(key: str) -> bool:
+    """Normalize a key (camelCase split, lowercase, split on non-alnum) and
+    report whether any whole token is a secret marker."""
+    spaced = _CAMEL_BOUNDARY.sub(" ", key)
+    return any(t in _SECRET_TOKENS for t in _NON_ALNUM.split(spaced.lower()))
+
+
+def _value_is_secret(value: str) -> bool:
+    return any(p.search(value) for p in _SECRET_VALUE_PATTERNS)
 
 
 def _strip_secrets(value: Any) -> Any:
-    """Recursively drop dict keys whose lowercase name contains token/key/
-    secret/password. Lists/tuples are walked; other values pass through."""
+    """Recursively drop dict entries whose key has a secret token, or whose
+    string value matches a secret pattern. Lists/tuples are walked with
+    secret-valued items dropped; other values pass through."""
     if isinstance(value, dict):
         cleaned: dict[Any, Any] = {}
         for k, v in value.items():
-            if isinstance(k, str) and any(s in k.lower() for s in _SECRET_SUBSTRINGS):
+            if isinstance(k, str) and _key_is_secret(k):
+                continue
+            if isinstance(v, str) and _value_is_secret(v):
                 continue
             cleaned[k] = _strip_secrets(v)
         return cleaned
     if isinstance(value, (list, tuple)):
-        return [_strip_secrets(item) for item in value]
+        return [
+            _strip_secrets(item)
+            for item in value
+            if not (isinstance(item, str) and _value_is_secret(item))
+        ]
     return value
 
 

@@ -99,6 +99,80 @@ def fetch_embeddings(
     return out
 
 
+def backfill_embeddings(db: Database, embedder: Any | None) -> dict:
+    """Embed existing graph-node + hypothesis subjects that lack a
+    vec_embeddings row for this embedder's exact model key.
+
+    Subjects already embedded under this model are skipped, so a second run
+    embeds 0 new (idempotent). A different model_id embeds everything again
+    under its own key — rows are never mixed (§4.3). With embedder None
+    (degraded, §4.3) nothing is written and the report says so.
+    """
+    if embedder is None:
+        return {
+            "embedded": 0,
+            "embedded_graph_nodes": 0,
+            "embedded_hypotheses": 0,
+            "skipped_existing": 0,
+            "skipped_blank": 0,
+            "degraded": True,
+            "reason": (
+                "degraded: no embedder configured (no embeddings endpoint);"
+                " FTS5-only mode, wrote nothing"
+            ),
+        }
+    model, model_version = split_model_id(embedder.model_id())
+    existing: set[tuple[str, str]] = set()
+    if db.vec_table_exists():
+        for r in db.conn.execute(
+            "SELECT subject_type, subject_id FROM vec_embeddings"
+            " WHERE model = ? AND model_version = ?",
+            (model, model_version),
+        ).fetchall():
+            existing.add((r["subject_type"], r["subject_id"]))
+    stats = {
+        "embedded": 0,
+        "embedded_graph_nodes": 0,
+        "embedded_hypotheses": 0,
+        "skipped_existing": 0,
+        "skipped_blank": 0,
+        "degraded": False,
+        "model": model,
+        "model_version": model_version,
+    }
+    for r in db.conn.execute(
+        "SELECT node_id, label, mech_tags, summary FROM graph_nodes"
+    ).fetchall():
+        if ("graph_node", r["node_id"]) in existing:
+            stats["skipped_existing"] += 1
+            continue
+        node = {
+            "label": r["label"],
+            "summary": r["summary"],
+            "mech_tags": json.loads(r["mech_tags"]) if r["mech_tags"] else [],
+        }
+        if embed_text(db, embedder, "graph_node", r["node_id"], node_text(node)) is None:
+            stats["skipped_blank"] += 1
+        else:
+            stats["embedded"] += 1
+            stats["embedded_graph_nodes"] += 1
+    for r in db.conn.execute(
+        "SELECT hypothesis_id, mechanism FROM hypotheses"
+    ).fetchall():
+        if ("hypothesis", r["hypothesis_id"]) in existing:
+            stats["skipped_existing"] += 1
+            continue
+        if (
+            embed_text(db, embedder, "hypothesis", r["hypothesis_id"], r["mechanism"] or "")
+            is None
+        ):
+            stats["skipped_blank"] += 1
+        else:
+            stats["embedded"] += 1
+            stats["embedded_hypotheses"] += 1
+    return stats
+
+
 # -- nodes & edges ------------------------------------------------------------
 
 

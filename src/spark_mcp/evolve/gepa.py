@@ -4,6 +4,14 @@ are shared with skills.run_replay, which scores stored skill versions
 against the same fixtures (adding an LLM judge and a persistence cache).
 
 Fixture scoring, deterministic mode (no LLM):
+- substance pre-filter: only steps with instruction substance enter the
+  scored blob — a step must open with an instruction verb (imperative or
+  third-person, from a fixed verb set) and carry at least 3 tokens.
+  Empty, whitespace-only, and keyword-only steps (no leading instruction
+  verb) are dropped; with no substantive step left the score is 0.0.
+  This is the scorer-level anti-soup defence: a keyword dump matches no
+  rubric from a substantive step. The LLM-judge path is unfiltered — the
+  judge itself assesses substance per rubric item.
 - rubric item: tokenize the item ([a-z0-9]+, lowercase); keywords = tokens
   with len >= 4, stemmed by stripping one trailing "s" so basic inflections
   (check/checks, apply/applies) match; covered iff every stemmed keyword
@@ -30,6 +38,45 @@ from typing import Any
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 _NUM_RE = re.compile(r"[-+]?(?:\d+\.?\d*|\.\d+)")
 _JUDGE_MAX_TOKENS = 400
+
+#: Minimum tokens for a step to carry instruction substance (alongside the
+#: leading-verb rule in _is_substantive_step). Steps are plain non-empty
+#: strings per the skill schema (skills.distill validates non-empty str;
+#: reflect._validate_steps_body the same), so substance is a content rule:
+#: empty/whitespace/keyword-only steps never enter the scored blob.
+_MIN_SUBSTANTIVE_TOKENS = 3
+
+#: Base instruction verbs opening a substantive procedure step. Matched
+#: against the step's first token plus its regular third-person forms
+#: (verb + "s", with explicit -es/-ies forms below), all lowercase.
+_INSTRUCTION_VERB_BASES = frozenset(
+    """
+    state apply report check name validate verify draw run document choose
+    cluster test select estimate rank size guard record use compute compare
+    measure assess ensure confirm review audit analyze analyse evaluate monitor
+    track rebalance weight normalize standardize winsorize filter exclude
+    include define specify set fix hold buy sell trade execute backtest
+    simulate calibrate fit train split partition perform implement build
+    create write add remove drop keep list show plot save load fetch download
+    clean handle detect identify determine decide repeat average aggregate
+    sort group regress enforce constrain cap floor lag smooth detrend
+    orthogonalize residualize hedge do
+    """.split()
+)
+_INSTRUCTION_VERBS = (
+    _INSTRUCTION_VERB_BASES
+    | {b + "s" for b in _INSTRUCTION_VERB_BASES}
+    | {
+        "applies",
+        "specifies",
+        "identifies",
+        "verifies",
+        "fixes",
+        "fetches",
+        "regresses",
+        "does",
+    }
+)
 
 # Fallback guard step appended when no failure evidence exists (pinned: the
 # regression test asserts this exact sentence and that it carries no rubric
@@ -61,6 +108,15 @@ def _stem(token: str) -> str:
 
 def _keywords(text: str) -> list[str]:
     return [_stem(t) for t in _tokens(text) if len(t) >= 4]
+
+
+def _is_substantive_step(step: str) -> bool:
+    """A step carries instruction substance iff it opens with an instruction
+    verb and has at least _MIN_SUBSTANTIVE_TOKENS tokens. Keyword dumps —
+    sorted word lists with no leading verb — fail the verb rule even when
+    they contain verb tokens mid-string."""
+    tokens = _tokens(step.strip())
+    return len(tokens) >= _MIN_SUBSTANTIVE_TOKENS and tokens[0] in _INSTRUCTION_VERBS
 
 
 def _rubric_item_covered(steps_blob: str, item: str) -> bool:
@@ -107,10 +163,18 @@ def fixture_score(
     """Score one procedure variant against one fixture in [0, 1].
 
     Without an LLM: deterministic binary rubric coverage + reference-keyword
-    coverage (definitions in the module docstring). With an LLM: per-item
-    judge scores replace the binary rubric half.
+    coverage (definitions in the module docstring), computed over substantive
+    steps only — no substantive step means 0.0. With an LLM: per-item
+    judge scores replace the binary rubric half (unfiltered; the judge
+    assesses substance itself).
     """
-    steps_blob = " ".join(procedure_steps).lower()
+    if llm is None:
+        substantive = [s for s in procedure_steps if _is_substantive_step(s)]
+        if not substantive:
+            return 0.0
+        steps_blob = " ".join(substantive).lower()
+    else:
+        steps_blob = " ".join(procedure_steps).lower()
     rubric = fixture.get("rubric") or []
     if llm is None:
         rubric_score = (
@@ -165,11 +229,33 @@ def pareto_front(scored: list[tuple[dict, float]]) -> list[tuple[dict, float]]:
     return front
 
 
+#: Allowlist for failure-sketch error classes interpolated into guard
+#: steps: identifier characters only, no whitespace — so rubric-shaped
+#: multi-word text cannot be copied verbatim into a procedure step.
+_ERROR_CLASS_RE = re.compile(r"[^A-Za-z0-9_.-]")
+_MAX_ERROR_CLASS_LEN = 64
+
+
+def _sanitize_error_class(error_class: str) -> str:
+    """Strip everything outside the identifier allowlist and cap length.
+    There is no known-class registry (Tier-2 hook data is free-form), so
+    charset + length is the defence; it cannot consult fixtures (the F1
+    routing rule forbids mutation paths from reading rubric text)."""
+    return _ERROR_CLASS_RE.sub("", error_class)[:_MAX_ERROR_CLASS_LEN]
+
+
 def _guard_sentence(error_class: str, count: int) -> str:
     # Exact template of skills._op_repair (kept in sync by the GEPA repair
     # tests): the guard conditions on failure evidence, never rubric text.
+    # The class is sanitized at this choke point (shared with reflect's
+    # guard_step fallback), so a hostile failure sketch cannot inject
+    # rubric-shaped sentences; a class with no identifier content at all
+    # degrades to the generic fallback sentence.
+    safe = _sanitize_error_class(error_class)
+    if not safe:
+        return GUARD_STEP_FALLBACK
     return (
-        f"Guard against {error_class}: check data coverage, preconditions, and"
+        f"Guard against {safe}: check data coverage, preconditions, and"
         f" inputs before executing this procedure (observed in {count} source"
         " episode(s))."
     )

@@ -28,6 +28,11 @@ All workers are barrier-synchronized, use distinct client_ids/seeds, and
 assert every row present exactly once. No sleeps; outcome is deterministic
 even though the intermittent races above may or may not fire on a run —
 their observed counts are printed, never hidden.
+
+Test 4 (fix B): bare `ledger.get_hypothesis` / `get_episode` /
+`_replay_effect` reads now self-serialize via `db.locked()`, so direct
+(unlocked-caller) concurrent reads racing register/log_outcome writers on
+the shared handle must be clean with correct rows.
 """
 
 import sqlite3
@@ -297,3 +302,98 @@ def test_separate_connections_n4_parallel_tool_ops(tmp_path, embedder):
         assert dupes == 0  # every row present exactly once
     finally:
         db.close()
+
+
+def test_shared_handle_concurrent_reads_race_writers(db, cfg, embedder):
+    """Fix-B envelope: reader threads call ledger.get_hypothesis directly
+    (no outer lock — exercises the db.locked() inside the read helpers)
+    while writer threads race register_hypothesis + log_outcome on the ONE
+    shared handle. Must be clean: no errors, every read returns the
+    correct row, writers land exactly once."""
+    n_readers = N
+    n_writers = N
+    reads_per_thread = 25
+
+    read_ids = [
+        ledger.propose_hypothesis(db, cfg, embedder=embedder, **_propose_fields(i))[
+            "hypothesis_id"
+        ]
+        for i in range(n_readers)
+    ]
+    expected_mechanism = {
+        hid: _propose_fields(i)["mechanism"] for i, hid in enumerate(read_ids)
+    }
+    write_ids = [
+        ledger.propose_hypothesis(
+            db, cfg, embedder=embedder, **_propose_fields(100 + i)
+        )["hypothesis_id"]
+        for i in range(n_writers)
+    ]
+
+    barrier = threading.Barrier(n_readers + n_writers)
+    read_errors: list = [None] * n_readers
+    write_errors: list = [None] * n_writers
+    read_counts: list = [0] * n_readers
+    write_results: list = [None] * n_writers
+
+    def reader(i: int) -> None:
+        try:
+            barrier.wait(timeout=10)
+            for _ in range(reads_per_thread):
+                for hid in read_ids:
+                    # Direct unlocked-caller read: correct only because the
+                    # helper self-serializes on the shared connection.
+                    hyp = ledger.get_hypothesis(db, hid)
+                    assert hyp is not None, f"missing row for {hid}"
+                    assert hyp["hypothesis_id"] == hid, "wrong-row read"
+                    assert hyp["mechanism"] == expected_mechanism[hid], "wrong-row read"
+                    read_counts[i] += 1
+        except BaseException as exc:  # recorded, asserted below
+            read_errors[i] = exc
+
+    def writer(i: int) -> None:
+        try:
+            barrier.wait(timeout=10)
+            reg = ledger.register_hypothesis(
+                db,
+                cfg,
+                write_ids[i],
+                {"signal": f"racemom{i}"},
+                seed=400 + i,
+                client_id=f"probe-race-reg-{i}",
+            )
+            out = ledger.log_outcome(
+                db,
+                cfg,
+                reg["episode_id"],
+                "success",
+                metrics={"ic": 0.02 * i},
+                client_id=f"probe-race-log-{i}",
+                embedder=embedder,
+            )
+            write_results[i] = (reg["episode_id"], out["status"])
+        except BaseException as exc:  # recorded, asserted below
+            write_errors[i] = exc
+
+    with ThreadPoolExecutor(n_readers + n_writers) as pool:
+        # Submit ALL workers before waiting: readers block on the shared
+        # barrier (parties = readers + writers), so sequential pool.map
+        # calls would deadlock. (reader/writer record their own errors.)
+        futs = [pool.submit(reader, i) for i in range(n_readers)]
+        futs += [pool.submit(writer, i) for i in range(n_writers)]
+        for f in futs:
+            f.result()
+
+    assert read_errors == [None] * n_readers, f"reader failures: {read_errors!r}"
+    assert write_errors == [None] * n_writers, f"writer failures: {write_errors!r}"
+    assert read_counts == [reads_per_thread * n_readers] * n_readers
+    assert all(r is not None and r[1] == "validated" for r in write_results)
+    assert len({r[0] for r in write_results}) == n_writers
+
+    # Exactly once: pre-proposed hypotheses + writer episodes/trials.
+    assert (
+        db.conn.execute("SELECT COUNT(*) FROM hypotheses").fetchone()[0]
+        == n_readers + n_writers
+    )
+    assert db.conn.execute("SELECT COUNT(*) FROM episodes").fetchone()[0] == n_writers
+    assert db.conn.execute("SELECT COUNT(*) FROM trials").fetchone()[0] == n_writers

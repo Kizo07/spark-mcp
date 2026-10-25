@@ -544,10 +544,49 @@ def predictor_error_map(db: Database, as_of: str) -> dict[str, float]:
     }
 
 
+def shelf_depth(db: Database, cfg: Config, as_of: str | None = None) -> dict:
+    """Shelf-depth report (P2-1): technique cards per family shelf from
+    graph_nodes plus QD occupancy per family from qd_cells — both real
+    tables, both PIT at as_of. Bin families with no cards report 0 so the
+    card map joins with the occupancy map; observed non-bin families are
+    reported as-is; cards with no family are counted separately as
+    unassigned_cards, never attributed to a shelf."""
+    arch = Archive(db, cfg)
+    coverage = arch.coverage(as_of)
+    if as_of is not None:
+        rows = db.conn.execute(
+            "SELECT family, COUNT(*) AS n FROM graph_nodes"
+            " WHERE type = 'technique' AND as_of <= ? GROUP BY family",
+            (as_of,),
+        ).fetchall()
+    else:
+        rows = db.conn.execute(
+            "SELECT family, COUNT(*) AS n FROM graph_nodes"
+            " WHERE type = 'technique' GROUP BY family"
+        ).fetchall()
+    cards: dict[str, int] = {str(b): 0 for b in cfg.research.qd_family_bins}
+    unassigned = 0
+    for r in rows:
+        if not r["family"]:
+            unassigned += int(r["n"])
+        else:
+            cards[str(r["family"])] = cards.get(str(r["family"]), 0) + int(r["n"])
+    return {
+        "cards_per_family": cards,
+        "unassigned_cards": unassigned,
+        "total_cards": sum(cards.values()) + unassigned,
+        "qd_occupancy_per_family": coverage["per_family"],
+        "qd_occupied_cells": coverage["occupied_cells"],
+        "qd_total_cells": coverage["total_cells"],
+        "as_of_basis": as_of or "all",
+    }
+
+
 def status(db: Database, cfg: Config, as_of: str | None = None) -> dict:
     """archive_status tool payload (plan §6.3 tool 19): coverage, elites,
-    family_M, spend (§14 spend_summary), family posteriors, and the
-    predictor error map — all PIT at as_of (default now)."""
+    family_M, spend (§14 spend_summary), family posteriors, the predictor
+    error map, and the shelf-depth report (cards per shelf + QD occupancy
+    per family) — all PIT at as_of (default now)."""
     from .budgets import spend_summary
 
     arch = Archive(db, cfg)
@@ -561,4 +600,5 @@ def status(db: Database, cfg: Config, as_of: str | None = None) -> dict:
         "spend": spend_summary(db),
         "family_posteriors": family_posteriors(db, as_of),
         "predictor_error_map": predictor_error_map(db, as_of),
+        "shelf_depth": shelf_depth(db, cfg, as_of),
     }

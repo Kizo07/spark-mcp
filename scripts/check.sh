@@ -20,7 +20,8 @@ echo "== ruff check src tests =="
 if command -v ruff >/dev/null 2>&1; then
   ruff check src tests
 else
-  echo "note: ruff not available, skipping ruff check"
+  echo "error: ruff not found on PATH (declared dev dependency in pyproject.toml [dev]); refusing to skip lint" >&2
+  exit 1
 fi
 
 echo "== pytest tests/independence -q =="

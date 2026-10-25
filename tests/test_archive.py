@@ -596,3 +596,78 @@ def test_suggest_next_past_view_uses_prior_not_future_posterior(db, cfg):
     assert out["as_of"] == PAST
     # every suggestion carries selection_probability + resolved descriptors
     assert all(0.0 < s["selection_probability"] <= 1.0 for s in out["suggestions"])
+
+
+# ---------------------------------------------------------------------------
+# shelf-depth report (P2-1): cards per shelf/family + QD occupancy per family
+# from the real tables, PIT at as_of.
+
+
+def _seed_cells_at(db, as_of):
+    for key, fam, hor in (("0:2:0", "quant", "20d"), ("2:1:1", "causal", "5d")):
+        db.execute(
+            "INSERT INTO qd_cells (cell_key, descriptors, descriptor_spec_version,"
+            " elite_hypothesis_id, dsr, oos_ic, family, trials, reward_type,"
+            " updated_at) VALUES (?, ?, 1, ?, 0.9, 0.5, ?, 1, 'predictive', ?)",
+            (
+                key,
+                json.dumps(
+                    {"family": fam, "horizon": hor, "turnover": "low",
+                     "elite_score": 0.9}
+                ),
+                f"hyp_{fam}",
+                fam,
+                as_of,
+            ),
+        )
+
+
+def test_shelf_depth_counts_match_seeded_rows(db, cfg, seeded):
+    """archive_status.shelf_depth mirrors the real tables: technique cards per
+    family shelf (zero-filled on the bins, non-bin families as-is, NULL
+    families unassigned — never attributed) + QD occupancy per family."""
+    db.execute(
+        "INSERT INTO graph_nodes (node_id, type, label, family, mech_tags,"
+        " summary, as_of, created_at) VALUES ('node_zz1', 'technique',"
+        " 'orphan card', NULL, '[]', 'no family', ?, ?)",
+        (AS_OF, AS_OF),
+    )
+    db.execute(
+        "INSERT INTO graph_nodes (node_id, type, label, family, mech_tags,"
+        " summary, as_of, created_at) VALUES ('node_zz2', 'technique',"
+        " 'outlier card', 'astrology', '[]', 'non-bin', ?, ?)",
+        (AS_OF, AS_OF),
+    )
+    _seed_cells_at(seeded, AS_OF)
+
+    expected_cards = {
+        r["family"]: int(r["n"])
+        for r in seeded.conn.execute(
+            "SELECT family, COUNT(*) AS n FROM graph_nodes"
+            " WHERE type = 'technique' AND as_of <= ? GROUP BY family",
+            (AS_OF,),
+        ).fetchall()
+        if r["family"]
+    }
+    out = archive.status(seeded, cfg, as_of=AS_OF)
+    shelf = out["shelf_depth"]
+    assert shelf["as_of_basis"] == AS_OF
+    for fam, n in expected_cards.items():
+        assert shelf["cards_per_family"][fam] == n, fam
+    for fam in cfg.research.qd_family_bins:  # zero-filled, joinable
+        assert fam in shelf["cards_per_family"]
+    assert shelf["cards_per_family"]["astrology"] == 1  # real data kept
+    assert shelf["unassigned_cards"] == 1
+    assert shelf["total_cards"] == sum(expected_cards.values()) + 1
+    assert shelf["qd_occupancy_per_family"]["quant"] == 1
+    assert shelf["qd_occupancy_per_family"]["causal"] == 1
+    assert shelf["qd_occupied_cells"] == 2
+    assert shelf["qd_total_cells"] == 8 * 6 * 4
+    assert set(shelf["qd_occupancy_per_family"]) == set(cfg.research.qd_family_bins)
+    # PIT: timeless seeds stay visible in 2001, but the AS_OF-stamped cells
+    # and extra cards do not.
+    past = archive.status(seeded, cfg, as_of="2001-01-01T00:00:00Z")["shelf_depth"]
+    assert past["qd_occupied_cells"] == 0
+    assert past["unassigned_cards"] == 0
+    assert "astrology" not in past["cards_per_family"]
+    assert past["total_cards"] == sum(expected_cards.values()) - 1  # minus astrology

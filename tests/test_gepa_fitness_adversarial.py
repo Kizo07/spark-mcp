@@ -7,9 +7,11 @@ is supposed to stop it:
    or reference-keyword text (the retired ``add_check_step`` channel);
 2. ties — promotion margins are strict (``>``) at both layers
    (artifact ``evolve.promote.decide``, skill ``skills.decide_promotion``);
-3. keyword stuffing — an empty / keyword-soup challenger may inflate the
-   deterministic held-in scorer, but loses to an honest baseline at the
-   gate (held-out gap alarm, strict margins, scorer reads steps only);
+3. keyword stuffing — an empty / keyword-soup challenger scores ~0 at the
+   deterministic scorer itself (substance pre-filter: no leading
+   instruction verb, no coverage) and loses to an honest baseline at the
+   gate as well (held-out gap alarm, strict margins, scorer reads steps
+   only);
 4. min-fixtures guard — promotion requires FULL replay-suite evidence
    and the suite-size floor alarms below ``replay_min_fixtures``;
 5. reflect — reflective variation rewrites text only; it cannot inject
@@ -19,6 +21,7 @@ is supposed to stop it:
 import inspect
 import json
 import random
+import re
 from pathlib import Path
 
 import pytest
@@ -230,6 +233,37 @@ def test_guard_steps_carry_no_rubric_or_reference_text():
                 assert keyword.lower() not in lowered, (step, keyword)
 
 
+def test_guard_sentence_sanitizes_hostile_error_class():
+    fixtures = skills.load_fixtures()
+    # A rubric-shaped error class cannot be copied verbatim: whitespace and
+    # non-identifier characters are stripped, so no multi-word rubric item
+    # survives, and the interpolated token matches the identifier allowlist.
+    hostile = "applies explicit transaction cost and slippage assumptions"
+    step = gepa._guard_sentence(hostile, 1)
+    assert step.startswith("Guard against appliesexplicittransactioncost")
+    token = step.removeprefix("Guard against ").split(":")[0]
+    assert re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", token), token
+    lowered = step.lower()
+    for fixture in fixtures:
+        for item in fixture["rubric"]:
+            assert item.lower() not in lowered, (step, item)
+    # Length is capped; a class with no identifier content at all degrades
+    # to the generic fallback instead of emitting an empty guard.
+    capped = gepa._guard_sentence("D" * 200, 3)
+    assert capped.removeprefix("Guard against ").split(":")[0] == "D" * 64
+    assert gepa._guard_sentence("!!!", 1) == gepa.GUARD_STEP_FALLBACK
+    # The sanitizer is a no-op on genuine classes (pinned template intact).
+    assert gepa._guard_sentence("DataGap", 2) == (
+        "Guard against DataGap: check data coverage, preconditions, and"
+        " inputs before executing this procedure (observed in 2 source"
+        " episode(s))."
+    )
+    # ... including through the public mutation entry point.
+    ind = {"name": "s", "procedure_steps": list(NEUTRAL_STEPS)}
+    out = gepa._add_guard_step(ind, [{"error_class": hostile}], random.Random(0))
+    assert out[-1] == step
+
+
 def test_mutate_signature_and_outputs_never_gain_rubric():
     params = inspect.signature(gepa._mutate).parameters
     assert "fixtures" not in params and "fixture" not in params
@@ -405,18 +439,65 @@ def test_scorer_ignores_keywords_stuffed_outside_steps():
     assert scores[0] == 0.0 and scores[1] > scores[0]
 
 
+def test_keyword_soup_scores_low_at_scorer_level_honest_unchanged():
+    """Scorer-level defence: the held-in keyword soup that once scored
+    0.9375 now scores 0.0 per fixture (no substantive step), while the
+    honest baseline keeps its exact pre-defence scores."""
+    fixtures = skills.load_fixtures()
+    stuffed = _stuffed_steps(fixtures)
+    s_in, s_out, _ = _replay_scores(stuffed)
+    assert all(v == 0.0 for v in s_in.values()), s_in
+    assert all(v == 0.0 for v in s_out.values()), s_out
+    assert _mean(s_in) == 0.0
+    h_in, h_out, h_gap = _replay_scores(HONEST_STEPS)
+    assert _mean(h_in) == pytest.approx(0.96875)
+    assert _mean(h_out) == pytest.approx(1.0)
+    assert h_gap == pytest.approx(0.03125)
+
+
+def test_substance_filter_drops_keyword_only_and_keeps_legitimate():
+    fixtures = skills.load_fixtures()
+    assert all(gepa._is_substantive_step(s) for s in HONEST_STEPS)
+    assert all(gepa._is_substantive_step(s) for s in NEUTRAL_STEPS)
+    guard = gepa._guard_sentence("DataGap", 2)
+    assert gepa._is_substantive_step(guard)
+    assert gepa._is_substantive_step(gepa.GUARD_STEP_FALLBACK)
+    # Keyword-only steps carry the rubric words but no instruction verb or
+    # structure: zero coverage on every fixture despite the words.
+    soup_step = _stuffed_steps(fixtures)[0]
+    assert "sharpe" in soup_step and "turnover" in soup_step  # words present
+    assert not gepa._is_substantive_step(soup_step)
+    for steps in (
+        [soup_step],
+        ["momentum turnover costs sharpe"],
+        ["Check"],  # verb but no complement
+        ["a b"],
+        [""],
+        ["   "],
+    ):
+        assert all(gepa.fixture_score(steps, f) == 0.0 for f in fixtures), steps
+    # A substantive step keeps its exact coverage: filtering never edits a
+    # kept step, it only drops insubstantial ones.
+    mixed = [soup_step, HONEST_STEPS[1]]
+    for fixture in fixtures:
+        assert gepa.fixture_score(mixed, fixture) == gepa.fixture_score(
+            [HONEST_STEPS[1]], fixture
+        )
+
+
 def test_keyword_soup_and_empty_lose_to_honest_at_gate(db, cfg):
     fixtures = skills.load_fixtures()
     stuffed = _stuffed_steps(fixtures)
     s_in, s_out, s_gap = _replay_scores(stuffed)
     h_in, h_out, h_gap = _replay_scores(HONEST_STEPS)
     e_in, e_out, e_gap = _replay_scores([])
-    # Preconditions: soup really does game held-in past the floor+margin,
-    # so only the held-out discipline can stop it; honest is balanced.
+    # Preconditions: soup is stopped at the scorer (0.0 everywhere, gap 0 —
+    # the gate never even sees an inflated mean); honest clears floor +
+    # margin with a quiet gap; empty scores nothing anywhere.
     floor = cfg.research.replay_promotion_floor
     margin = cfg.research.replay_promotion_margin
     alarm = cfg.research.replay_heldout_gap_alarm
-    assert _mean(s_in) - floor > margin and s_gap > alarm
+    assert _mean(s_in) == 0.0 and s_gap == 0.0
     assert _mean(h_in) - floor > margin and h_gap <= alarm
     assert _mean(e_in) == 0.0
 
@@ -587,7 +668,40 @@ def test_reflect_has_no_fitness_channel():
     source = inspect.getsource(reflect_mod)
     assert "fitness_from_episode" not in source
     assert "corrected_metrics" not in source
-    assert "fitness" not in source.lower()
+    # Behavioral invariant (not a whole-file "fitness" substring pin, which
+    # breaks on any comment mentioning fitness): reflect's own params and
+    # rendered prompts carry no fitness values. Captured prompts over
+    # fitness-free inputs contain no fitness field at all, on both schemas.
+    fitness_keys = ("sr", "dsr", "dsr_prob", "p_value", "M_family",
+                    "fitness", "corrected_metrics")
+    clean_parent = {
+        "research_family": "toy_momentum",
+        "hypothesis_type": "predictive",
+        "mechanism": "12-1 momentum in toy universe",
+        "expected_direction": "positive",
+        "horizon": "21d",
+        "scope": "cross-section",
+        "falsifier": "IC <= 0 net of costs",
+        "predicted_ic": 0.03,
+        "predicted_sigma": 0.01,
+        "universe": "toy",
+    }
+    llm = FakeLLM({"successor": json.dumps(clean_parent)})
+    reflect_mod.reflect_variation(
+        parent=dict(clean_parent), feedback={"note": "plain feedback"},
+        ancestors_render="", rng=random.Random(0), llm=llm, schema="hypothesis",
+    )
+    assert len(llm.calls) == 1
+    for key in fitness_keys:
+        assert f'"{key}"' not in llm.calls[0], key
+    llm2 = FakeLLM({"procedure": json.dumps({"steps": list(NEUTRAL_STEPS)})})
+    reflect_mod.reflect_variation(
+        parent=list(NEUTRAL_STEPS), feedback=None, ancestors_render="",
+        rng=random.Random(0), llm=llm2, schema="skill_steps",
+    )
+    assert len(llm2.calls) == 1
+    for key in fitness_keys:
+        assert f'"{key}"' not in llm2.calls[0], key
     gepa_params = inspect.signature(gepa._reflect_step).parameters
     assert "fitness" not in gepa_params and "episode" not in gepa_params
 

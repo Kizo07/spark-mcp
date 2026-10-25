@@ -429,3 +429,23 @@ nits per their review files.
 - Duration: ~30s for the full `scripts/check.sh` run (real 29.6s final;
   29.9s on the clean-HEAD run)
 - Label: reproduced-this-session
+
+## Hardening note — 2026-10-25 (gate fail-closed + example coverage)
+
+- `scripts/check.sh`: the ruff gate now FAILS (exit 1, stderr message naming
+  the declared `pyproject.toml [dev]` dependency) when `ruff` is not on
+  PATH, instead of silently skipping lint. Venv preference unchanged.
+  Verified with an isolated-PATH run (byte-identical script copy, shim
+  `python`, no `ruff`): pytest stage passes, ruff gate exits 1.
+- `tests/test_config_example_parity.py`: new coverage assertion — every
+  `ResearchConfig` field (79) must be set in `config.example.yaml`,
+  commented out there, or listed in `INTENTIONAL_OMISSIONS` with a reason;
+  new config fields fail until covered. 8 stable-default fields allowlisted
+  with reasons (recall pad, full-field scoring + workers, informed-prior
+  warmup, contradiction overlap, qd type map, 2 hook heuristics).
+  Negative-tested (bogus field fails; reasoned allowlist entry passes).
+- `pytest tests/test_config_example_parity.py tests/test_config.py`: 8
+  passed. Full `pytest -q`: 615 passed, exit 0. Full `check.sh` reaches the
+  ruff stage green on touched files; 3 ruff F401s in
+  `src/spark_mcp/dispatch.py` + `src/spark_mcp/gates/service.py` come from
+  concurrent uncommitted work outside this fix's 3-file scope.

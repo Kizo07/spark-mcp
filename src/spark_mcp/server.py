@@ -22,13 +22,15 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
-from . import __version__, archive, explore, graph, hooks, ledger, memory, novelty
+from . import __version__, archive, explore, graph, hooks, ledger, memory, novelty, trajectory
 from . import analogy as analogy_service
 from . import consolidate as consolidate_service
 from . import curriculum as curriculum_service
 from . import skills as skills_service
+from . import trace as trace_service
 from .budgets import spend_summary
 from .config import Config
+from .errors import ToolError
 from .evolve import run as evolution_service
 from .gates import service as gates_service
 from .llm import build_embedder, build_llm
@@ -806,6 +808,84 @@ def create_server(
         return curriculum_service.generate_exercise(
             services.db, cfg, gap_report_id=gap_report_id, seed=seed
         )
+
+    # -- P1-5 trace views + P2-3 debate (read-only trace tools; the debate
+    # block is persisted audit text only — significance_gate/decide never
+    # read it) -------------------------------------------------------------
+
+    @mcp.tool()
+    def trace_hypothesis(hypothesis_id: str) -> dict:
+        """Ordered trace for one hypothesis (P1-5): the hypothesis root plus
+        its trial episodes and narrated evolution feedback, merged append-only
+        by created_at. Pure ledger read — no LLM. Unknown hypotheses are
+        refused. Returns {hypothesis_id, entries: [...]} with one concise
+        view dict per entry (kind in {hypothesis, experiment, feedback}).
+        """
+        views = trace_service.trace_for_hypothesis(services.db, hypothesis_id)
+        return {
+            "hypothesis_id": hypothesis_id,
+            "entries": [v.model_dump() for v in views],
+        }
+
+    @mcp.tool()
+    def sota_status() -> dict:
+        """Pointer to the best gated trial in the ledger (P1-5), or
+        {sota: None} on an empty/ungated ledger. Pure ledger read — no LLM.
+        Ranks stored gate verdicts (pass is True) by stored DSR descending,
+        earliest episode_id breaking ties.
+        """
+        return {"sota": trace_service.sota_pointer(services.db)}
+
+    @mcp.tool()
+    def debate_evidence(
+        hypothesis_id: str,
+        client_id: str | None = None,
+    ) -> dict:
+        """Adversarial audit debate over one hypothesis' ledger record (P2-3):
+        exactly two bounded LLM passes — a prosecution pass arguing the record
+        fails, then a defence pass answering — over the concise trace
+        (truncated to 2000 chars). The block is persisted as a trajectory
+        event (run_id=hypothesis_id, kind='debate') and returned; it is audit
+        text only and is never read by significance_gate/decide. Refuses
+        unknown hypotheses, and refuses (never fabricates) in degraded mode
+        with no LLM configured. client_id is recorded on the event.
+        """
+        llm = services.llm
+        if llm is None:
+            raise ToolError(
+                "debate_evidence refused: degraded mode (no LLM configured);"
+                " refusing rather than fabricating a debate"
+            )
+        views = trace_service.trace_for_hypothesis(services.db, hypothesis_id)
+        record = json.dumps(
+            [v.model_dump() for v in views], sort_keys=True, default=str
+        )[:2000]
+        prosecution = llm.complete(
+            "[PROSECUTION PASS] Argue, from the ledger record below only, that"
+            f" hypothesis {hypothesis_id} should NOT be trusted. Ledger record:"
+            f" {record}"
+        ).strip()
+        defence = llm.complete(
+            "[DEFENCE PASS] Answer the prosecution and argue, from the ledger"
+            f" record below only, that hypothesis {hypothesis_id} SHOULD be"
+            f" trusted. Ledger record: {record}"
+        ).strip()
+        block = {
+            "hypothesis_id": hypothesis_id,
+            "prosecution": prosecution,
+            "defence": defence,
+            "model_id": llm.model_id(),
+            "record_chars": len(record),
+            "client_id": client_id,
+        }
+        trajectory.record(
+            db=services.db,
+            run_id=hypothesis_id,
+            actor="spark",
+            kind="debate",
+            payload={"tool": "debate_evidence", **block},
+        )
+        return block
 
     return mcp
 

@@ -330,12 +330,15 @@ def _op_repair(
             " non-empty error_class) on the source episodes; none found"
         )
     error_class, count = Counter(classes).most_common(1)[0]
+    # Same sanitisation choke point as evolve.gepa._guard_sentence: a
+    # hostile failure sketch cannot inject rubric-shaped text.
+    safe = gepa_mod._sanitize_error_class(error_class) or "unspecified_failure"
     steps = list(_lineage(parent)["procedure_steps"]) + [
-        f"Guard against {error_class}: check data coverage, preconditions, and"
+        f"Guard against {safe}: check data coverage, preconditions, and"
         f" inputs before executing this procedure (observed in {count} source"
         " episode(s))."
     ]
-    return steps, {"repaired_error_class": error_class, "occurrences": count}
+    return steps, {"repaired_error_class": safe, "occurrences": count}
 
 
 def _op_split(parent: sqlite3.Row) -> tuple[list[str], dict]:
@@ -1087,6 +1090,52 @@ def decide_promotion(
 
 # -- tool 22: approve (M11 human gate) -------------------------------------------
 
+EVIDENCE_MAX_KEYS = 16
+EVIDENCE_MAX_BYTES = 8192
+EVIDENCE_MAX_DEPTH = 4
+EVIDENCE_MAX_STRING = 1024
+
+
+def _check_evidence(evidence: dict) -> None:
+    """Bound structured approval evidence before any side effect: at most 16
+    top-level keys, 8192 bytes of JSON, nesting depth 4, and 1024 chars per
+    string. Raises ToolError on any violation."""
+    if len(evidence) > EVIDENCE_MAX_KEYS:
+        raise ToolError("evidence must have at most 16 keys")
+    blob = json.dumps(evidence, sort_keys=True, default=str)
+    if len(blob.encode("utf-8")) > EVIDENCE_MAX_BYTES:
+        raise ToolError(
+            f"evidence exceeds {EVIDENCE_MAX_BYTES} bytes of JSON"
+        )
+
+    def walk(node: Any, depth: int) -> None:
+        if isinstance(node, str):
+            if len(node) > EVIDENCE_MAX_STRING:
+                raise ToolError(
+                    f"evidence string exceeds {EVIDENCE_MAX_STRING} characters"
+                )
+            return
+        if isinstance(node, dict):
+            if depth > EVIDENCE_MAX_DEPTH:
+                raise ToolError(
+                    f"evidence exceeds max depth {EVIDENCE_MAX_DEPTH}"
+                )
+            for k, v in node.items():
+                if isinstance(k, str) and len(k) > EVIDENCE_MAX_STRING:
+                    raise ToolError(
+                        f"evidence string exceeds {EVIDENCE_MAX_STRING} characters"
+                    )
+                walk(v, depth + 1)
+        elif isinstance(node, (list, tuple)):
+            if depth > EVIDENCE_MAX_DEPTH:
+                raise ToolError(
+                    f"evidence exceeds max depth {EVIDENCE_MAX_DEPTH}"
+                )
+            for item in node:
+                walk(item, depth + 1)
+
+    walk(evidence, 1)
+
 
 def approve(
     db: Database,
@@ -1128,8 +1177,7 @@ def approve(
     if evidence is not None:
         if not isinstance(evidence, dict):
             raise ToolError("evidence must be a dict")
-        if len(evidence) > 16:
-            raise ToolError("evidence must have at most 16 keys")
+        _check_evidence(evidence)
 
     # Idempotency is matched per actor class ('gate' vs human): a human
     # ratification is recorded alongside the gate's auto-notify row rather

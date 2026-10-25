@@ -565,3 +565,63 @@ def test_orphan_spec_version_without_fingerprint_ignored(db, cfg):
         "SELECT fingerprint_spec_version FROM episodes WHERE episode_id = ?", (ep,)
     ).fetchone()
     assert row["fingerprint_spec_version"] is None
+
+
+def _stored_telemetry(db, effect_id) -> dict:
+    row = db.conn.execute(
+        "SELECT result FROM tool_effects WHERE client_id = ?", (effect_id,)
+    ).fetchone()
+    return json.loads(row["result"])
+
+
+def test_telemetry_strips_authorization_and_credential_variants(db, cfg):
+    payload = {
+        "tool": "backtest_run",
+        "episode_id": "ep_auth",
+        "authorization": "auth-v1",
+        "Authorization": "auth-v2",
+        "credentials": {"user": "u"},
+        "credential": "cred-v",
+        "api-key": "k1",
+        "apiKey": "k2",
+        "authToken": "k3",
+        "session": "sess-1",
+        "passwd": "pw",
+        "bearer": "b1",
+    }
+    result = hooks.telemetry_push(db, cfg, payload)
+    assert result["queued"] is True
+    assert _stored_telemetry(db, result["effect_id"]) == {
+        "tool": "backtest_run",
+        "episode_id": "ep_auth",
+    }
+
+
+def test_telemetry_keeps_monkey_and_keyboard(db, cfg):
+    payload = {
+        "tool": "causal_test",
+        "monkey": "banana",
+        "keyboard": "qwerty",
+        "nested": {"monkey": "m", "keyboard": "k", "note": "keep"},
+    }
+    result = hooks.telemetry_push(db, cfg, payload)
+    stored = _stored_telemetry(db, result["effect_id"])
+    assert stored["monkey"] == "banana"
+    assert stored["keyboard"] == "qwerty"
+    assert stored["nested"] == {"monkey": "m", "keyboard": "k", "note": "keep"}
+
+
+def test_telemetry_strips_secret_values_by_pattern(db, cfg):
+    payload = {
+        "tool": "backtest_run",
+        "note": "Bearer abcdef123456",
+        "other": "key is sk-abc123xyz7890 for access",
+        "safe": "just a normal note",
+        "items": ["Bearer zzzzzz1111", "keep-me"],
+    }
+    result = hooks.telemetry_push(db, cfg, payload)
+    stored = _stored_telemetry(db, result["effect_id"])
+    assert "note" not in stored
+    assert "other" not in stored
+    assert stored["safe"] == "just a normal note"
+    assert stored["items"] == ["keep-me"]

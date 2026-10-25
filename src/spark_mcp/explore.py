@@ -27,7 +27,11 @@ suggest_next (plan §6.1 tool 6) lives here too: underexplored-region
 suggestions — Thompson-sampled family utility = QD cell emptiness (§7,
 archive mode) × family posterior mean, softmax → selection probabilities,
 and each chosen family's emptiest cell returns its descriptor names plus
-candidate methods/hypotheses from the graph (family match).
+candidate methods/hypotheses from the graph (family match). It also chooses
+a step TYPE — the next BacktestSpec signal type from
+cfg.research.evolution_type_grid — by Thompson sampling over DSR-gated Beta
+posteriors derived from gated episodes (success = significance_gate
+corrected_metrics pass=true; raw returns never used).
 """
 
 from __future__ import annotations
@@ -838,6 +842,66 @@ def explore_methods(
     return result
 
 
+def _step_type_posteriors(
+    db: Database, cfg: Config, as_of: str
+) -> tuple[dict[str, dict[str, Any]], int]:
+    """DSR-gated Beta posteriors per evolution step type (P1-5 bandit).
+
+    Arms are the BacktestSpec signal types in cfg.research.evolution_type_grid
+    (default momentum/reversal) — the only per-episode-keyable step vocabulary
+    existing code consumes (vary_spec resamples params.type from this grid;
+    providers execute the named signal). Each PIT-visible episode carrying a
+    significance_gate verdict (corrected_metrics.pass is a bool) is one trial
+    for its params.type arm, a success iff pass is true. Ungated episodes —
+    pending_gate, missing/unparseable corrected_metrics, or a log_outcome-only
+    close-out — carry no DSR evidence and are excluded, never counted as
+    failures; raw returns/ARR in metrics never enter. Arms with no gated
+    episodes keep the bandit prior (explorable, posterior_source 'prior').
+
+    Returns (posteriors, unkeyed): unkeyed counts gated episodes whose
+    params.type is missing or outside the grid — observed, never assigned.
+    """
+    grid = [str(t) for t in cfg.research.evolution_type_grid]
+    a0, b0 = (list(cfg.research.bandit_prior) + [1.0, 1.0])[:2]
+    trials = {k: 0 for k in grid}
+    wins = {k: 0 for k in grid}
+    unkeyed = 0
+    rows = db.conn.execute(
+        "SELECT params, corrected_metrics FROM episodes WHERE as_of <= ?",
+        (as_of,),
+    ).fetchall()
+    for r in rows:
+        try:
+            gate = json.loads(r["corrected_metrics"]) if r["corrected_metrics"] else None
+        except (json.JSONDecodeError, TypeError):
+            gate = None
+        if not isinstance(gate, dict) or not isinstance(gate.get("pass"), bool):
+            continue  # ungated: no DSR evidence either way
+        try:
+            params = json.loads(r["params"]) if r["params"] else {}
+        except (json.JSONDecodeError, TypeError):
+            params = {}
+        kind = params.get("type") if isinstance(params, dict) else None
+        if kind not in trials:
+            unkeyed += 1
+            continue
+        trials[kind] += 1
+        wins[kind] += 1 if gate["pass"] else 0
+    out: dict[str, dict[str, Any]] = {}
+    for k in grid:
+        t, w = trials[k], wins[k]
+        a, b = w + a0, t - w + b0
+        out[k] = {
+            "alpha": a,
+            "beta": b,
+            "mean": a / (a + b) if (a + b) > 0 else 0.5,
+            "trials": t,
+            "wins": w,
+            "posterior_source": "episodes" if t else "prior",
+        }
+    return out, unkeyed
+
+
 # ---------------------------------------------------------------------------
 # suggest_next (plan §6.1 tool 6, §8.2/§8.3)
 
@@ -867,6 +931,13 @@ def suggest_next(
     Thompson x emptiness utility, and the report id is recorded on the
     trajectory + result (provenance for "consolidation demonstrably changes
     behavior"). Without a report the archive-driven path runs unchanged.
+
+    Step TYPE (P1-5): the next BacktestSpec signal type from
+    cfg.research.evolution_type_grid is chosen by Thompson sampling over the
+    DSR-gated Beta posteriors (_step_type_posteriors): one Beta draw per arm,
+    the argmax draw is recommended_step_type (ties -> grid order), and the
+    softmax over the draws is reported as step_type_selection_probabilities.
+    Every suggestion carries the chosen step_type.
     """
     if n < 1:
         raise ValueError("n must be >= 1")
@@ -905,6 +976,27 @@ def suggest_next(
 
     count = min(int(n), len(fams))
     picks = rng.choice(len(fams), size=count, replace=False, p=probs)
+
+    # Step TYPE (P1-5): Thompson choice over the DSR-gated posteriors. Drawn
+    # after the family stream so existing seeded family draws are unchanged.
+    step_posts, step_unkeyed = _step_type_posteriors(db, cfg, as_of)
+    step_kinds = [str(t) for t in research.evolution_type_grid]
+    if step_kinds:
+        step_draws = np.array(
+            [
+                float(rng.beta(step_posts[k]["alpha"], step_posts[k]["beta"]))
+                for k in step_kinds
+            ],
+            dtype=np.float64,
+        )
+        step_logits = step_draws - step_draws.max()
+        step_probs = np.exp(step_logits)
+        step_probs /= step_probs.sum()
+        recommended_step_type: str | None = step_kinds[int(np.argmax(step_draws))]
+    else:  # empty grid: no arms, nothing to choose
+        step_probs = np.zeros(0, dtype=np.float64)
+        recommended_step_type = None
+
     suggestions = []
     for pick in picks:
         fam = fams[int(pick)]
@@ -948,6 +1040,7 @@ def suggest_next(
                 "family_posterior": {"alpha": a, "beta": b, "mean": a / (a + b)},
                 "utility": float(utilities[pick]),
                 "selection_probability": float(probs[pick]),
+                "step_type": recommended_step_type,
                 "methods": methods,
                 "hypotheses": hypotheses,
             }
@@ -965,6 +1058,7 @@ def suggest_next(
             "gap_report_id": gap_report_id,
             "gap_boosted_families": sorted(gap_families),
             "gap_boost_factor": gap_boost if gap_families else None,
+            "recommended_step_type": recommended_step_type,
             "suggestions": [
                 {
                     "cell_key": s["cell_key"],
@@ -986,4 +1080,10 @@ def suggest_next(
         "family_selection_probabilities": {
             fam: float(p) for fam, p in zip(fams, probs, strict=True)
         },
+        "recommended_step_type": recommended_step_type,
+        "step_type_selection_probabilities": {
+            k: float(p) for k, p in zip(step_kinds, step_probs, strict=True)
+        },
+        "step_type_posteriors": step_posts,
+        "step_type_unkeyed_gated_episodes": step_unkeyed,
     }
